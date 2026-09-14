@@ -31,8 +31,8 @@ export function GoogleSignInButton({
     setBusy(true);
     try {
       await signInGoogle();
-      // Page should navigate away to Google. If we're still here, unlock.
-      window.setTimeout(() => setBusy(false), 4000);
+      // Popup success — go home. Redirect flow leaves this page earlier.
+      window.location.replace("/");
     } catch (error) {
       setBusy(false);
       onError?.(
@@ -52,8 +52,8 @@ export function GoogleSignInButton({
     >
       <svg
         viewBox="0 0 24 24"
-        height="25"
-        width="25"
+        height="22"
+        width="22"
         xmlns="http://www.w3.org/2000/svg"
         aria-hidden
         className="pointer-events-none"
