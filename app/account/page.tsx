@@ -11,10 +11,10 @@ export const metadata: Metadata = {
 
 export default function AccountPage() {
   return (
-    <main className="overflow-hidden bg-background text-foreground selection:bg-accent">
+    <main className="flex min-h-svh flex-col bg-white text-foreground selection:bg-accent">
       <SiteHeader />
-      <section className="account-section">
-        <div className="site-shell">
+      <section className="account-section flex-1 pb-8 sm:pb-10">
+        <div className="site-shell px-4 sm:px-[var(--shell-pad,1.25rem)]">
           <AccountApp />
         </div>
       </section>

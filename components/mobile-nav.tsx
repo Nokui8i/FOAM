@@ -1,3 +1,5 @@
+"use client";
+
 import { ArrowRight, Menu, X } from "lucide-react";
 
 import { BOOKING_PATH } from "@/lib/site-config";
@@ -56,13 +58,32 @@ export function MobileNavDrawer() {
 
           <nav className="mn-links" aria-label="Mobile navigation">
             {LINKS.map((link) => (
-              <a key={link.href} href={link.href} className="mn-link">
+              <a
+                key={link.href}
+                href={link.href}
+                className="mn-link"
+                onClick={() => {
+                  const toggle = document.getElementById(
+                    TOGGLE_ID
+                  ) as HTMLInputElement | null;
+                  if (toggle) toggle.checked = false;
+                }}
+              >
                 {link.label}
               </a>
             ))}
           </nav>
 
-          <a href={BOOKING_PATH} className="mn-cta-btn">
+          <a
+            href={BOOKING_PATH}
+            className="mn-cta-btn"
+            onClick={() => {
+              const toggle = document.getElementById(
+                TOGGLE_ID
+              ) as HTMLInputElement | null;
+              if (toggle) toggle.checked = false;
+            }}
+          >
             Book a Pickup <ArrowRight size={16} aria-hidden />
           </a>
         </aside>

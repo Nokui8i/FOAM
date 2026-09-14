@@ -8,11 +8,21 @@ export function HeaderAuthLink() {
   const { user, ready } = useAuth();
 
   if (!ready) {
-    return <span className="nav-link opacity-50">Account</span>;
+    return (
+      <Link
+        className="nav-link relative z-60 inline-flex min-h-10 items-center px-1"
+        href="/account"
+      >
+        Sign in
+      </Link>
+    );
   }
 
   return (
-    <Link className="nav-link" href="/account">
+    <Link
+      className="nav-link relative z-60 inline-flex min-h-10 items-center px-1"
+      href="/account"
+    >
       {user ? "Account" : "Sign in"}
     </Link>
   );

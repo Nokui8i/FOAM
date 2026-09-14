@@ -614,12 +614,12 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 2.75rem;
-    height: 2.75rem;
-    min-width: 2.75rem;
-    min-height: 2.75rem;
-    border-radius: 999px;
-    border: 1px solid var(--color-border);
+    width: 2.5rem;
+    height: 2.5rem;
+    min-width: 2.5rem;
+    min-height: 2.5rem;
+    border-radius: 0;
+    border: 0;
     background: transparent;
     color: var(--color-foreground);
     cursor: pointer;
@@ -651,9 +651,11 @@
     z-index: 99999;
     pointer-events: none;
     visibility: hidden;
+    display: none;
   }
 
   .mn-check:checked ~ .mn-root {
+    display: block;
     pointer-events: auto;
     visibility: visible;
   }
@@ -1511,12 +1513,17 @@
 /* ---------- Account ---------- */
 
 @utility account-section {
-  padding-top: 7.5rem;
-  padding-bottom: 3.5rem;
+  padding-top: 5.5rem;
+  padding-bottom: 1.5rem;
+
+  @media (min-width: 640px) {
+    padding-top: 6.5rem;
+    padding-bottom: 2.5rem;
+  }
 
   @media (min-width: 1024px) {
-    padding-top: 9rem;
-    padding-bottom: 4.5rem;
+    padding-top: 7.5rem;
+    padding-bottom: 3.25rem;
   }
 }
 
