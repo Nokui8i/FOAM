@@ -1,10 +1,31 @@
 import Link from "next/link";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, Shirt, Truck, WashingMachine } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { BOOKING_PATH } from "@/lib/site-config";
+
+const SERVICES = [
+  {
+    icon: WashingMachine,
+    title: "Wash & Fold",
+    copy: "Everyday laundry, professionally washed, dried and neatly folded.",
+    href: BOOKING_PATH,
+  },
+  {
+    icon: Shirt,
+    title: "Dry Cleaning",
+    copy: "Special care for delicate and premium items.",
+    href: "/dry-cleaning",
+  },
+  {
+    icon: Truck,
+    title: "Pickup & Delivery",
+    copy: "Convenient, reliable and on your schedule.",
+    href: BOOKING_PATH,
+  },
+] as const;
 
 export default function Home() {
   return (
@@ -91,34 +112,51 @@ export default function Home() {
       </section>
 
       <section className="pb-8 lg:pb-12" aria-label="Tagline">
+        <div className="site-shell hidden md:block">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/foam-tagline-banner-v2.webp"
+            alt="FOAM — Pickup, Wash, Fold, Delivered. Less laundry. More life. We handle the laundry. You keep the time."
+            width={1800}
+            height={241}
+            className="tagline-banner-image reveal"
+          />
+        </div>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src="/foam-tagline-banner-mobile.png"
           alt="FOAM — Pickup, Wash, Fold, Delivered. Less laundry. More life. We handle the laundry. You keep the time."
           width={1200}
           height={800}
-          className="tagline-banner-image-mobile reveal"
+          className="tagline-banner-image-mobile reveal md:hidden"
         />
       </section>
 
-      <section className="pb-10 lg:pb-14" aria-label="Service promises">
+      <section
+        id="services"
+        className="scroll-mt-20 pb-10 pt-2 lg:pb-14 lg:pt-4"
+        aria-label="Our services"
+      >
         <div className="site-shell">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="/foam-trust-bar.webp"
-            alt="FOAM service promises: Door-to-door service — pickup & delivery made easy. Pay by the pound — simple, transparent pricing. Your wash, your way — choose your preferences. Locally handled — care you can count on."
-            width={1800}
-            height={280}
-            className="trust-banner-image reveal hidden md:block"
-          />
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="/foam-trust-bar-mobile.webp"
-            alt="FOAM service promises: Door-to-door service — pickup & delivery made easy. Pay by the pound — simple, transparent pricing. Your wash, your way — choose your preferences. Locally handled — care you can count on."
-            width={900}
-            height={1546}
-            className="trust-banner-image reveal md:hidden"
-          />
+          <div className="services-header reveal">
+            <p className="eyebrow">Our services</p>
+            <h2 className="services-title">Laundry care, your way.</h2>
+            <p className="section-copy">
+              Choose the service that fits your needs.
+            </p>
+          </div>
+
+          <div className="services-grid">
+            {SERVICES.map(({ icon: Icon, title, copy, href }) => (
+              <Link key={title} href={href} className="service-card reveal">
+                <span className="service-card-icon">
+                  <Icon aria-hidden="true" />
+                </span>
+                <p className="service-card-title">{title}</p>
+                <p className="service-card-copy">{copy}</p>
+              </Link>
+            ))}
+          </div>
         </div>
       </section>
 
@@ -143,6 +181,71 @@ export default function Home() {
                 height={1000}
               />
             </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="pb-10 lg:pb-14" aria-label="Service promises">
+        <div className="site-shell">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/foam-trust-bar.webp"
+            alt="FOAM service promises: Door-to-door service — pickup & delivery made easy. Pay by the pound — simple, transparent pricing. Your wash, your way — choose your preferences. Locally handled — care you can count on."
+            width={1800}
+            height={280}
+            className="trust-banner-image reveal hidden md:block"
+          />
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/foam-trust-bar-mobile.webp"
+            alt="FOAM service promises: Door-to-door service — pickup & delivery made easy. Pay by the pound — simple, transparent pricing. Your wash, your way — choose your preferences. Locally handled — care you can count on."
+            width={900}
+            height={1546}
+            className="trust-banner-image reveal md:hidden"
+          />
+        </div>
+      </section>
+
+      <section className="pb-14 lg:pb-20" aria-label="Ready to book">
+        <div className="site-shell">
+          {/* Desktop closing CTA — real banner asset + overlaid button */}
+          <div className="pickup-cta-banner reveal hidden md:block">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/foam-pickup-cta-v2.webp"
+              alt='"Schedule a Pickup" graphic — a light, bright scene with soap bubbles and a laundry basket, inviting you to book your FOAM pickup.'
+              width={1800}
+              height={600}
+              className="pickup-cta-banner-image"
+            />
+            <div className="pickup-cta-banner-actions">
+              <Button size="lg" asChild>
+                <Link href={BOOKING_PATH}>
+                  Book a Pickup <ArrowRight />
+                </Link>
+              </Button>
+            </div>
+          </div>
+
+          {/* Mobile closing CTA — simple on-brand card, no duplicate banner */}
+          <div className="pickup-cta-mobile reveal md:hidden">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/foam-koala.png"
+              alt="The FOAM koala mascot"
+              width={220}
+              height={220}
+              className="pickup-cta-mobile-koala"
+            />
+            <p className="pickup-cta-mobile-title">Ready for cleaner days?</p>
+            <p className="section-copy">
+              Schedule your pickup today and experience the FOAM difference.
+            </p>
+            <Button size="lg" asChild>
+              <Link href={BOOKING_PATH}>
+                Book a Pickup <ArrowRight />
+              </Link>
+            </Button>
           </div>
         </div>
       </section>
