@@ -52,6 +52,34 @@ service cloud.firestore {
       allow read, update, delete: if isAdmin();
     }
 
+    match /orders/{id} {
+      allow create: if
+        request.resource.data.status == 'new'
+        && request.resource.data.guest is bool
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.contact.keys().hasAll(['name', 'email', 'phone'])
+        && request.resource.data.contact.name is string
+        && request.resource.data.contact.name.size() > 0
+        && request.resource.data.contact.name.size() <= 120
+        && request.resource.data.contact.email is string
+        && request.resource.data.contact.email.size() > 3
+        && request.resource.data.contact.email.size() <= 200
+        && request.resource.data.contact.phone is string
+        && request.resource.data.contact.phone.size() > 0
+        && request.resource.data.contact.phone.size() <= 40
+        && (
+          request.resource.data.guest == true
+          || (isSignedIn() && request.resource.data.uid == request.auth.uid)
+        );
+
+      allow read: if isAdmin()
+        || (isSignedIn()
+          && resource.data.uid is string
+          && resource.data.uid == request.auth.uid);
+
+      allow update, delete: if isAdmin();
+    }
+
     match /{document=**} {
       allow read, write: if false;
     }

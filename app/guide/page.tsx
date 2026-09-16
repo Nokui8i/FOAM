@@ -117,7 +117,11 @@ export default function GuidePage() {
             })}
           </div>
 
-          <div className="guide-cta reveal">
+          <Link
+            href={BOOKING_PATH}
+            className="guide-cta reveal"
+            aria-label="Schedule a pickup — open booking form"
+          >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src="/foam-schedule-banner.webp"
@@ -136,12 +140,12 @@ export default function GuidePage() {
             />
             <div className="guide-cta-actions">
               <Button size="sm" asChild>
-                <Link href={BOOKING_PATH}>
+                <span>
                   Book a Pickup <ArrowRight />
-                </Link>
+                </span>
               </Button>
             </div>
-          </div>
+          </Link>
         </div>
       </section>
 

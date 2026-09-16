@@ -45,8 +45,12 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Mobile schedule — flush under hero */}
-        <div className="schedule-banner reveal lg:hidden" aria-label="Schedule a pickup banner">
+        {/* Mobile schedule — flush under hero; whole banner opens booking */}
+        <Link
+          href={BOOKING_PATH}
+          className="schedule-banner reveal lg:hidden"
+          aria-label="Schedule a pickup — open booking form"
+        >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src="/foam-schedule-banner.webp"
@@ -57,12 +61,12 @@ export default function Home() {
           />
           <div className="schedule-banner-actions flex">
             <Button size="sm" asChild>
-              <Link href={BOOKING_PATH}>
+              <span>
                 Book a Pickup <ArrowRight />
-              </Link>
+              </span>
             </Button>
           </div>
-        </div>
+        </Link>
       </section>
 
       <section id="how" className="scroll-mt-20 pb-8 pt-6 lg:pb-12 lg:pt-8">

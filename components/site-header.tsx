@@ -10,21 +10,16 @@ export function SiteHeader() {
   return (
     <header className="fixed inset-x-0 top-0 z-[100] border-b border-border/70 bg-background/95">
       <nav
-        className="site-shell flex h-18 items-center justify-between gap-2"
+        className="site-shell grid h-16 grid-cols-[1fr_auto_1fr] items-center gap-2 md:flex md:h-18 md:justify-between"
         aria-label="Main navigation"
       >
-        <Link href="/#top" className="wordmark shrink-0" aria-label="FOAM home">
+        <Link
+          href="/#top"
+          className="wordmark justify-self-start shrink-0"
+          aria-label="FOAM home"
+        >
           FOAM<span className="text-accent-strong">.</span>
         </Link>
-
-        <div className="header-mobile-links md:hidden">
-          <Link className="nav-link" href="/dry-cleaning">
-            Dry Cleaning
-          </Link>
-          <Link className="nav-link" href="/guide">
-            First Order
-          </Link>
-        </div>
 
         <div className="hidden items-center gap-8 md:flex">
           <Link className="nav-link" href="/#how">
@@ -48,18 +43,25 @@ export function SiteHeader() {
           <Link className="nav-link" href="/contact">
             Contact
           </Link>
-          <HeaderAuthLink />
         </div>
 
-        <div className="flex shrink-0 items-center gap-2">
-          <div className="md:hidden">
-            <HeaderAuthLink />
-          </div>
-          <Button variant="ink" asChild className="hidden sm:inline-flex">
-            <Link href={BOOKING_PATH}>
-              Book a Pickup <ArrowRight />
-            </Link>
+        {/* Mobile: centered equal buttons */}
+        <div className="header-actions-mobile md:hidden">
+          <HeaderAuthLink className="header-action-btn" />
+          <Button variant="ink" size="sm" asChild className="header-action-btn">
+            <Link href={BOOKING_PATH}>Book</Link>
           </Button>
+        </div>
+
+        <div className="flex items-center justify-self-end gap-2 md:shrink-0">
+          <div className="hidden items-center gap-2 md:flex">
+            <HeaderAuthLink className="header-action-btn" />
+            <Button variant="ink" size="sm" asChild className="header-action-btn">
+              <Link href={BOOKING_PATH}>
+                Book a Pickup <ArrowRight />
+              </Link>
+            </Button>
+          </div>
           <MobileNavTrigger />
         </div>
       </nav>

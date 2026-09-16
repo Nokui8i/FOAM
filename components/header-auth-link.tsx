@@ -2,28 +2,19 @@
 
 import Link from "next/link";
 
+import { Button } from "@/components/ui/button";
 import { useAuth } from "@/components/auth-provider";
+import { cn } from "@/lib/utils";
 
-export function HeaderAuthLink() {
+export function HeaderAuthLink({ className }: { className?: string }) {
   const { user, ready } = useAuth();
-
-  if (!ready) {
-    return (
-      <Link
-        className="nav-link relative z-60 inline-flex min-h-10 items-center px-1"
-        href="/account"
-      >
-        Sign in
-      </Link>
-    );
-  }
+  const label = !ready ? "Login" : user ? "Account" : "Login";
 
   return (
-    <Link
-      className="nav-link relative z-60 inline-flex min-h-10 items-center px-1"
-      href="/account"
-    >
-      {user ? "Account" : "Sign in"}
-    </Link>
+    <Button variant="outline" size="sm" asChild className={cn(className)}>
+      <Link href="/account" className="relative z-60">
+        {label}
+      </Link>
+    </Button>
   );
 }

@@ -40,6 +40,8 @@ export type UserProfile = {
   foldStyle: string;
   separateColors: boolean;
   careNotes: string;
+  /** Weekly automated pickups — cancel anytime from Account. */
+  weeklyRepeatEnabled: boolean;
 };
 
 export function defaultProfile(uid: string, email: string): UserProfile {
@@ -50,7 +52,7 @@ export function defaultProfile(uid: string, email: string): UserProfile {
     phone: "",
     address: "",
     unit: "",
-    city: "",
+    city: "Las Vegas",
     zip: "",
     pickupNotes: "",
     detergent: "Standard Scented",
@@ -60,6 +62,7 @@ export function defaultProfile(uid: string, email: string): UserProfile {
     foldStyle: "Standard fold",
     separateColors: false,
     careNotes: "",
+    weeklyRepeatEnabled: false,
   };
 }
 
@@ -85,6 +88,7 @@ export async function getUserProfile(uid: string): Promise<UserProfile | null> {
     foldStyle: String(data.foldStyle ?? base.foldStyle),
     separateColors: Boolean(data.separateColors),
     careNotes: String(data.careNotes ?? ""),
+    weeklyRepeatEnabled: Boolean(data.weeklyRepeatEnabled),
   };
 }
 
@@ -111,6 +115,7 @@ export async function saveUserProfile(
       foldStyle: input.foldStyle.trim(),
       separateColors: Boolean(input.separateColors),
       careNotes: input.careNotes.trim(),
+      weeklyRepeatEnabled: Boolean(input.weeklyRepeatEnabled),
       updatedAt: serverTimestamp(),
     },
     { merge: true }

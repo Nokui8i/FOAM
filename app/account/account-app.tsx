@@ -18,10 +18,15 @@ import {
   PackageOpen,
 } from "lucide-react";
 
+import { AddressAutocomplete } from "@/components/address-autocomplete";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/components/auth-provider";
 import { GoogleSignInButton } from "@/components/google-sign-in-button";
 import { cn } from "@/lib/utils";
+import {
+  LAS_VEGAS_CITY,
+  isLasVegasAddress,
+} from "@/lib/las-vegas";
 import {
   DETERGENT_OPTIONS,
   DRYER_TEMP_OPTIONS,
@@ -40,7 +45,7 @@ const tabs = ["Details", "Preferences", "Orders", "Payments"] as const;
 type TabName = (typeof tabs)[number];
 
 const inputClass =
-  "h-11 w-full rounded-lg border border-border bg-white px-3.5 text-base text-foreground outline-none transition placeholder:text-muted-foreground/70 hover:border-muted-foreground/60 focus:border-accent-strong focus:ring-2 focus:ring-accent-strong/15 disabled:cursor-not-allowed disabled:border-border disabled:bg-muted/70 disabled:text-muted-foreground";
+  "h-9 w-full rounded-md border border-border bg-white px-3 text-sm text-foreground outline-none transition placeholder:text-muted-foreground/70 hover:border-muted-foreground/50 focus:border-accent-strong focus:ring-2 focus:ring-accent-strong/15 disabled:cursor-not-allowed disabled:border-border disabled:bg-muted/70 disabled:text-muted-foreground";
 
 function AccountProfile({
   uid,
@@ -100,7 +105,10 @@ function AccountProfile({
     setActiveTab(tab);
     setSavedPanel(null);
     setError("");
-    panelRef.current?.scrollTo({ top: 0 });
+    // Scroll the page (not an inner frame) so switching tabs feels natural.
+    requestAnimationFrame(() => {
+      panelRef.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    });
   };
 
   const handleTabKeyDown = (
@@ -135,13 +143,27 @@ function AccountProfile({
     setSavedPanel(null);
     setError("");
 
+    if (panel === "details") {
+      if (
+        profile.address.trim() &&
+        !isLasVegasAddress({
+          city: profile.city || LAS_VEGAS_CITY,
+          zip: profile.zip,
+        })
+      ) {
+        setError("Pickup address must be in Las Vegas (ZIP 891xx).");
+        setSaving(false);
+        return;
+      }
+    }
+
     const next: Omit<UserProfile, "uid"> = {
       email,
       name: profile.name,
       phone: profile.phone,
       address: profile.address,
       unit: profile.unit,
-      city: profile.city,
+      city: LAS_VEGAS_CITY,
       zip: profile.zip,
       pickupNotes: profile.pickupNotes,
       detergent: profile.detergent,
@@ -151,6 +173,7 @@ function AccountProfile({
       foldStyle: profile.foldStyle,
       separateColors: profile.separateColors,
       careNotes: profile.careNotes,
+      weeklyRepeatEnabled: profile.weeklyRepeatEnabled,
     };
 
     try {
@@ -165,11 +188,11 @@ function AccountProfile({
   }
 
   return (
-    <section className="mx-auto flex w-full max-w-2xl flex-col overflow-hidden rounded-xl border border-border bg-white">
-      <header className="shrink-0 border-b border-border px-5 py-5 sm:px-6 sm:py-6">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+    <section className="mx-auto flex w-full max-w-3xl flex-col rounded-lg border border-border bg-white">
+      <header className="shrink-0 border-b border-border px-4 py-4 sm:px-5 sm:py-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0">
-            <h1 className="font-display text-2xl font-semibold leading-tight sm:text-3xl">
+            <h1 className="font-display text-xl font-semibold leading-tight tracking-tight sm:text-2xl">
               Hello{profile.name.trim() ? ` ${profile.name.trim()}` : ""}
             </h1>
           </div>
@@ -197,9 +220,9 @@ function AccountProfile({
         </div>
       </header>
 
-      <div className="shrink-0 px-4 pt-4 sm:px-6 sm:pt-5">
+      <div className="shrink-0 px-4 pt-3 sm:px-5 sm:pt-4">
         <div
-          className="grid grid-cols-4 gap-1 rounded-xl bg-muted p-1"
+          className="grid grid-cols-4 gap-0.5 rounded-md bg-muted p-0.5"
           role="tablist"
           aria-label="Account sections"
         >
@@ -217,7 +240,7 @@ function AccountProfile({
                 onClick={() => chooseTab(tab)}
                 onKeyDown={(event) => handleTabKeyDown(event, index)}
                 className={cn(
-                  "min-h-11 min-w-0 rounded-lg px-1.5 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 sm:px-3 sm:text-sm",
+                  "min-h-9 min-w-0 rounded px-1 text-[11px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 sm:px-2.5 sm:text-sm",
                   isActive
                     ? "bg-accent-strong text-white shadow-sm"
                     : "text-muted-foreground hover:bg-white/80 hover:text-foreground"
@@ -230,15 +253,7 @@ function AccountProfile({
         </div>
       </div>
 
-      <div
-        ref={panelRef}
-        className={cn(
-          "px-5 py-6 sm:px-6 sm:py-7",
-          activeTab === "Details"
-            ? "overflow-visible"
-            : "max-h-[34rem] overflow-y-auto overscroll-contain"
-        )}
-      >
+      <div ref={panelRef} className="px-4 py-5 sm:px-5 sm:py-5">
         {activeTab === "Details" ? (
           <form
             id="panel-details"
@@ -250,7 +265,7 @@ function AccountProfile({
               title="Personal details"
               helper="Contact and pickup address — reused on future bookings."
             />
-            <div className="mt-5 grid gap-x-4 gap-y-4 sm:grid-cols-2">
+            <div className="mt-4 grid gap-x-3 gap-y-3 sm:grid-cols-2">
               <Field label="Full name">
                 <input
                   className={inputClass}
@@ -284,12 +299,23 @@ function AccountProfile({
                 />
               </Field>
               <Field label="Street address" wide>
-                <input
+                <AddressAutocomplete
                   className={inputClass}
-                  autoComplete="street-address"
                   value={profile.address}
-                  onChange={(e) =>
-                    setProfile({ ...profile, address: e.target.value })
+                  onAddressChange={(address) =>
+                    setProfile({ ...profile, address })
+                  }
+                  onPlaceSelect={(place) =>
+                    setProfile({
+                      ...profile,
+                      address: place.address,
+                      city: LAS_VEGAS_CITY,
+                      zip: place.zip,
+                      unit: place.unit || profile.unit,
+                    })
+                  }
+                  onInvalidPlace={() =>
+                    setError("Pick a Las Vegas address from the suggestions.")
                   }
                 />
               </Field>
@@ -306,11 +332,9 @@ function AccountProfile({
               <Field label="City">
                 <input
                   className={inputClass}
-                  autoComplete="address-level2"
-                  value={profile.city}
-                  onChange={(e) =>
-                    setProfile({ ...profile, city: e.target.value })
-                  }
+                  value={LAS_VEGAS_CITY}
+                  readOnly
+                  aria-readonly="true"
                 />
               </Field>
               <Field label="ZIP">
@@ -318,6 +342,7 @@ function AccountProfile({
                   className={inputClass}
                   inputMode="numeric"
                   autoComplete="postal-code"
+                  placeholder="891xx"
                   value={profile.zip}
                   onChange={(e) =>
                     setProfile({ ...profile, zip: e.target.value })
@@ -326,7 +351,7 @@ function AccountProfile({
               </Field>
               <Field label="Pickup notes" wide>
                 <textarea
-                  className={`${inputClass} min-h-24 resize-y py-2.5`}
+                  className={`${inputClass} min-h-20 resize-y py-2`}
                   placeholder="Gate code, leave at door, building manager..."
                   value={profile.pickupNotes}
                   onChange={(e) =>
@@ -353,7 +378,31 @@ function AccountProfile({
               title="Laundry preferences"
               helper="How we wash and finish your laundry by default."
             />
-            <div className="mt-5 grid gap-x-4 gap-y-4 sm:grid-cols-2">
+            <div className="mt-4 rounded-lg border border-border bg-white p-3 sm:p-4">
+              <label className="flex cursor-pointer items-start gap-3">
+                <input
+                  type="checkbox"
+                  className="mt-1 size-4 shrink-0 accent-(--color-accent-strong)"
+                  checked={profile.weeklyRepeatEnabled}
+                  onChange={(e) =>
+                    setProfile({
+                      ...profile,
+                      weeklyRepeatEnabled: e.target.checked,
+                    })
+                  }
+                />
+                <span>
+                  <span className="block text-sm font-semibold">
+                    Weekly repeat pickup
+                  </span>
+                  <span className="mt-0.5 block text-xs text-muted-foreground">
+                    Same day &amp; time automatically. Turn this off anytime to
+                    cancel future automated pickups. Save to apply.
+                  </span>
+                </span>
+              </label>
+            </div>
+            <div className="mt-4 grid gap-x-3 gap-y-3 sm:grid-cols-2">
               <SelectField
                 label="Detergent"
                 value={profile.detergent}
@@ -395,10 +444,10 @@ function AccountProfile({
                   setProfile({ ...profile, foldStyle: value })
                 }
               />
-              <label className="flex min-h-11 cursor-pointer items-center gap-3 rounded-lg border border-border bg-muted/45 px-3.5 sm:col-span-2">
+              <label className="flex min-h-9 cursor-pointer items-center gap-2.5 rounded-md border border-border bg-muted/40 px-3 sm:col-span-2">
                 <input
                   type="checkbox"
-                  className="size-4 accent-(--color-accent-strong)"
+                  className="size-3.5 shrink-0 accent-(--color-accent-strong)"
                   checked={profile.separateColors}
                   onChange={(e) =>
                     setProfile({
@@ -413,7 +462,7 @@ function AccountProfile({
               </label>
               <Field label="Care notes" wide>
                 <textarea
-                  className={`${inputClass} min-h-24 resize-y py-2.5`}
+                  className={`${inputClass} min-h-20 resize-y py-2`}
                   placeholder="Allergies, delicate items, stain notes..."
                   value={profile.careNotes}
                   onChange={(e) =>
@@ -468,8 +517,8 @@ function AccountProfile({
 function PanelIntro({ title, helper }: { title: string; helper: string }) {
   return (
     <div>
-      <h2 className="font-display text-xl font-semibold">{title}</h2>
-      <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
+      <h2 className="font-display text-lg font-semibold tracking-tight">{title}</h2>
+      <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
         {helper}
       </p>
     </div>
@@ -488,7 +537,7 @@ function Field({
   return (
     <label
       className={cn(
-        "grid gap-2 text-sm font-semibold",
+        "grid gap-1.5 text-[13px] font-semibold text-foreground/90",
         wide && "sm:col-span-2"
       )}
     >
@@ -515,7 +564,7 @@ function SelectField({
     <Field label={label} wide={wide}>
       <span className="relative block">
         <select
-          className={`${inputClass} appearance-none pr-10`}
+          className={`${inputClass} appearance-none pr-9`}
           value={value}
           onChange={(event) => onChange(event.target.value)}
         >
@@ -526,7 +575,7 @@ function SelectField({
           ))}
         </select>
         <ChevronDown
-          className="pointer-events-none absolute right-3.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+          className="pointer-events-none absolute right-3 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground"
           aria-hidden="true"
         />
       </span>
@@ -536,20 +585,20 @@ function SelectField({
 
 function SaveRow({ saved, saving }: { saved: boolean; saving: boolean }) {
   return (
-    <div className="mt-6 flex min-h-11 flex-wrap items-center gap-4 border-t border-border pt-5">
-      <Button type="submit" size="lg" className="text-base" disabled={saving}>
+    <div className="mt-5 flex min-h-9 flex-wrap items-center gap-3 border-t border-border pt-4">
+      <Button type="submit" disabled={saving}>
         {saving ? "Saving..." : "Save settings"}
       </Button>
       <p
         className={cn(
-          "flex items-center gap-2 text-sm font-semibold text-accent-strong transition-opacity",
+          "flex items-center gap-1.5 text-sm font-medium text-accent-strong transition-opacity",
           saved ? "opacity-100" : "pointer-events-none opacity-0"
         )}
         role="status"
         aria-live="polite"
       >
-        <span className="grid size-5 place-items-center rounded-full bg-accent">
-          <Check className="size-3.5" strokeWidth={3} />
+        <span className="grid size-4 place-items-center rounded-full bg-accent">
+          <Check className="size-2.5" strokeWidth={3} />
         </span>{" "}
         Settings saved.
       </p>
@@ -577,16 +626,16 @@ function EmptyState({
       id={id}
       role="tabpanel"
       aria-labelledby={labelledBy}
-      className="flex min-h-[22rem] flex-col items-center justify-center py-6 text-center"
+      className="flex min-h-72 flex-col items-center justify-center py-5 text-center"
     >
-      <div className="grid size-14 place-items-center rounded-full bg-accent text-accent-foreground [&_svg]:size-6">
+      <div className="grid size-11 place-items-center rounded-md bg-accent text-accent-foreground [&_svg]:size-5">
         {icon}
       </div>
-      <h2 className="mt-5 font-display text-xl font-semibold sm:text-2xl">{title}</h2>
-      <p className="mt-2.5 max-w-md text-sm leading-6 text-muted-foreground">
+      <h2 className="mt-4 font-display text-lg font-semibold sm:text-xl">{title}</h2>
+      <p className="mt-2 max-w-md text-sm leading-6 text-muted-foreground">
         {text}
       </p>
-      <div className="mt-5">{children}</div>
+      <div className="mt-4">{children}</div>
     </section>
   );
 }

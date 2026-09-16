@@ -1,4 +1,4 @@
-// Booking form route — the form page will live here.
+// Single booking form for the whole site — header, footer, CTAs, etc.
 export const BOOKING_PATH = "/book";
 
 // ⚠️ EDIT ME — replace with the real FOAM contact email.
