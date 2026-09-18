@@ -1,0 +1,37 @@
+/* This entire treatment is limited to the existing desktop breakpoint. */
+@media (min-width: 768px) {
+  .panorama {
+    overflow: hidden;
+    isolation: isolate;
+    background: #86c1e6;
+  }
+
+  .panel {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    overflow: hidden;
+  }
+
+  .panel img {
+    position: absolute;
+    display: block;
+    left: 0;
+    width: 100%;
+    height: 600%;
+    max-width: none;
+  }
+
+  .blend {
+    margin-top: -4%;
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0%, rgb(0 0 0 / 10%) 1%, rgb(0 0 0 / 50%) 3%, #000 7.12%);
+    mask-image: linear-gradient(to bottom, transparent 0%, rgb(0 0 0 / 10%) 1%, rgb(0 0 0 / 50%) 3%, #000 7.12%);
+  }
+
+  /* Less overlap at the pricing boundaries keeps their content visible. */
+  .shortBlend {
+    margin-top: -2%;
+    -webkit-mask-image: linear-gradient(to bottom, transparent, #000 3.56%);
+    mask-image: linear-gradient(to bottom, transparent, #000 3.56%);
+  }
+}
