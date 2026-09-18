@@ -15,11 +15,27 @@ const FOOTER_LINKS = [
   { href: "/account", label: "Account" },
 ];
 
-export function SiteFooter() {
+type SiteFooterProps = {
+  hideCta?: boolean;
+  flushTop?: boolean;
+};
+
+export function SiteFooter({
+  hideCta = false,
+  flushTop = false,
+}: SiteFooterProps) {
   return (
-    <footer className="site-footer">
+    <footer
+      className={flushTop ? "site-footer site-footer--flush" : "site-footer"}
+    >
       <div className="site-shell site-footer-inner">
-        <div className="site-footer-top">
+        <div
+          className={
+            hideCta
+              ? "site-footer-top site-footer-top--solo"
+              : "site-footer-top"
+          }
+        >
           <div className="site-footer-brand">
             <Link className="site-footer-wordmark" href="/#top">
               FOAM<span className="site-footer-wordmark-dot">.</span>
@@ -27,12 +43,14 @@ export function SiteFooter() {
             <p className="site-footer-tagline">Less laundry. More life.</p>
           </div>
 
-          <Button size="lg" asChild className="site-footer-cta">
-            <Link href={BOOKING_PATH}>
-              Book a Pickup
-              <ArrowRight />
-            </Link>
-          </Button>
+          {hideCta ? null : (
+            <Button size="lg" asChild className="site-footer-cta">
+              <Link href={BOOKING_PATH}>
+                Book a Pickup
+                <ArrowRight />
+              </Link>
+            </Button>
+          )}
         </div>
 
         <nav className="site-footer-nav" aria-label="Footer">

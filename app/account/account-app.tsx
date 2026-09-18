@@ -173,6 +173,7 @@ function AccountProfile({
       foldStyle: profile.foldStyle,
       separateColors: profile.separateColors,
       careNotes: profile.careNotes,
+      laundryPrefs: profile.laundryPrefs,
       weeklyRepeatEnabled: profile.weeklyRepeatEnabled,
     };
 
@@ -310,12 +311,9 @@ function AccountProfile({
                       ...profile,
                       address: place.address,
                       city: LAS_VEGAS_CITY,
-                      zip: place.zip,
+                      zip: place.zip || profile.zip,
                       unit: place.unit || profile.unit,
                     })
-                  }
-                  onInvalidPlace={() =>
-                    setError("Pick a Las Vegas address from the suggestions.")
                   }
                 />
               </Field>

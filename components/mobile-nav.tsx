@@ -7,21 +7,22 @@ import { BOOKING_PATH } from "@/lib/site-config";
 const TOGGLE_ID = "foam-mobile-nav";
 
 const LINKS = [
-  { href: "/#how", label: "How it works" },
+  { href: "/#services", label: "Services" },
+  { href: "/#how", label: "How It Works" },
+  { href: "/#pricing", label: "Pricing" },
   { href: "/dry-cleaning", label: "Dry Cleaning" },
   { href: "/specialty", label: "Specialty" },
-  { href: "/guide", label: "First Order Guide" },
-  { href: "/faq", label: "FAQ" },
+  { href: "/guide", label: "Guide" },
   { href: "/about", label: "About" },
+  { href: "/faq", label: "FAQ" },
   { href: "/contact", label: "Contact" },
-  { href: "/account", label: "Account" },
 ];
 
 /** Hamburger button — place inside the header */
 export function MobileNavTrigger() {
   return (
     <label htmlFor={TOGGLE_ID} className="mn-trigger" aria-label="Open menu">
-      <Menu size={20} aria-hidden />
+      <Menu size={28} strokeWidth={2.35} aria-hidden />
     </label>
   );
 }
@@ -84,7 +85,7 @@ export function MobileNavDrawer() {
               if (toggle) toggle.checked = false;
             }}
           >
-            Book a Pickup <ArrowRight size={16} aria-hidden />
+            Schedule Pickup <ArrowRight size={16} aria-hidden />
           </a>
         </aside>
       </div>

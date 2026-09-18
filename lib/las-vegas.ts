@@ -37,6 +37,39 @@ export function isLasVegasCity(city: string) {
   return normalizeLasVegasCity(city) === LAS_VEGAS_CITY;
 }
 
+/** Filter autocomplete rows to Las Vegas Valley only (not CA/AZ/etc). */
+export function isLasVegasSuggestionText(...parts: string[]) {
+  const text = parts.filter(Boolean).join(" ").toLowerCase();
+  if (!text) return false;
+  // Explicit out-of-area states that show up often for similar street names
+  if (
+    /,\s*(ca|az|ut|or|wa|tx|fl|ny|il|co|nm)\b/.test(text) &&
+    !text.includes("las vegas") &&
+    !text.includes("paradise") &&
+    !text.includes("spring valley") &&
+    !text.includes("enterprise")
+  ) {
+    return false;
+  }
+  return (
+    text.includes("las vegas") ||
+    text.includes("north las vegas") ||
+    text.includes("paradise, nv") ||
+    text.includes("spring valley, nv") ||
+    text.includes("enterprise, nv") ||
+    /nv\s*891\d{2}/.test(text)
+  );
+}
+
+/** Drop highways / route codes (NV-159, US-95, I-15) — we need real streets. */
+export function isPickupStreetSuggestion(main: string) {
+  const m = main.trim();
+  if (!m) return false;
+  if (/^(nv|us|i|sr|hwy|highway|route|rt)\s*-?\s*\d+/i.test(m)) return false;
+  if (/^[A-Z]{1,3}-\d+\b/i.test(m)) return false;
+  return true;
+}
+
 export function isLasVegasAddress(parts: {
   city: string;
   zip: string;
@@ -44,11 +77,18 @@ export function isLasVegasAddress(parts: {
   return isLasVegasCity(parts.city) && isLasVegasZip(parts.zip);
 }
 
+/** True when street starts with a house number (e.g. "123 Valley View"). */
+export function hasHouseNumber(address: string) {
+  return /^\d+\s+\S+/.test(address.trim());
+}
+
 export type ParsedStreetAddress = {
   address: string;
   city: string;
   zip: string;
   unit: string;
+  /** Full pickup-ready address (house # + street + Las Vegas ZIP). */
+  complete: boolean;
 };
 
 type AddressComponent = {
@@ -57,6 +97,11 @@ type AddressComponent = {
   types: string[];
 };
 
+/**
+ * Extract whatever Google returned. Incomplete picks (route-only) still fill
+ * street name + ZIP so the form isn't left empty — `complete` is false until
+ * a house number is present.
+ */
 export function parseGoogleAddressComponents(
   components: AddressComponent[] | undefined
 ): ParsedStreetAddress | null {
@@ -78,11 +123,23 @@ export function parseGoogleAddressComponents(
     get("postal_town");
   const zip = get("postal_code");
 
-  const address = [streetNumber, route].filter(Boolean).join(" ").trim();
-  if (!address || !zip) return null;
+  if (!route && !streetNumber) return null;
 
   const city = normalizeLasVegasCity(locality || LAS_VEGAS_CITY);
-  if (!isLasVegasZip(zip) || city !== LAS_VEGAS_CITY) return null;
+  // Outside service area — reject entirely
+  if (city !== LAS_VEGAS_CITY) return null;
+  if (zip && !isLasVegasZip(zip)) return null;
 
-  return { address, city: LAS_VEGAS_CITY, zip, unit };
+  const address = `${streetNumber} ${route}`.trim();
+  if (!address) return null;
+
+  const complete = Boolean(streetNumber && route && zip && isLasVegasZip(zip));
+
+  return {
+    address,
+    city: LAS_VEGAS_CITY,
+    zip: zip || "",
+    unit,
+    complete,
+  };
 }

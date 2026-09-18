@@ -23,6 +23,7 @@ import { getUserProfile, saveUserProfile } from "@/lib/user-profile";
 import {
   BOOKING_STEPS,
   DETERGENT_BOOKING_OPTIONS,
+  DETERGENT_IMAGES,
   DRYER_HEAT_OPTIONS,
   FOLD_ITEM_OPTIONS,
   SOFTENER_BOOKING_OPTIONS,
@@ -40,6 +41,7 @@ import {
   loadBookingDraft,
   nextPickupDates,
   orderEstimate,
+  pricingForOrder,
   resolvedTip,
   saveBookingDraft,
   servicesLabel,
@@ -49,6 +51,7 @@ import {
 } from "@/lib/booking";
 import {
   LAS_VEGAS_CITY,
+  hasHouseNumber,
   isLasVegasAddress,
   isLasVegasZip,
 } from "@/lib/las-vegas";
@@ -94,8 +97,12 @@ export function BookingApp() {
   const [draftHydrated, setDraftHydrated] = useState(false);
   const dates = useMemo(() => nextPickupDates(7), []);
   const estimate = useMemo(
-    () => orderEstimate(draft, { repeatDiscountEligible }),
-    [draft, repeatDiscountEligible]
+    () =>
+      orderEstimate(draft, {
+        repeatDiscountEligible,
+        weeklyAutomation: Boolean(user) && draft.repeatPickup,
+      }),
+    [draft, repeatDiscountEligible, user]
   );
 
   useEffect(() => {
@@ -197,6 +204,14 @@ export function BookingApp() {
         setError("Add a Las Vegas street address and ZIP.");
         return;
       }
+      if (!hasHouseNumber(draft.address)) {
+        setError(
+          draft.unit.trim()
+            ? "Street needs the building number first — Apt/unit alone isn’t enough (e.g. 105 Dolly Varden Court)."
+            : "Add the building number at the start of Street (e.g. 123 Valley View Blvd)."
+        );
+        return;
+      }
       if (
         !isLasVegasAddress({
           city: draft.city || LAS_VEGAS_CITY,
@@ -258,6 +273,8 @@ export function BookingApp() {
     try {
       const wantsRepeat = draft.repeatPickup;
       const repeatActive = Boolean(user) && wantsRepeat;
+      const pricing = pricingForOrder({ weeklyAutomation: repeatActive });
+      const tip = resolvedTip(draft);
       const payload = {
         status: "new",
         guest: !user,
@@ -294,11 +311,19 @@ export function BookingApp() {
           colorsDryerHeat: draft.colorsDryerHeat,
         },
         orderNotes: draft.orderNotes.trim(),
-        pricing: "weighed_at_pickup",
-        tip: resolvedTip(draft),
+        pricing: {
+          ...pricing,
+          tip,
+          promoCode: draft.promoCode.trim(),
+          // Final $ after weigh — ops applies rate × lbs (min $50) + delivery + tip + dry cleaning.
+          finalTotalPending: true,
+          repeatDiscountEligible: repeatDiscountEligible,
+          repeatDiscountPercent: repeatDiscountEligible
+            ? pricing.repeatDiscountPercent
+            : 0,
+        },
+        tip,
         promoCode: draft.promoCode.trim(),
-        repeatDiscountApplied: estimate.discount > 0,
-        repeatDiscountAmount: estimate.discount,
         createdAt: serverTimestamp(),
       };
 
@@ -328,13 +353,19 @@ export function BookingApp() {
           }
 
           if (draft.savePrefsToProfile) {
-            next.detergent =
-              draft.detergent === "Will Provide Own"
-                ? "Provide your own"
-                : draft.detergent === "All Free and Clear"
-                  ? "Hypoallergenic"
-                  : "Standard Scented";
-            next.softener = draft.softener === "Downy" ? "Standard" : "None";
+            next.laundryPrefs = {
+              pants: draft.pants,
+              dresses: draft.dresses,
+              detergent: draft.detergent,
+              softener: draft.softener,
+              whitesWashTemp: draft.whitesWashTemp,
+              colorsWashTemp: draft.colorsWashTemp,
+              whitesDryerHeat: draft.whitesDryerHeat,
+              colorsDryerHeat: draft.colorsDryerHeat,
+            };
+            // Keep legacy fields roughly in sync for Account UI
+            next.detergent = draft.detergent;
+            next.softener = draft.softener;
             next.washTemp = draft.whitesWashTemp.includes("Warm")
               ? "Warm"
               : "Cold";
@@ -547,12 +578,16 @@ export function BookingApp() {
                 <span className="book-repeat-lines">
                   <span>Same day &amp; time every week</span>
                   <span>
+                    Weekly rate <b>$2.35/lb</b> (vs $2.60 on-demand) + $5 pickup
+                  </span>
+                  <span>
                     <b>10% off</b> on your next automated pickup
                   </span>
                   <span>Cancel anytime</span>
                   {!user ? (
                     <span className="book-repeat-note">
-                      Automation &amp; discount: <b>registered accounts only</b>
+                      Automation &amp; weekly rate:{" "}
+                      <b>registered accounts only</b>
                     </span>
                   ) : null}
                 </span>
@@ -615,19 +650,19 @@ export function BookingApp() {
                   <AddressAutocomplete
                     className={fieldClass}
                     value={draft.address}
-                    onAddressChange={(address) => patch({ address })}
+                    onAddressChange={(address) => {
+                      setError("");
+                      patch({ address });
+                    }}
                     onPlaceSelect={(place) => {
                       setError("");
                       patch({
                         address: place.address,
                         city: LAS_VEGAS_CITY,
-                        zip: place.zip,
+                        zip: place.zip || draft.zip,
                         unit: place.unit || draft.unit,
                       });
                     }}
-                    onInvalidPlace={() =>
-                      setError("Pick a Las Vegas address from the suggestions.")
-                    }
                   />
                 </Field>
                 <Field label="Apt / unit">
@@ -784,55 +819,42 @@ export function BookingApp() {
                 />
               </Field>
               <p className="book-note">
-                We&apos;ll apply it when we confirm your final total.
+                We&apos;ll apply it when we confirm your final total after
+                weighing (and any dry cleaning).
               </p>
             </section>
 
-            <div className="book-price-breakdown">
-              {estimate.hasLaundry ? (
-                <div className="book-price-row">
-                  <span>
-                    Laundry <span className="book-price-muted">(min. estimate)</span>
-                  </span>
-                  <span>${estimate.laundryMinimum.toFixed(2)}</span>
-                </div>
-              ) : null}
+            <p className="book-note book-price-note">
+              Final charge is based on <b>weight</b>
               {estimate.hasDryCleaning ? (
-                <div className="book-price-row">
-                  <span>Dry cleaning</span>
-                  <span className="book-price-pending">Added at pickup</span>
-                </div>
+                <>
+                  {" "}
+                  and <b>dry cleaning items</b>
+                </>
+              ) : null}{" "}
+              at pickup — {estimate.pricing.tier === "weekly" ? (
+                <>
+                  weekly rate <b>$2.35/lb</b>
+                </>
+              ) : (
+                <>
+                  standard rate <b>$2.60/lb</b>
+                </>
+              )}
+              , <b>$5</b> pickup &amp; delivery, <b>$50</b> minimum
+              {estimate.discountEligible ? (
+                <>
+                  , plus your <b>10%</b> repeat discount
+                </>
               ) : null}
-              <div className="book-price-row">
-                <span>Pickup &amp; delivery</span>
-                <span>${estimate.delivery.toFixed(2)}</span>
-              </div>
-              {estimate.discount > 0 ? (
-                <div className="book-price-row">
-                  <span>Repeat discount (10%)</span>
-                  <span>-${estimate.discount.toFixed(2)}</span>
-                </div>
+              {estimate.tip > 0 ? (
+                <>
+                  {" "}
+                  and tip <b>${estimate.tip.toFixed(2)}</b>
+                </>
               ) : null}
-              <div className="book-price-row">
-                <span>Tip</span>
-                <span>${estimate.tip.toFixed(2)}</span>
-              </div>
-              <div className="book-price-total-block">
-                <div className="book-price-row book-price-total">
-                  <span>Estimated total now</span>
-                  <span>{estimate.totalLabel}</span>
-                </div>
-                {estimate.hasDryCleaning ? (
-                  <p className="book-price-extra">
-                    <b>Dry cleaning</b> is extra and charged at pickup after
-                    items are inspected.
-                  </p>
-                ) : null}
-                <p className="book-price-extra">
-                  <b>The price may change</b> after weighing at pickup.
-                </p>
-              </div>
-            </div>
+              .
+            </p>
           </div>
         ) : null}
       </div>
@@ -881,6 +903,7 @@ export function BookingApp() {
           title={pickerLabel(picker)}
           options={pickerOptions(picker)}
           value={String(draft[picker])}
+          images={picker === "detergent" ? DETERGENT_IMAGES : undefined}
           onClose={() => setPicker(null)}
           onSelect={(value) => {
             patch({ [picker]: value } as Partial<BookingDraft>);
@@ -1030,15 +1053,16 @@ function GuestCheckoutGate({
                 You marked <b>weekly repeat pickup</b>.
               </p>
               <p>
-                Sign in or create an account for <b>member benefits</b>,
-                including <b>10% off</b> your next automated pickup.
+                Sign in or create an account to lock in the weekly rate{" "}
+                <b>$2.35/lb</b>, automation, and <b>10% off</b> your next
+                automated pickup.
               </p>
             </>
           ) : (
             <p>
               Sign in or create an account for <b>member benefits</b> like
-              weekly repeat pickups and <b>10% off</b> your next automated
-              order.
+              weekly rate <b>$2.35/lb</b>, repeat pickups, and <b>10% off</b>{" "}
+              your next automated order.
             </p>
           )}
         </div>
@@ -1065,12 +1089,14 @@ function OptionSheet({
   title,
   options,
   value,
+  images,
   onSelect,
   onClose,
 }: {
   title: string;
   options: readonly string[];
   value: string;
+  images?: Partial<Record<string, string>>;
   onSelect: (value: string) => void;
   onClose: () => void;
 }) {
@@ -1097,6 +1123,7 @@ function OptionSheet({
         <div className="book-modal-list">
           {options.map((option) => {
             const active = value === option;
+            const imageSrc = images?.[option];
             return (
               <button
                 key={option}
@@ -1104,7 +1131,21 @@ function OptionSheet({
                 className={cn("book-modal-option", active && "is-active")}
                 onClick={() => onSelect(option)}
               >
-                <span>{option}</span>
+                <span className="book-modal-option-main">
+                  {imageSrc ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={imageSrc}
+                      alt=""
+                      width={40}
+                      height={56}
+                      className="book-modal-option-img"
+                    />
+                  ) : (
+                    <span className="book-modal-option-img is-empty" aria-hidden />
+                  )}
+                  <span>{option}</span>
+                </span>
                 {active ? <Check size={16} strokeWidth={2.5} /> : null}
               </button>
             );

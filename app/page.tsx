@@ -1,256 +1,49 @@
 import Link from "next/link";
-import { ArrowRight, Shirt, Truck, WashingMachine } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { BOOKING_PATH } from "@/lib/site-config";
 
-const SERVICES = [
-  {
-    icon: WashingMachine,
-    title: "Wash & Fold",
-    copy: "Everyday laundry, professionally washed, dried and neatly folded.",
-    href: BOOKING_PATH,
-  },
-  {
-    icon: Shirt,
-    title: "Dry Cleaning",
-    copy: "Special care for delicate and premium items.",
-    href: "/dry-cleaning",
-  },
-  {
-    icon: Truck,
-    title: "Pickup & Delivery",
-    copy: "Convenient, reliable and on your schedule.",
-    href: BOOKING_PATH,
-  },
-] as const;
-
 export default function Home() {
   return (
-    <main className="overflow-hidden bg-background text-foreground selection:bg-accent">
+    <main className="home-page bg-background text-foreground selection:bg-accent">
       <SiteHeader />
 
-      <section id="top" className="pb-0 pt-18 lg:pb-6 lg:pt-20">
-        {/* Mobile hero — full bleed sides, starts below header */}
-        <div className="animate-fade-up lg:hidden">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="/foam-hero-mobile.webp"
-            alt='FOAM tagline graphic reading "More time for what matters," captioned: FOAM picks up your laundry, washes and folds it, and delivers it back to your door — next to a laundry bag with the FOAM koala mascot peeking over folded towels.'
-            width={1200}
-            height={800}
-            className="hero-mobile-banner-image"
-          />
-        </div>
-
-        {/* Desktop/tablet hero */}
-        <div className="site-shell hidden animate-fade-up lg:block">
-          <div className="hero-desktop-banner">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="/foam-hero-desktop-v2.webp"
-              alt='FOAM tagline graphic reading "More time for what matters," captioned: FOAM picks up your laundry, washes and folds it, and delivers it back to your door — next to a laundry bag with the FOAM koala mascot peeking over folded towels — with a "Schedule a Pickup" banner strip below it.'
-              width={1800}
-              height={801}
-              className="hero-desktop-banner-image"
-            />
-            <div className="hero-desktop-banner-actions">
-              <Button size="lg" asChild>
-                <Link href={BOOKING_PATH}>
-                  Book a Pickup <ArrowRight />
-                </Link>
-              </Button>
-            </div>
-          </div>
-        </div>
-
-        {/* Mobile schedule — flush under hero; whole banner opens booking */}
-        <Link
-          href={BOOKING_PATH}
-          className="schedule-banner reveal lg:hidden"
-          aria-label="Schedule a pickup — open booking form"
-        >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="/foam-schedule-banner.webp"
-            alt='"Schedule a Pickup" graphic — a light blue and white capsule-shaped banner with soap bubble decorations.'
-            width={1800}
-            height={364}
-            className="schedule-banner-image"
-          />
-          <div className="schedule-banner-actions flex">
-            <Button size="sm" asChild>
-              <span>
-                Book a Pickup <ArrowRight />
-              </span>
-            </Button>
-          </div>
-        </Link>
-      </section>
-
-      <section id="how" className="scroll-mt-20 pb-8 pt-6 lg:pb-12 lg:pt-8">
-        <div className="site-shell">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="/foam-how-it-works.webp"
-            alt='FOAM "How it works" — 1) Schedule: choose your pickup time. 2) We pick up: leave it at your door. 3) We wash & fold: cleaned your way. 4) Delivered: fresh & folded, back to you. Heading: From hamper to home, handled. A seamless laundry experience, from pickup to delivery.'
-            width={1800}
-            height={608}
-            className="process-banner-image reveal hidden md:block"
-          />
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="/foam-how-it-works-mobile.webp"
-            alt='FOAM "How it works" — 1) Schedule: choose your pickup time. 2) We pick up: leave it at your door. 3) We wash & fold: cleaned your way. 4) Delivered: fresh & folded, back to you. Heading: From hamper to home, handled. A seamless laundry experience, from pickup to delivery.'
-            width={900}
-            height={1549}
-            className="process-banner-image reveal md:hidden"
-          />
-        </div>
-      </section>
-
-      <section className="pb-8 lg:pb-12" aria-label="Tagline">
-        <div className="site-shell hidden md:block">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="/foam-tagline-banner-v2.webp"
-            alt="FOAM — Pickup, Wash, Fold, Delivered. Less laundry. More life. We handle the laundry. You keep the time."
-            width={1800}
-            height={241}
-            className="tagline-banner-image reveal"
-          />
-        </div>
+      <section className="home-full" aria-label="FOAM homepage" id="top">
+        <span id="how" className="home-anchor home-anchor--how" aria-hidden="true" />
+        <span id="services" className="home-anchor home-anchor--services" aria-hidden="true" />
+        <span id="pricing" className="home-anchor home-anchor--pricing" aria-hidden="true" />
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src="/foam-tagline-banner-mobile.png"
-          alt="FOAM — Pickup, Wash, Fold, Delivered. Less laundry. More life. We handle the laundry. You keep the time."
-          width={1200}
-          height={800}
-          className="tagline-banner-image-mobile reveal md:hidden"
+          src="/home-mockup-mobile-v18.png"
+          alt="FOAM laundry: More time for what matters. Pickup, wash, fold and delivery in Las Vegas — how it works, services, pricing, and schedule a pickup."
+          width={1440}
+          height={13469}
+          className="home-full-image home-full-image--mobile"
         />
-      </section>
-
-      <section
-        id="services"
-        className="scroll-mt-20 pb-10 pt-2 lg:pb-14 lg:pt-4"
-        aria-label="Our services"
-      >
-        <div className="site-shell">
-          <div className="services-header reveal">
-            <p className="eyebrow">Our services</p>
-            <h2 className="services-title">Laundry care, your way.</h2>
-            <p className="section-copy">
-              Choose the service that fits your needs.
-            </p>
-          </div>
-
-          <div className="services-grid">
-            {SERVICES.map(({ icon: Icon, title, copy, href }) => (
-              <Link key={title} href={href} className="service-card reveal">
-                <span className="service-card-icon">
-                  <Icon aria-hidden="true" />
-                </span>
-                <p className="service-card-title">{title}</p>
-                <p className="service-card-copy">{copy}</p>
-              </Link>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section id="pricing" className="scroll-mt-20 pb-10 pt-2 lg:pb-14 lg:pt-4">
-        <div className="site-shell">
-          <div className="weight-helper reveal">
-            <div className="pricing-graphics">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src="/pricing-graphic.jpg"
-                alt="FOAM laundry service pricing: $2.35 per pound for Weekly Service, or $2.60 per pound otherwise, plus a $5.00 service fee per pickup. Minimum order total $50.00."
-                className="pricing-graphic-img"
-                width={1000}
-                height={1000}
-              />
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src="/weight-estimate-graphic.jpg"
-                alt="The FOAM koala mascot sitting in a basket full of towels, captioned: Here is what 15 pounds of laundry looks like."
-                className="pricing-graphic-img"
-                width={1000}
-                height={1000}
-              />
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section className="pb-10 lg:pb-14" aria-label="Service promises">
-        <div className="site-shell">
+        <div className="home-full-desktop-shell">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src="/foam-trust-bar.webp"
-            alt="FOAM service promises: Door-to-door service — pickup & delivery made easy. Pay by the pound — simple, transparent pricing. Your wash, your way — choose your preferences. Locally handled — care you can count on."
-            width={1800}
-            height={280}
-            className="trust-banner-image reveal hidden md:block"
-          />
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="/foam-trust-bar-mobile.webp"
-            alt="FOAM service promises: Door-to-door service — pickup & delivery made easy. Pay by the pound — simple, transparent pricing. Your wash, your way — choose your preferences. Locally handled — care you can count on."
-            width={900}
-            height={1546}
-            className="trust-banner-image reveal md:hidden"
+            src="/home-mockup-desktop-v21.png"
+            alt="FOAM laundry: More time for what matters. Pickup, wash, fold and delivery in Las Vegas — how it works, services, pricing, and schedule a pickup."
+            width={3840}
+            height={12960}
+            className="home-full-image home-full-image--desktop"
           />
         </div>
       </section>
 
-      <section className="pb-14 lg:pb-20" aria-label="Ready to book">
-        <div className="site-shell">
-          {/* Desktop closing CTA — real banner asset + overlaid button */}
-          <div className="pickup-cta-banner reveal hidden md:block">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="/foam-pickup-cta-v2.webp"
-              alt='"Schedule a Pickup" graphic — a light, bright scene with soap bubbles and a laundry basket, inviting you to book your FOAM pickup.'
-              width={1800}
-              height={600}
-              className="pickup-cta-banner-image"
-            />
-            <div className="pickup-cta-banner-actions">
-              <Button size="lg" asChild>
-                <Link href={BOOKING_PATH}>
-                  Book a Pickup <ArrowRight />
-                </Link>
-              </Button>
-            </div>
-          </div>
+      <div className="home-sticky-book">
+        <Button size="lg" asChild className="home-sticky-book-btn">
+          <Link href={BOOKING_PATH}>
+            Book a Pickup <ArrowRight />
+          </Link>
+        </Button>
+      </div>
 
-          {/* Mobile closing CTA — simple on-brand card, no duplicate banner */}
-          <div className="pickup-cta-mobile reveal md:hidden">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="/foam-koala.png"
-              alt="The FOAM koala mascot"
-              width={220}
-              height={220}
-              className="pickup-cta-mobile-koala"
-            />
-            <p className="pickup-cta-mobile-title">Ready for cleaner days?</p>
-            <p className="section-copy">
-              Schedule your pickup today and experience the FOAM difference.
-            </p>
-            <Button size="lg" asChild>
-              <Link href={BOOKING_PATH}>
-                Book a Pickup <ArrowRight />
-              </Link>
-            </Button>
-          </div>
-        </div>
-      </section>
-
-      <SiteFooter />
+      <SiteFooter hideCta flushTop />
     </main>
   );
 }

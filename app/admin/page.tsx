@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
 
-import { AdminContactsApp } from "@/components/admin-contacts-app";
+import { AdminApp } from "@/components/admin-app";
 
 export const metadata: Metadata = {
-  title: "Admin | FOAM",
-  description: "FOAM admin — Contact Us messages.",
+  title: "Ops | FOAM",
+  description: "FOAM operations — orders and Contact Us.",
   robots: {
     index: false,
     follow: false,
@@ -14,7 +14,7 @@ export const metadata: Metadata = {
 export default function AdminPage() {
   return (
     <main className="admin-page">
-      <AdminContactsApp />
+      <AdminApp />
     </main>
   );
 }

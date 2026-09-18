@@ -13,6 +13,18 @@ export const DETERGENT_BOOKING_OPTIONS = [
   "Kirkland UltraClear",
   "Will Provide Own",
 ] as const;
+
+/** Product thumbnails for detergent picker (missing = text-only). */
+export const DETERGENT_IMAGES: Partial<
+  Record<(typeof DETERGENT_BOOKING_OPTIONS)[number], string>
+> = {
+  Persil: "/detergents/persil.webp",
+  Tide: "/detergents/tide.webp",
+  Gain: "/detergents/gain.webp",
+  OxyClean: "/detergents/oxiclean.webp",
+  "All Free and Clear": "/detergents/all-free.webp",
+  "Kirkland UltraClear": "/detergents/kirkland.webp",
+};
 export const SOFTENER_BOOKING_OPTIONS = [
   "No softener",
   "Downy",
@@ -26,8 +38,30 @@ export const TIME_SLOTS = ["7am - 10am", "10am - 1pm", "1pm - 4pm", "4pm - 7pm"]
 
 export const MIN_ORDER_USD = 50;
 export const DELIVERY_FEE_USD = 5;
+/** Wash & fold — weekly automation (signed-in repeat pickup). */
+export const RATE_WEEKLY_PER_LB_USD = 2.35;
+/** Wash & fold — one-time / on-demand. */
+export const RATE_STANDARD_PER_LB_USD = 2.6;
+/** Extra 10% off next automated pickup after a prior repeat order (ops applies on final weigh). */
 export const REPEAT_DISCOUNT_PERCENT = 10;
 export const BOOKING_DRAFT_STORAGE_KEY = "foam-booking-draft-v1";
+
+export type PricingTier = "weekly" | "standard";
+
+export function pricingForOrder(opts: {
+  weeklyAutomation: boolean;
+}) {
+  const tier: PricingTier = opts.weeklyAutomation ? "weekly" : "standard";
+  return {
+    mode: "weighed_at_pickup" as const,
+    tier,
+    laundryRatePerLb:
+      tier === "weekly" ? RATE_WEEKLY_PER_LB_USD : RATE_STANDARD_PER_LB_USD,
+    deliveryFee: DELIVERY_FEE_USD,
+    minimumOrder: MIN_ORDER_USD,
+    repeatDiscountPercent: REPEAT_DISCOUNT_PERCENT,
+  };
+}
 
 export function saveBookingDraft(draft: BookingDraft, step?: BookingStep) {
   if (typeof window === "undefined") return;
@@ -143,6 +177,31 @@ export function emptyBookingDraft(): BookingDraft {
 
 /** Prefill from saved account profile without locking the order to it. */
 export function draftFromProfile(profile: UserProfile): Partial<BookingDraft> {
+  const prefs = profile.laundryPrefs;
+
+  if (prefs) {
+    return {
+      name: profile.name,
+      email: profile.email,
+      phone: profile.phone,
+      address: profile.address,
+      unit: profile.unit,
+      city: profile.city,
+      zip: profile.zip,
+      pickupNotes: profile.pickupNotes,
+      detergent: prefs.detergent || "Persil",
+      softener: prefs.softener || "No softener",
+      whitesWashTemp: prefs.whitesWashTemp || "Cold wash",
+      colorsWashTemp: prefs.colorsWashTemp || "Cold wash",
+      whitesDryerHeat: prefs.whitesDryerHeat || "Low",
+      colorsDryerHeat: prefs.colorsDryerHeat || "Low",
+      pants: prefs.pants || "Folded",
+      dresses: prefs.dresses || "Folded",
+      repeatPickup: Boolean(profile.weeklyRepeatEnabled),
+    };
+  }
+
+  // Legacy profile fields (pre-laundryPrefs)
   const wash =
     profile.washTemp === "Warm" || profile.washTemp === "Hot"
       ? "Warm wash"
@@ -157,11 +216,16 @@ export function draftFromProfile(profile: UserProfile): Partial<BookingDraft> {
   let detergent = "Persil";
   if (profile.detergent.toLowerCase().includes("hypo")) detergent = "All Free and Clear";
   else if (profile.detergent.toLowerCase().includes("own")) detergent = "Will Provide Own";
-  else if (profile.detergent.toLowerCase().includes("organic")) detergent = "All Free and Clear";
+  else if (DETERGENT_BOOKING_OPTIONS.includes(profile.detergent as (typeof DETERGENT_BOOKING_OPTIONS)[number])) {
+    detergent = profile.detergent;
+  } else if (profile.detergent.toLowerCase().includes("organic")) detergent = "All Free and Clear";
 
   let softener = "No softener";
-  if (profile.softener === "Standard") softener = "Downy";
-  else if (profile.softener === "Hypoallergenic") softener = "No softener";
+  if (profile.softener === "Standard" || profile.softener === "Downy") softener = "Downy";
+  else if (profile.softener === "White Vinegar") softener = "White Vinegar";
+  else if (SOFTENER_BOOKING_OPTIONS.includes(profile.softener as (typeof SOFTENER_BOOKING_OPTIONS)[number])) {
+    softener = profile.softener;
+  }
 
   return {
     name: profile.name,
@@ -261,36 +325,26 @@ export function resolvedTip(draft: BookingDraft) {
 
 export function orderEstimate(
   draft: BookingDraft,
-  opts: { repeatDiscountEligible?: boolean } = {}
+  opts: { repeatDiscountEligible?: boolean; weeklyAutomation?: boolean } = {}
 ) {
   const tip = resolvedTip(draft);
   const hasLaundry = draft.laundry;
   const hasDryCleaning = draft.dryCleaning;
+  const pricing = pricingForOrder({
+    weeklyAutomation: Boolean(opts.weeklyAutomation),
+  });
 
-  // Laundry is weighed at pickup — show the order minimum as the laundry estimate.
-  // Dry cleaning is per-item and only finalized when items are inspected at pickup.
-  const laundryMinimum = hasLaundry ? MIN_ORDER_USD : 0;
-  const delivery = hasLaundry || hasDryCleaning ? DELIVERY_FEE_USD : 0;
-  const subtotal = laundryMinimum + delivery;
-  const discount = opts.repeatDiscountEligible
-    ? Math.round(subtotal * (REPEAT_DISCOUNT_PERCENT / 100) * 100) / 100
-    : 0;
-  const knownTotal = Math.max(0, subtotal - discount) + tip;
+  // Final laundry $ is weighed at pickup — estimate only exposes known fees/tip.
+  const delivery = hasLaundry || hasDryCleaning ? pricing.deliveryFee : 0;
+  const discountEligible = Boolean(opts.repeatDiscountEligible);
 
   return {
     hasLaundry,
     hasDryCleaning,
-    laundryMinimum,
     delivery,
-    discount,
     tip,
-    knownTotal,
-    totalLabel: `$${knownTotal.toFixed(2)}`,
-    serviceLine: hasLaundry
-      ? "Laundry (weighed at pickup)"
-      : hasDryCleaning
-        ? "Dry cleaning (priced at pickup)"
-        : "To be determined",
-    minimumAdjustment: laundryMinimum,
+    discountEligible,
+    pricing,
+    knownFees: delivery + tip,
   };
 }

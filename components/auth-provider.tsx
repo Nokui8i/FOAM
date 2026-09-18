@@ -141,6 +141,8 @@ async function ensureUserProfile(user: User, name?: string) {
       foldStyle: "Standard fold",
       separateColors: false,
       careNotes: "",
+      laundryPrefs: null,
+      weeklyRepeatEnabled: false,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
       provider: user.providerData[0]?.providerId ?? "password",

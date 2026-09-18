@@ -23,6 +23,17 @@ export const FOLD_OPTIONS = [
   "Fold everything",
 ] as const;
 
+export type LaundryPrefs = {
+  pants: string;
+  dresses: string;
+  detergent: string;
+  softener: string;
+  whitesWashTemp: string;
+  colorsWashTemp: string;
+  whitesDryerHeat: string;
+  colorsDryerHeat: string;
+};
+
 export type UserProfile = {
   uid: string;
   email: string;
@@ -40,6 +51,8 @@ export type UserProfile = {
   foldStyle: string;
   separateColors: boolean;
   careNotes: string;
+  /** Exact wash prefs from the booking form (preferred over legacy fields). */
+  laundryPrefs: LaundryPrefs | null;
   /** Weekly automated pickups — cancel anytime from Account. */
   weeklyRepeatEnabled: boolean;
 };
@@ -62,6 +75,7 @@ export function defaultProfile(uid: string, email: string): UserProfile {
     foldStyle: "Standard fold",
     separateColors: false,
     careNotes: "",
+    laundryPrefs: null,
     weeklyRepeatEnabled: false,
   };
 }
@@ -88,7 +102,23 @@ export async function getUserProfile(uid: string): Promise<UserProfile | null> {
     foldStyle: String(data.foldStyle ?? base.foldStyle),
     separateColors: Boolean(data.separateColors),
     careNotes: String(data.careNotes ?? ""),
+    laundryPrefs: parseLaundryPrefs(data.laundryPrefs),
     weeklyRepeatEnabled: Boolean(data.weeklyRepeatEnabled),
+  };
+}
+
+function parseLaundryPrefs(raw: unknown): LaundryPrefs | null {
+  if (!raw || typeof raw !== "object") return null;
+  const o = raw as Record<string, unknown>;
+  return {
+    pants: String(o.pants ?? "Folded"),
+    dresses: String(o.dresses ?? "Folded"),
+    detergent: String(o.detergent ?? "Persil"),
+    softener: String(o.softener ?? "No softener"),
+    whitesWashTemp: String(o.whitesWashTemp ?? "Cold wash"),
+    colorsWashTemp: String(o.colorsWashTemp ?? "Cold wash"),
+    whitesDryerHeat: String(o.whitesDryerHeat ?? "Low"),
+    colorsDryerHeat: String(o.colorsDryerHeat ?? "Low"),
   };
 }
 
@@ -115,6 +145,18 @@ export async function saveUserProfile(
       foldStyle: input.foldStyle.trim(),
       separateColors: Boolean(input.separateColors),
       careNotes: input.careNotes.trim(),
+      laundryPrefs: input.laundryPrefs
+        ? {
+            pants: input.laundryPrefs.pants,
+            dresses: input.laundryPrefs.dresses,
+            detergent: input.laundryPrefs.detergent,
+            softener: input.laundryPrefs.softener,
+            whitesWashTemp: input.laundryPrefs.whitesWashTemp,
+            colorsWashTemp: input.laundryPrefs.colorsWashTemp,
+            whitesDryerHeat: input.laundryPrefs.whitesDryerHeat,
+            colorsDryerHeat: input.laundryPrefs.colorsDryerHeat,
+          }
+        : null,
       weeklyRepeatEnabled: Boolean(input.weeklyRepeatEnabled),
       updatedAt: serverTimestamp(),
     },
