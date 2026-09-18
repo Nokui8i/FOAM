@@ -38,7 +38,7 @@ import {
   saveUserProfile,
   type UserProfile,
 } from "@/lib/user-profile";
-import { BOOKING_PATH, isAdminEmail } from "@/lib/site-config";
+import { BOOKING_PATH, OPS_PATH, isAdminEmail } from "@/lib/site-config";
 
 type Mode = "signin" | "signup";
 const tabs = ["Details", "Preferences", "Orders", "Payments"] as const;
@@ -205,7 +205,7 @@ function AccountProfile({
             </Button>
             {isAdmin ? (
               <Button size="sm" className="flex-1 sm:flex-none" variant="outline" asChild>
-                <Link href="/admin">Admin</Link>
+                <Link href={OPS_PATH}>Ops</Link>
               </Button>
             ) : null}
             <Button

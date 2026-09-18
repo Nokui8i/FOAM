@@ -3,13 +3,15 @@
 import { useEffect, useState, type FormEvent } from "react";
 import {
   GoogleAuthProvider,
+  getRedirectResult,
   onAuthStateChanged,
   signInWithEmailAndPassword,
   signInWithPopup,
+  signInWithRedirect,
   signOut,
   type User,
 } from "firebase/auth";
-import { LogOut, MessageSquare, Package } from "lucide-react";
+import { LogOut } from "lucide-react";
 
 import { AdminContactsPanel } from "@/components/admin-contacts-panel";
 import { AdminOrdersPanel } from "@/components/admin-orders-panel";
@@ -31,6 +33,18 @@ export function AdminApp() {
 
   useEffect(() => {
     const auth = getFirebaseAuth();
+    void getRedirectResult(auth)
+      .then(async (result) => {
+        if (!result) return;
+        if (!isAdminEmail(result.user.email)) {
+          await signOut(auth);
+          setLoginError("This Google account is not allowed to access admin.");
+        }
+      })
+      .catch(() => {
+        /* ignore stray redirect errors */
+      });
+
     return onAuthStateChanged(auth, (next) => {
       setUser(next);
       setAuthReady(true);
@@ -65,17 +79,23 @@ export function AdminApp() {
   async function handleGoogleLogin() {
     setLoggingIn(true);
     setLoginError("");
+    const auth = getFirebaseAuth();
+    const provider = new GoogleAuthProvider();
     try {
-      const provider = new GoogleAuthProvider();
-      const result = await signInWithPopup(getFirebaseAuth(), provider);
+      const result = await signInWithPopup(auth, provider);
       if (!isAdminEmail(result.user.email)) {
-        await signOut(getFirebaseAuth());
+        await signOut(auth);
         setLoginError("This Google account is not allowed to access admin.");
       }
     } catch {
-      setLoginError(
-        "Google sign-in failed. Enable Google in Firebase Authentication first."
-      );
+      try {
+        await signInWithRedirect(auth, provider);
+        return;
+      } catch {
+        setLoginError(
+          "Google sign-in failed. Enable Google in Firebase Authentication first."
+        );
+      }
     } finally {
       setLoggingIn(false);
     }
@@ -89,9 +109,7 @@ export function AdminApp() {
     return (
       <div className="admin-login">
         <h1 className="admin-title">FOAM Ops</h1>
-        <p className="admin-muted">
-          Orders, weigh-ins, and Contact Us — sign in on phone or desktop.
-        </p>
+        <p className="admin-muted">Sign in to manage orders and inbox.</p>
 
         <Button
           type="button"
@@ -150,41 +168,41 @@ export function AdminApp() {
 
   return (
     <div className="admin-shell">
-      <header className="admin-top">
-        <div>
-          <p className="admin-eyebrow">FOAM Ops</p>
-          <h1 className="admin-title">
-            {tab === "orders" ? "Orders" : "Contact Us"}
-          </h1>
-          <p className="admin-muted">{user.email}</p>
+      <header className="admin-bar">
+        <div className="admin-bar-brand">
+          <span className="admin-bar-mark">FOAM</span>
+          <nav className="admin-bar-nav" aria-label="Ops sections">
+            <button
+              type="button"
+              className={cn("admin-bar-link", tab === "orders" && "is-active")}
+              onClick={() => setTab("orders")}
+            >
+              Orders
+            </button>
+            <button
+              type="button"
+              className={cn(
+                "admin-bar-link",
+                tab === "contacts" && "is-active"
+              )}
+              onClick={() => setTab("contacts")}
+            >
+              Inbox
+            </button>
+          </nav>
         </div>
-        <Button
-          type="button"
-          variant="outline"
-          onClick={() => void signOut(getFirebaseAuth())}
-        >
-          <LogOut /> Sign out
-        </Button>
+        <div className="admin-bar-end">
+          <span className="admin-bar-email">{user.email}</span>
+          <button
+            type="button"
+            className="admin-bar-icon"
+            aria-label="Sign out"
+            onClick={() => void signOut(getFirebaseAuth())}
+          >
+            <LogOut size={16} />
+          </button>
+        </div>
       </header>
-
-      <nav className="admin-tabs" aria-label="Admin sections">
-        <button
-          type="button"
-          className={cn("admin-tab", tab === "orders" && "is-active")}
-          onClick={() => setTab("orders")}
-        >
-          <Package size={16} aria-hidden />
-          Orders
-        </button>
-        <button
-          type="button"
-          className={cn("admin-tab", tab === "contacts" && "is-active")}
-          onClick={() => setTab("contacts")}
-        >
-          <MessageSquare size={16} aria-hidden />
-          Contacts
-        </button>
-      </nav>
 
       {tab === "orders" ? (
         <AdminOrdersPanel adminEmail={user.email ?? ""} />

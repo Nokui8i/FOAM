@@ -1,20 +1,27 @@
 import type { Metadata } from "next";
-
-import { AdminApp } from "@/components/admin-app";
+import Link from "next/link";
 
 export const metadata: Metadata = {
-  title: "Ops | FOAM",
-  description: "FOAM operations — orders and Contact Us.",
+  title: "Not found | FOAM",
   robots: {
     index: false,
     follow: false,
   },
 };
 
-export default function AdminPage() {
+/** Decoy — guessing /admin should not reveal the ops console. */
+export default function AdminDecoyPage() {
   return (
     <main className="admin-page">
-      <AdminApp />
+      <div className="admin-login">
+        <h1 className="admin-title">Page not found</h1>
+        <p className="admin-muted">
+          This page doesn&apos;t exist. Head back to the homepage.
+        </p>
+        <Link href="/" className="admin-muted" style={{ fontWeight: 700 }}>
+          Go home
+        </Link>
+      </div>
     </main>
   );
 }

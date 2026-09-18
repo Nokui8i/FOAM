@@ -101,8 +101,12 @@ export function ContactForm() {
         <label htmlFor="contact-topic">Topic</label>
         <select id="contact-topic" name="topic" defaultValue="General question">
           <option>General question</option>
+          <option>Cancel my order</option>
+          <option>Refund request</option>
+          <option>Billing / price question</option>
           <option>Scheduling help</option>
-          <option>Pricing</option>
+          <option>Change pickup or address</option>
+          <option>Complaint / quality issue</option>
           <option>Dry cleaning</option>
           <option>Account or billing</option>
           <option>Something else</option>
