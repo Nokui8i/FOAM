@@ -4163,6 +4163,10 @@
   height: auto;
 }
 
+.home-mobile-artwork, .home-desktop-artwork { position: relative; }
+@media (min-width: 768px) { .home-mobile-artwork { display: none; } }
+@media (max-width: 767px) { .home-desktop-artwork { display: none; } }
+
 .home-full-image--desktop {
   display: none;
 }

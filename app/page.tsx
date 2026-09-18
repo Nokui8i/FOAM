@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { BOOKING_PATH } from "@/lib/site-config";
+import { WasherAnimation } from "@/components/washer-animation";
 
 export default function Home() {
   return (
@@ -15,6 +16,7 @@ export default function Home() {
         <span id="how" className="home-anchor home-anchor--how" aria-hidden="true" />
         <span id="services" className="home-anchor home-anchor--services" aria-hidden="true" />
         <span id="pricing" className="home-anchor home-anchor--pricing" aria-hidden="true" />
+        <div className="home-mobile-artwork">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src="/home-mockup-mobile-v18.png"
@@ -23,7 +25,10 @@ export default function Home() {
           height={13469}
           className="home-full-image home-full-image--mobile"
         />
+        <WasherAnimation mobile />
+        </div>
         <div className="home-full-desktop-shell">
+          <div className="home-desktop-artwork">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src="/home-mockup-desktop-v21.png"
@@ -32,6 +37,8 @@ export default function Home() {
             height={12960}
             className="home-full-image home-full-image--desktop"
           />
+          <WasherAnimation />
+          </div>
         </div>
       </section>
 
