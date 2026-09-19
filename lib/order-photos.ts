@@ -1,17 +1,18 @@
-import {
-  getDownloadURL,
-  ref,
-  uploadBytes,
-} from "firebase/storage";
-
-import { getFirebaseStorage } from "@/lib/firebase";
 import type { OrderPhotoKind } from "@/lib/orders";
 
-/** Shrink camera shots before upload (keeps Storage/Firestore cheap + fast on mobile). */
+/**
+ * Storage is not provisioned on this Firebase project yet (needs Blaze).
+ * Photos are stored compressed on the order document in Firestore.
+ * Set NEXT_PUBLIC_FIREBASE_STORAGE_ENABLED=true after Storage is live.
+ */
+const STORAGE_ENABLED =
+  process.env.NEXT_PUBLIC_FIREBASE_STORAGE_ENABLED === "true";
+
+/** Shrink camera shots before save (keeps Firestore docs small + fast on mobile). */
 async function compressImage(
   file: File,
-  maxEdge = 1600,
-  quality = 0.82
+  maxEdge = 1280,
+  quality = 0.72
 ): Promise<Blob> {
   if (!file.type.startsWith("image/")) {
     throw new Error("Please choose an image.");
@@ -52,20 +53,51 @@ function blobToDataUrl(blob: Blob): Promise<string> {
   });
 }
 
-/**
- * Prefer Firebase Storage. If the bucket is not provisioned / CORS fails,
- * fall back to a compressed data URL stored on the order in Firestore.
- */
+async function saveInlinePhoto(opts: {
+  orderId: string;
+  kind: OrderPhotoKind;
+  file: File;
+  stamp: number;
+}) {
+  let edge = 1280;
+  let quality = 0.72;
+  let blob = await compressImage(opts.file, edge, quality);
+
+  // Keep well under Firestore's 1MB document limit (base64 expands ~33%).
+  while (blob.size > 450_000 && (edge > 640 || quality > 0.45)) {
+    edge = Math.max(640, Math.round(edge * 0.85));
+    quality = Math.max(0.45, quality - 0.08);
+    blob = await compressImage(opts.file, edge, quality);
+  }
+
+  if (blob.size > 550_000) {
+    throw new Error(
+      "Photo is still too large after compression. Try a clearer, closer shot."
+    );
+  }
+
+  const path = `order-photos/${opts.orderId}/${opts.kind}-${opts.stamp}.jpg`;
+  const url = await blobToDataUrl(blob);
+  return { url, path, kind: opts.kind, storage: "inline" as const };
+}
+
 export async function uploadOrderPhoto(opts: {
   orderId: string;
   kind: OrderPhotoKind;
   file: File;
 }) {
   const stamp = Date.now();
+
+  if (!STORAGE_ENABLED) {
+    return saveInlinePhoto({ ...opts, stamp });
+  }
+
+  const { getDownloadURL, ref, uploadBytes } = await import("firebase/storage");
+  const { getFirebaseStorage } = await import("@/lib/firebase");
   const path = `order-photos/${opts.orderId}/${opts.kind}-${stamp}.jpg`;
 
   try {
-    const blob = await compressImage(opts.file);
+    const blob = await compressImage(opts.file, 1600, 0.82);
     const storageRef = ref(getFirebaseStorage(), path);
     await uploadBytes(storageRef, blob, {
       contentType: "image/jpeg",
@@ -74,14 +106,6 @@ export async function uploadOrderPhoto(opts: {
     const url = await getDownloadURL(storageRef);
     return { url, path, kind: opts.kind, storage: "firebase" as const };
   } catch {
-    // Storage not set up / CORS / rules — keep ops unblocked with inline photo.
-    const blob = await compressImage(opts.file, 1280, 0.72);
-    if (blob.size > 700_000) {
-      throw new Error(
-        "Photo is still too large after compression. Try a clearer, closer shot."
-      );
-    }
-    const url = await blobToDataUrl(blob);
-    return { url, path, kind: opts.kind, storage: "inline" as const };
+    return saveInlinePhoto({ ...opts, stamp });
   }
 }
