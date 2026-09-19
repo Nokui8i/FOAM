@@ -18,6 +18,7 @@ import { AdminContactsPanel } from "@/components/admin-contacts-panel";
 import { AdminOrdersPanel } from "@/components/admin-orders-panel";
 import { Button } from "@/components/ui/button";
 import { getFirebaseAuth, getFirebaseDb } from "@/lib/firebase";
+import { purgeExpiredOpsDataOncePerSession } from "@/lib/data-retention";
 import { isAdminEmail } from "@/lib/site-config";
 import { cn } from "@/lib/utils";
 
@@ -81,6 +82,13 @@ export function AdminApp() {
     return onSnapshot(collection(db, "contactMessages"), (snap) => {
       const open = snap.docs.filter((d) => d.data().status !== "done").length;
       setOpenInquiriesCount(open);
+    });
+  }, [allowed]);
+
+  useEffect(() => {
+    if (!allowed) return;
+    void purgeExpiredOpsDataOncePerSession().catch(() => {
+      /* retention is best-effort; do not block ops */
     });
   }, [allowed]);
 
