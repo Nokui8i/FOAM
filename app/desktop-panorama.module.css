@@ -35,3 +35,38 @@
     mask-image: linear-gradient(to bottom, transparent, #000 3.56%);
   }
 }
+
+@media (max-width: 767px) {
+  .mobilePanorama {
+    overflow: hidden;
+    isolation: isolate;
+    background: #86c1e6;
+  }
+
+  .mobilePanel {
+    position: relative;
+    width: 100%;
+    overflow: hidden;
+  }
+
+  .mobilePanel img {
+    position: absolute;
+    display: block;
+    left: 0;
+    width: 100%;
+    max-width: none;
+  }
+
+  .mobileBlend {
+    margin-top: -5vw;
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0, rgb(0 0 0 / 18%) 1.2vw, rgb(0 0 0 / 62%) 3vw, #000 5vw);
+    mask-image: linear-gradient(to bottom, transparent 0, rgb(0 0 0 / 18%) 1.2vw, rgb(0 0 0 / 62%) 3vw, #000 5vw);
+  }
+
+  /* Preserve the price copy and the final call-to-action near their seams. */
+  .mobileShortBlend {
+    margin-top: -3vw;
+    -webkit-mask-image: linear-gradient(to bottom, transparent, #000 3vw);
+    mask-image: linear-gradient(to bottom, transparent, #000 3vw);
+  }
+}
