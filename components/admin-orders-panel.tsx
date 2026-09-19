@@ -26,7 +26,6 @@ import {
   Search,
   Shirt,
   Truck,
-  UserRound,
   Weight,
   X,
   type LucideIcon,
@@ -577,14 +576,8 @@ export function AdminOrdersPanel({
                 )}
                 onClick={() => selectOrder(row.id)}
               >
-                <span className="ops-row-icon">
-                  <UserRound size={16} />
-                </span>
                 <span className="ops-row-main">
                   <span className="ops-row-name">{row.contact.name}</span>
-                  <span className="ops-row-meta">
-                    {row.pickup.date} · {row.pickup.slot}
-                  </span>
                 </span>
                 <span
                   className={cn(

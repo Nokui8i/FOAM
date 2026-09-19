@@ -5501,9 +5501,9 @@
 .ops-empty { padding: 1.5rem; text-align: center; color: var(--ops-muted); font-size: 0.75rem; }
 .ops-eyebrow {
   margin: 0;
-  font-size: 0.6875rem;
+  font-size: 0.8125rem;
   font-weight: 700;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--ops-primary);
 }
@@ -6050,9 +6050,9 @@
 .ops-count-chip {
   border-radius: var(--ops-radius);
   background: var(--ops-surface);
-  padding: 0.25rem 0.5rem;
+  padding: 0.3rem 0.55rem;
   font-family: var(--ops-display);
-  font-size: 0.75rem;
+  font-size: 0.875rem;
   font-weight: 700;
   color: var(--ops-muted);
 }
@@ -6071,12 +6071,13 @@
 }
 .ops-search input {
   width: 100%;
-  height: 2.5rem;
+  height: 2.65rem;
   border: 1px solid transparent;
   border-radius: var(--ops-radius);
   padding: 0 0.75rem 0 2.25rem;
   background: var(--ops-surface);
   font: inherit;
+  font-size: 1rem;
 }
 .ops-search input:focus {
   outline: 2px solid var(--ops-primary-hover);
@@ -6086,7 +6087,7 @@
 .ops-filter-row {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.25rem;
+  gap: 0.3rem;
   margin-top: 0.75rem;
   padding-bottom: 0.5rem;
   border-bottom: 1px solid var(--ops-border);
@@ -6094,14 +6095,14 @@
 }
 .ops-filter-chip {
   flex: 0 1 auto;
-  height: 1.75rem;
+  height: 2rem;
   border: 0;
   border-radius: var(--ops-radius);
-  padding: 0 0.5rem;
+  padding: 0 0.65rem;
   background: transparent;
   color: var(--ops-muted);
   font: inherit;
-  font-size: 0.6875rem;
+  font-size: 0.875rem;
   font-weight: 600;
   cursor: pointer;
   white-space: nowrap;
@@ -6123,61 +6124,41 @@
 .ops-list-body::-webkit-scrollbar { width: 0; height: 0; }
 .ops-row {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.65rem;
   width: 100%;
-  max-width: 100%;
-  min-height: 4.25rem;
-  padding: 0.65rem 0.75rem;
+  margin: 0;
+  padding: 0.85rem 1rem;
   border: 0;
   border-bottom: 1px solid var(--ops-border);
   background: transparent;
   text-align: left;
   cursor: pointer;
   font: inherit;
-  overflow: hidden;
+  color: inherit;
 }
 .ops-row:hover,
 .ops-row.is-active { background: var(--ops-surface); }
 .ops-row.is-unread .ops-row-name { font-weight: 800; }
-.ops-row-icon {
-  display: grid;
-  place-items: center;
-  width: 2.5rem;
-  height: 2.5rem;
-  flex-shrink: 0;
-  border-radius: var(--ops-radius);
-  border: 1px solid var(--ops-border);
-  background: var(--ops-card);
-  color: var(--ops-primary);
-  box-shadow: 0 1px 2px rgb(0 0 0 / 4%);
-}
 .ops-row-main { min-width: 0; flex: 1; }
 .ops-row-name {
   display: block;
+  font-size: 1rem;
   font-weight: 700;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.ops-row-meta {
-  display: block;
-  margin-top: 0.25rem;
-  font-size: 0.8125rem;
-  color: var(--ops-muted);
+  color: var(--ops-ink);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 .ops-status-pill {
-  flex-shrink: 1;
-  max-width: 100%;
+  flex-shrink: 0;
+  max-width: 11rem;
   border-radius: 999px;
   border: 1px solid var(--ops-border);
   background: var(--ops-card);
-  padding: 0.2rem 0.45rem;
-  font-size: 0.5625rem;
+  padding: 0.35rem 0.55rem;
+  font-size: 0.75rem;
   font-weight: 700;
   text-transform: uppercase;
   color: var(--ops-muted);
@@ -6188,6 +6169,7 @@
 .ops-status-pill.is-lg {
   font-size: 0.8125rem;
   padding: 0.35rem 0.8rem;
+  max-width: none;
 }
 .ops-status-pill.is-new,
 .ops-status-pill.is-open {
@@ -7018,13 +7000,15 @@
   display: flex;
   flex-direction: row;
   align-items: baseline;
-  justify-content: space-between;
-  gap: 0.75rem;
+  justify-content: flex-start;
+  gap: 0.5rem;
   padding: 0;
   border: 0;
   border-radius: 0;
   background: transparent;
   text-align: left;
+  width: fit-content;
+  max-width: 100%;
 }
 .ops-billing-total span {
   font-size: 1rem;
@@ -7035,7 +7019,7 @@
 }
 .ops-billing-total strong {
   font-family: var(--ops-display);
-  font-size: 1.5rem;
+  font-size: 1.35rem;
   font-weight: 700;
   letter-spacing: -0.02em;
   line-height: 1;
@@ -7044,12 +7028,12 @@
 }
 .ops-billing-save {
   margin-top: 0.15rem;
-  width: auto !important;
-  min-width: 12rem;
+  width: fit-content !important;
+  min-width: 0;
   max-width: 100%;
-  height: 2.5rem !important;
-  padding: 0 1rem !important;
-  font-size: 0.9375rem !important;
+  height: 2.35rem !important;
+  padding: 0 0.9rem !important;
+  font-size: 0.875rem !important;
   font-weight: 600 !important;
   background: var(--ops-primary) !important;
   color: #fff !important;
@@ -7061,7 +7045,7 @@
 }
 @media (max-width: 640px) {
   .ops-billing-save {
-    width: 100% !important;
+    width: auto !important;
   }
 }
 
