@@ -664,77 +664,83 @@ export function AdminOrdersPanel({
               </p>
             )}
 
-            <div className="ops-detail-grid">
-              <section className="ops-pickup-card">
-                <p className="ops-pickup-label">Scheduled pickup</p>
-                <div className="ops-pickup-grid">
-                  <div>
-                    <p className="ops-field-label">Date from customer booking</p>
-                    <p className="ops-pickup-value">{selected.pickup.date || "—"}</p>
+            <div className="ops-detail-body">
+              <aside className="ops-detail-aside" aria-label="Stop details">
+                <section className="ops-pickup-card">
+                  <p className="ops-pickup-label">Scheduled pickup</p>
+                  <div className="ops-pickup-grid">
+                    <div>
+                      <p className="ops-field-label">Date</p>
+                      <p className="ops-pickup-value">
+                        {selected.pickup.date || "—"}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="ops-field-label">Time window</p>
+                      <p className="ops-pickup-time">
+                        <Clock3 size={18} />
+                        {selected.pickup.slot || "—"}
+                      </p>
+                    </div>
+                    <div className="ops-pickup-pills">
+                      {isToday(selected.pickup.date) ? (
+                        <span className="ops-today-pill">Today</span>
+                      ) : null}
+                      {selected.pickup.repeat ||
+                      selected.pickup.repeatRequested ? (
+                        <span className="ops-repeat-pill">
+                          <Repeat2 size={12} />
+                          Weekly repeat
+                        </span>
+                      ) : null}
+                    </div>
                   </div>
-                  <div>
-                    <p className="ops-field-label">Time window</p>
-                    <p className="ops-pickup-time">
-                      <Clock3 size={18} />
-                      {selected.pickup.slot || "—"}
-                    </p>
-                  </div>
-                  <div className="ops-pickup-pills">
-                    {isToday(selected.pickup.date) ? (
-                      <span className="ops-today-pill">Today</span>
-                    ) : null}
-                    {selected.pickup.repeat || selected.pickup.repeatRequested ? (
-                      <span className="ops-repeat-pill">
-                        <Repeat2 size={12} />
-                        Weekly repeat
-                      </span>
-                    ) : null}
-                  </div>
-                </div>
-              </section>
+                </section>
 
-              <section className="ops-card">
-                <PanelTitleFixed icon={MapPin} title="Customer & stop" />
-                <div className="ops-fields">
-                  <div>
-                    <p className="ops-field-label">Phone</p>
-                    <p>
-                      <a href={`tel:${selected.contact.phone}`}>
-                        {selected.contact.phone || "—"}
-                      </a>
-                    </p>
+                <section className="ops-card ops-aside-card">
+                  <PanelTitleFixed icon={MapPin} title="Customer & stop" />
+                  <div className="ops-fields ops-fields-stack">
+                    <div>
+                      <p className="ops-field-label">Phone</p>
+                      <p>
+                        <a href={`tel:${selected.contact.phone}`}>
+                          {selected.contact.phone || "—"}
+                        </a>
+                      </p>
+                    </div>
+                    <div>
+                      <p className="ops-field-label">Email</p>
+                      <p>
+                        <a href={`mailto:${selected.contact.email}`}>
+                          {selected.contact.email || "—"}
+                        </a>
+                      </p>
+                    </div>
+                    <div className="ops-field-wide">
+                      <p className="ops-field-label">Full address · Las Vegas</p>
+                      <p>{formatOrderAddress(selected)}</p>
+                    </div>
+                    <div className="ops-field-wide">
+                      <p className="ops-field-label">Access notes</p>
+                      <p>{selected.pickup.notes || "—"}</p>
+                    </div>
+                    <div className="ops-field-wide">
+                      <p className="ops-field-label">Services summary</p>
+                      <p>{servicesSummary(selected)}</p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="ops-field-label">Email</p>
-                    <p>
-                      <a href={`mailto:${selected.contact.email}`}>
-                        {selected.contact.email || "—"}
-                      </a>
-                    </p>
-                  </div>
-                  <div className="ops-field-wide">
-                    <p className="ops-field-label">Full address · Las Vegas</p>
-                    <p>{formatOrderAddress(selected)}</p>
-                  </div>
-                  <div className="ops-field-wide">
-                    <p className="ops-field-label">Access notes</p>
-                    <p>{selected.pickup.notes || "—"}</p>
-                  </div>
-                  <div className="ops-field-wide">
-                    <p className="ops-field-label">Services summary</p>
-                    <p>{servicesSummary(selected)}</p>
-                  </div>
-                </div>
-                <a
-                  className="ops-link"
-                  href={mapsUrl(selected)}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  Open address in Maps <ExternalLink size={14} />
-                </a>
-              </section>
+                  <a
+                    className="ops-link"
+                    href={mapsUrl(selected)}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    Open address in Maps <ExternalLink size={14} />
+                  </a>
+                </section>
+              </aside>
 
+              <div className="ops-detail-main">
               <section className="ops-flow" aria-label="Order stages">
                 <div className="ops-flow-head">
                   <PanelTitleFixed
@@ -1007,7 +1013,7 @@ export function AdminOrdersPanel({
                   );
                 })}
               </section>
-
+              </div>
             </div>
           </article>
         )}
