@@ -5464,12 +5464,17 @@
   --ops-nav-active: #2a333c;
   --ops-shadow: 0 8px 24px rgb(26 26 26 / 7%);
   --ops-radius: 0.5rem;
-  --ops-font: "DM Sans", sans-serif;
-  --ops-display: "Manrope", sans-serif;
+  --ops-font: "Figtree", ui-sans-serif, system-ui, sans-serif;
+  --ops-display: "Figtree", ui-sans-serif, system-ui, sans-serif;
   min-height: 100dvh;
   background: var(--ops-surface);
   color: var(--ops-ink);
   font-family: var(--ops-font);
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 .admin-page:has(.ops-login) {
   height: 100dvh;
@@ -6254,7 +6259,8 @@
   margin: 0;
   font-family: var(--ops-display);
   font-size: 1.35rem;
-  font-weight: 800;
+  font-weight: 700;
+  letter-spacing: -0.015em;
 }
 .ops-inquiry-head h2 { margin-top: 1rem; }
 .ops-icon-row { display: flex; gap: 0.5rem; }
@@ -6337,7 +6343,7 @@
 .ops-detail-main {
   min-width: 0;
   min-height: 0;
-  max-width: 26rem;
+  max-width: 31rem;
   width: 100%;
   justify-self: start;
   overflow-x: hidden;
@@ -6351,7 +6357,7 @@
 @media (min-width: 1100px) {
   .ops-detail-main {
     max-height: 100%;
-    max-width: 26rem;
+    max-width: 31rem;
   }
 }
 .ops-aside-card .ops-fields-stack {
@@ -6403,16 +6409,16 @@
 .ops-field-label {
   margin: 0;
   font-size: 0.6875rem;
-  font-weight: 800;
-  letter-spacing: 0.08em;
+  font-weight: 600;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--ops-muted);
 }
 .ops-fields p:not(.ops-field-label) {
   margin: 0.25rem 0 0;
   font-size: 0.9rem;
-  font-weight: 700;
-  line-height: 1.4;
+  font-weight: 500;
+  line-height: 1.45;
   word-break: break-word;
   color: var(--ops-ink);
 }
@@ -6479,10 +6485,10 @@
   border-bottom: 1px solid var(--ops-border);
 }
 .ops-flow-head .ops-panel-title h3 {
-  font-weight: 800;
+  font-weight: 700;
 }
 .ops-flow-head .ops-panel-title p {
-  font-weight: 600;
+  font-weight: 500;
   color: var(--ops-ink);
   opacity: 0.72;
 }
@@ -6570,13 +6576,14 @@
   margin: 0;
   font-family: var(--ops-display);
   font-size: 1.05rem;
-  font-weight: 800;
+  font-weight: 700;
   color: var(--ops-ink);
+  letter-spacing: -0.01em;
 }
 .ops-flow-state {
   font-size: 0.6875rem;
-  font-weight: 800;
-  letter-spacing: 0.08em;
+  font-weight: 700;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--ops-muted);
 }
@@ -6592,17 +6599,17 @@
 .ops-flow-blurb {
   margin: 0.35rem 0 0;
   font-size: 0.8125rem;
-  font-weight: 600;
-  line-height: 1.4;
+  font-weight: 500;
+  line-height: 1.45;
   color: var(--ops-ink);
   opacity: 0.72;
-  max-width: 22rem;
+  max-width: 26.5rem;
 }
 .ops-flow-panel {
   display: grid;
   gap: 0.75rem;
   margin-top: 0.75rem;
-  max-width: 22rem;
+  max-width: 26.5rem;
 }
 .ops-flow-panel .ops-step-help,
 .ops-flow-panel .ops-field-label,
@@ -6618,8 +6625,8 @@
 .ops-flow-wait-note {
   margin: 0;
   font-size: 0.8125rem;
-  font-weight: 700;
-  line-height: 1.45;
+  font-weight: 500;
+  line-height: 1.5;
   color: var(--ops-ink);
   opacity: 0.85;
 }
@@ -6633,8 +6640,8 @@
 }
 .ops-flow-preview-card strong {
   font-size: 0.75rem;
-  font-weight: 800;
-  letter-spacing: 0.06em;
+  font-weight: 700;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
   color: var(--ops-muted);
 }
@@ -6684,12 +6691,13 @@
   margin: 0;
   font-family: var(--ops-display);
   font-size: 1.05rem;
-  font-weight: 800;
+  font-weight: 700;
+  letter-spacing: -0.01em;
 }
 .ops-panel-title p {
   margin: 0.2rem 0 0;
   font-size: 0.75rem;
-  font-weight: 600;
+  font-weight: 500;
   color: var(--ops-muted);
 }
 .ops-fields {
@@ -6817,9 +6825,12 @@
 }
 .ops-todo-list li {
   font-size: 0.8125rem;
-  font-weight: 700;
+  font-weight: 500;
   color: var(--ops-ink);
-  line-height: 1.4;
+  line-height: 1.45;
+}
+.ops-todo-list li strong {
+  font-weight: 700;
 }
 .ops-photo-upload {
   position: relative;
@@ -6846,7 +6857,7 @@
   background: var(--ops-card);
   border: 1.5px solid var(--ops-primary);
   color: var(--ops-primary);
-  font-weight: 800;
+  font-weight: 700;
 }
 .ops-photo-upload input {
   position: absolute;
