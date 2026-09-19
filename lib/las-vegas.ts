@@ -97,20 +97,29 @@ type AddressComponent = {
   types: string[];
 };
 
+/** Pull a Las Vegas mailing ZIP (891xx) from free-form Places text. */
+export function extractLasVegasZip(...parts: string[]) {
+  const text = parts.filter(Boolean).join(" ");
+  const match = text.match(/\b(891\d{2})(?:-\d{4})?\b/);
+  return match?.[1] ?? "";
+}
+
 /**
  * Extract whatever Google returned. Incomplete picks (route-only) still fill
  * street name + ZIP so the form isn't left empty — `complete` is false until
  * a house number is present.
  */
 export function parseGoogleAddressComponents(
-  components: AddressComponent[] | undefined
+  components: AddressComponent[] | undefined,
+  fallbackText = ""
 ): ParsedStreetAddress | null {
-  if (!components?.length) return null;
+  if (!components?.length && !fallbackText.trim()) return null;
 
   const get = (type: string, short = false) => {
-    const hit = components.find((c) => c.types.includes(type));
+    const hit = components?.find((c) => c.types.includes(type));
     if (!hit) return "";
-    return short ? hit.short_name : hit.long_name;
+    if (short) return hit.short_name || hit.long_name || "";
+    return hit.long_name || hit.short_name || "";
   };
 
   const streetNumber = get("street_number");
@@ -121,19 +130,33 @@ export function parseGoogleAddressComponents(
     get("sublocality") ||
     get("neighborhood") ||
     get("postal_town");
-  const zip = get("postal_code");
+  let zip =
+    get("postal_code") ||
+    get("postal_code", true) ||
+    extractLasVegasZip(
+      fallbackText,
+      ...(components || []).flatMap((c) => [c.long_name, c.short_name])
+    );
 
-  if (!route && !streetNumber) return null;
+  if (!route && !streetNumber && !fallbackText.trim()) return null;
 
   const city = normalizeLasVegasCity(locality || LAS_VEGAS_CITY);
   // Outside service area — reject entirely
   if (city !== LAS_VEGAS_CITY) return null;
   if (zip && !isLasVegasZip(zip)) return null;
 
-  const address = `${streetNumber} ${route}`.trim();
+  let address = `${streetNumber} ${route}`.trim();
+  if (!address && fallbackText.trim()) {
+    // e.g. "12 Verbena Rose Court, Las Vegas, NV 891…"
+    address = fallbackText.split(",")[0]?.trim() || fallbackText.trim();
+  }
   if (!address) return null;
 
-  const complete = Boolean(streetNumber && route && zip && isLasVegasZip(zip));
+  if (!zip) zip = extractLasVegasZip(fallbackText, address);
+
+  const complete = Boolean(
+    hasHouseNumber(address) && zip && isLasVegasZip(zip)
+  );
 
   return {
     address,

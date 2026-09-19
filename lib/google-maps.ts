@@ -92,7 +92,7 @@ export function loadGoogleMapsPlaces(): Promise<typeof google> {
         // Classic callback + libraries=places is the reliable path for AutocompleteService
         script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(
           key
-        )}&libraries=places&v=weekly&callback=${callbackName}`;
+        )}&libraries=places&v=weekly&loading=async&callback=${callbackName}`;
         script.onerror = () => {
           delete window[callbackName];
           reject(new Error("Google Maps failed to load"));

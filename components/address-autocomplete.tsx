@@ -28,6 +28,8 @@ type SuggestionItem = {
   id: string;
   main: string;
   secondary: string;
+  /** Full prediction description — often includes ZIP */
+  description?: string;
   /** Legacy place id, or new PlacePrediction handle */
   placeId?: string;
   prediction?: google.maps.places.PlacePrediction;
@@ -36,20 +38,42 @@ type SuggestionItem = {
 type GoogleComponent = {
   long_name?: string;
   short_name?: string;
-  longText?: string;
-  shortText?: string;
+  longText?: string | (() => string);
+  shortText?: string | (() => string);
   types: string[];
 };
+
+function readComponentText(value: string | (() => string) | undefined) {
+  if (!value) return "";
+  if (typeof value === "function") {
+    try {
+      return String(value() || "");
+    } catch {
+      return "";
+    }
+  }
+  return String(value);
+}
 
 function normalizeComponents(
   raw: GoogleComponent[] | undefined
 ): { long_name: string; short_name: string; types: string[] }[] | undefined {
   if (!raw?.length) return undefined;
-  return raw.map((c) => ({
-    long_name: c.long_name || c.longText || "",
-    short_name: c.short_name || c.shortText || "",
-    types: c.types || [],
-  }));
+  return raw.map((c) => {
+    const long =
+      c.long_name ||
+      readComponentText(c.longText) ||
+      "";
+    const short =
+      c.short_name ||
+      readComponentText(c.shortText) ||
+      long;
+    return {
+      long_name: long,
+      short_name: short,
+      types: c.types || [],
+    };
+  });
 }
 
 export function AddressAutocomplete({
@@ -202,10 +226,45 @@ export function AddressAutocomplete({
     onAddressChange(item.main);
 
     try {
-      const components = await fetchPlaceComponents(item);
-      const parsed = parseGoogleAddressComponents(
-        normalizeComponents(components)
+      const placeData = await fetchPlaceData(item);
+      const hint = [
+        item.description,
+        item.main,
+        item.secondary,
+        placeData.formatted,
+        "Las Vegas, NV",
+      ]
+        .filter(Boolean)
+        .join(", ");
+      let parsed = parseGoogleAddressComponents(
+        normalizeComponents(placeData.components),
+        hint
       );
+
+      // Place details sometimes omit postal_code — geocode the chosen label.
+      if (!parsed?.zip) {
+        const geoQueries = [
+          hint,
+          `${item.main}, Las Vegas, NV`,
+          item.description || "",
+          item.main,
+        ].filter((q, i, arr) => q.trim() && arr.indexOf(q) === i);
+
+        for (const query of geoQueries) {
+          const geo = await geocodeAddressData(query);
+          const next = parseGoogleAddressComponents(
+            normalizeComponents(geo.components) ||
+              normalizeComponents(placeData.components),
+            [query, geo.formatted, hint].filter(Boolean).join(", ")
+          );
+          if (next?.zip) {
+            parsed = next;
+            break;
+          }
+          if (!parsed && next) parsed = next;
+        }
+      }
+
       if (parsed) {
         onPlaceSelect(parsed);
         if (parsed.complete) {
@@ -433,8 +492,6 @@ async function fetchPredictions(
         const bNum = /^\d/.test(b.main) ? 0 : 1;
         return aNum - bNum;
       })
-      .map(({ description: _d, ...rest }) => rest);
-
   // Classic AutocompleteService — reliable with libraries=places
   if (typeof places.AutocompleteService === "function") {
     const service = new places.AutocompleteService();
@@ -469,104 +526,116 @@ async function fetchPredictions(
 
     let items = toItems(await request(true));
     if (!items.length) items = toItems(await request(false));
-    if (items.length) return items;
+    return items;
   }
 
-  // Optional new Autocomplete Data API
-  try {
-    const AutocompleteSuggestion = (
-      places as unknown as {
-        AutocompleteSuggestion?: {
-          fetchAutocompleteSuggestions: (r: unknown) => Promise<{
-            suggestions: Array<{
-              placePrediction?: google.maps.places.PlacePrediction;
-            }>;
-          }>;
-        };
-      }
-    ).AutocompleteSuggestion;
-
-    if (!AutocompleteSuggestion?.fetchAutocompleteSuggestions) return [];
-
-    const { suggestions } =
-      await AutocompleteSuggestion.fetchAutocompleteSuggestions({
-        input: query,
-        includedRegionCodes: ["us"],
-        locationRestriction: {
-          west: LAS_VEGAS_BOUNDS.west,
-          south: LAS_VEGAS_BOUNDS.south,
-          east: LAS_VEGAS_BOUNDS.east,
-          north: LAS_VEGAS_BOUNDS.north,
-        },
-        ...(sessionToken ? { sessionToken } : {}),
-      });
-
-    return (suggestions || [])
-      .map((s, i) => {
-        const p = s.placePrediction;
-        if (!p) return null;
-        const text = p.text?.toString?.() || "";
-        const main =
-          p.mainText?.toString?.() || text.split(",")[0]?.trim() || text;
-        const secondary =
-          p.secondaryText?.toString?.() ||
-          text.replace(main, "").replace(/^,\s*/, "").trim();
-        if (
-          !isPickupStreetSuggestion(main) ||
-          !isLasVegasSuggestionText(main, secondary, text)
-        ) {
-          return null;
-        }
-        return {
-          id: p.placeId || `new-${i}-${main}`,
-          main,
-          secondary,
-          placeId: p.placeId,
-          prediction: p,
-        } satisfies SuggestionItem;
-      })
-      .filter(Boolean) as SuggestionItem[];
-  } catch {
-    return [];
-  }
+  return [];
 }
 
-async function fetchPlaceComponents(
-  item: SuggestionItem
-): Promise<GoogleComponent[] | undefined> {
-  // New PlacePrediction → Place.fetchFields
-  if (item.prediction && typeof item.prediction.toPlace === "function") {
-    const place = item.prediction.toPlace();
-    await place.fetchFields({
-      fields: ["addressComponents", "formattedAddress", "location", "displayName"],
-    });
-    return place.addressComponents as GoogleComponent[] | undefined;
-  }
+type PlaceData = {
+  components?: GoogleComponent[];
+  formatted?: string;
+};
 
-  if (!item.placeId) return undefined;
-
-  const service = new google.maps.places.PlacesService(
-    document.createElement("div")
+async function geocodeAddressData(address: string): Promise<PlaceData> {
+  if (!address.trim() || !window.google?.maps?.Geocoder) return {};
+  const geocoder = new google.maps.Geocoder();
+  const bounds = new google.maps.LatLngBounds(
+    { lat: LAS_VEGAS_BOUNDS.south, lng: LAS_VEGAS_BOUNDS.west },
+    { lat: LAS_VEGAS_BOUNDS.north, lng: LAS_VEGAS_BOUNDS.east }
   );
-  const detail = await new Promise<google.maps.places.PlaceResult | null>(
+
+  const response = await new Promise<google.maps.GeocoderResult[] | null>(
     (resolve) => {
-      service.getDetails(
+      geocoder.geocode(
         {
-          placeId: item.placeId!,
-          fields: ["address_components", "formatted_address", "geometry", "name"],
+          address,
+          componentRestrictions: { country: "US" },
+          bounds,
         },
-        (result, status) => {
-          if (
-            status !== google.maps.places.PlacesServiceStatus.OK ||
-            !result
-          ) {
+        (results, status) => {
+          if (status !== "OK" || !results?.length) {
             resolve(null);
             return;
           }
-          resolve(result);
+          resolve(results);
         }
       );
     }
   );
-  return detail?.address_components as GoogleComponent[] | undefined;
+
+  const top = response?.[0];
+  return {
+    components: top?.address_components as GoogleComponent[] | undefined,
+    formatted: top?.formatted_address,
+  };
+}
+
+async function fetchPlaceData(item: SuggestionItem): Promise<PlaceData> {
+  // New PlacePrediction → Place.fetchFields
+  if (item.prediction && typeof item.prediction.toPlace === "function") {
+    try {
+      const place = item.prediction.toPlace();
+      await place.fetchFields({
+        fields: [
+          "addressComponents",
+          "formattedAddress",
+          "location",
+          "displayName",
+        ],
+      });
+      const comps = place.addressComponents as GoogleComponent[] | undefined;
+      const formatted =
+        typeof place.formattedAddress === "string"
+          ? place.formattedAddress
+          : undefined;
+      if (comps?.length || formatted) {
+        return { components: comps, formatted };
+      }
+    } catch {
+      /* fall through to classic details / geocode */
+    }
+  }
+
+  if (item.placeId) {
+    const service = new google.maps.places.PlacesService(
+      document.createElement("div")
+    );
+    const detail = await new Promise<google.maps.places.PlaceResult | null>(
+      (resolve) => {
+        service.getDetails(
+          {
+            placeId: item.placeId!,
+            fields: [
+              "address_components",
+              "formatted_address",
+              "geometry",
+              "name",
+            ],
+          },
+          (result, status) => {
+            if (
+              status !== google.maps.places.PlacesServiceStatus.OK ||
+              !result
+            ) {
+              resolve(null);
+              return;
+            }
+            resolve(result);
+          }
+        );
+      }
+    );
+    if (detail?.address_components?.length || detail?.formatted_address) {
+      return {
+        components: detail.address_components as GoogleComponent[] | undefined,
+        formatted: detail.formatted_address,
+      };
+    }
+  }
+
+  const hint = [item.description, item.main, item.secondary, "Las Vegas, NV"]
+    .filter(Boolean)
+    .join(", ");
+  return geocodeAddressData(hint);
 }
