@@ -149,9 +149,15 @@ export function parseGoogleAddressComponents(
   if (city !== LAS_VEGAS_CITY) return null;
 
   let address = `${streetNumber} ${route}`.trim();
-  if (!address && fallbackText.trim()) {
-    // e.g. "12 Verbena Rose Court, Las Vegas, NV 891…"
-    address = fallbackText.split(",")[0]?.trim() || fallbackText.trim();
+  if (fallbackText.trim()) {
+    const fromFallback =
+      fallbackText.split(",")[0]?.trim() || fallbackText.trim();
+    // Place details often return route-only even when the suggestion had "12 …"
+    if (!hasHouseNumber(address) && hasHouseNumber(fromFallback)) {
+      address = fromFallback;
+    } else if (!address) {
+      address = fromFallback;
+    }
   }
   if (!address) return null;
 
