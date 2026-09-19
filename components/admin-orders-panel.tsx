@@ -46,6 +46,7 @@ import {
   dryCleanItemsTotal,
   formatOrderAddress,
   isCollectedStage,
+  isInProgressOrder,
   isWaitingForPickup,
   normalizeOrderStatus,
   orderPipelineIndex,
@@ -58,13 +59,21 @@ import {
 import { BUSINESS_WHATSAPP } from "@/lib/site-config";
 import { cn } from "@/lib/utils";
 
-type Filter = "active" | "new" | "today" | "cancelled" | "done" | "all";
+type Filter =
+  | "waiting"
+  | "progress"
+  | "today"
+  | "upcoming"
+  | "cancelled"
+  | "done"
+  | "all";
 type MobileView = "list" | "detail";
 
 const FILTERS: { id: Filter; label: string }[] = [
-  { id: "active", label: "Active" },
-  { id: "new", label: "Waiting" },
+  { id: "waiting", label: "Waiting" },
+  { id: "progress", label: "In progress" },
   { id: "today", label: "Today" },
+  { id: "upcoming", label: "Upcoming" },
   { id: "cancelled", label: "Cancelled" },
   { id: "done", label: "Done" },
   { id: "all", label: "All" },
@@ -189,7 +198,7 @@ export function AdminOrdersPanel({
 }) {
   const [rows, setRows] = useState<FoamOrder[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [filter, setFilter] = useState<Filter>("active");
+  const [filter, setFilter] = useState<Filter>("waiting");
   const [queryText, setQueryText] = useState("");
   const [error, setError] = useState("");
   const [okMsg, setOkMsg] = useState("");
@@ -225,15 +234,19 @@ export function AdminOrdersPanel({
   const counts = useMemo(() => {
     const today = todayIso();
     return {
-      active: rows.filter(
-        (r) => r.status !== "delivered" && r.status !== "cancelled"
+      waiting: rows.filter((r) => isWaitingForPickup(r.status)).length,
+      progress: rows.filter((r) => isInProgressOrder(r.status)).length,
+      today: rows.filter(
+        (r) => r.pickup.date === today && r.status !== "cancelled"
       ).length,
-      new: rows.filter((r) => isWaitingForPickup(r.status)).length,
-      today: rows.filter((r) => r.pickup.date === today).length,
+      upcoming: rows.filter(
+        (r) =>
+          r.pickup.date > today &&
+          r.status !== "cancelled" &&
+          r.status !== "delivered"
+      ).length,
       cancelled: rows.filter((r) => r.status === "cancelled").length,
-      done: rows.filter(
-        (r) => r.status === "delivered" || r.status === "cancelled"
-      ).length,
+      done: rows.filter((r) => r.status === "delivered").length,
       all: rows.length,
     };
   }, [rows]);
@@ -242,22 +255,26 @@ export function AdminOrdersPanel({
     const q = queryText.trim().toLowerCase();
     const today = todayIso();
     return rows.filter((row) => {
-      if (filter === "new" && !isWaitingForPickup(row.status)) return false;
-      if (filter === "today" && row.pickup.date !== today) return false;
+      if (filter === "waiting" && !isWaitingForPickup(row.status)) return false;
+      if (filter === "progress" && !isInProgressOrder(row.status)) return false;
+      if (
+        filter === "today" &&
+        (row.pickup.date !== today || row.status === "cancelled")
+      ) {
+        return false;
+      }
+      if (
+        filter === "upcoming" &&
+        !(
+          row.pickup.date > today &&
+          row.status !== "cancelled" &&
+          row.status !== "delivered"
+        )
+      ) {
+        return false;
+      }
       if (filter === "cancelled" && row.status !== "cancelled") return false;
-      if (
-        filter === "done" &&
-        row.status !== "delivered" &&
-        row.status !== "cancelled"
-      ) {
-        return false;
-      }
-      if (
-        filter === "active" &&
-        (row.status === "delivered" || row.status === "cancelled")
-      ) {
-        return false;
-      }
+      if (filter === "done" && row.status !== "delivered") return false;
       if (!q) return true;
       const hay = [
         row.contact.name,
@@ -324,6 +341,9 @@ export function AdminOrdersPanel({
 
   async function setStatus(status: OrderStatus) {
     await patchOrder({ status }, `Status → ${shortStatus(status)}`);
+    if (status === "delivered") setFilter("done");
+    else if (status === "cancelled") setFilter("cancelled");
+    else if (isInProgressOrder(status)) setFilter("progress");
   }
 
   const dryMatches = useMemo(() => {
@@ -465,6 +485,7 @@ export function AdminOrdersPanel({
       },
       `Charged · $${finalTotal.toFixed(2)} · Collected`
     );
+    setFilter("progress");
   }
 
   const previewTotal = useMemo(() => {
@@ -541,7 +562,7 @@ export function AdminOrdersPanel({
             />
           </label>
 
-          <div className="ops-filter-row" role="tablist" aria-label="Filter orders">
+          <div className="ops-filter-row" role="tablist" aria-label="Order tabs">
             {FILTERS.map((item) => (
               <button
                 key={item.id}
@@ -555,6 +576,7 @@ export function AdminOrdersPanel({
                 onClick={() => setFilter(item.id)}
               >
                 {item.label}
+                <span className="ops-filter-count">{counts[item.id]}</span>
               </button>
             ))}
           </div>

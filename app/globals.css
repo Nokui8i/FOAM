@@ -6087,22 +6087,25 @@
 .ops-filter-row {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.3rem;
-  margin-top: 0.75rem;
-  padding-bottom: 0.5rem;
+  gap: 0.4rem;
+  margin-top: 0.85rem;
+  padding-bottom: 0.65rem;
   border-bottom: 1px solid var(--ops-border);
-  overflow: hidden;
+  overflow: visible;
 }
 .ops-filter-chip {
   flex: 0 1 auto;
-  height: 2rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  height: 2.15rem;
   border: 0;
   border-radius: var(--ops-radius);
-  padding: 0 0.65rem;
+  padding: 0 0.75rem;
   background: transparent;
   color: var(--ops-muted);
   font: inherit;
-  font-size: 0.875rem;
+  font-size: 0.9375rem;
   font-weight: 600;
   cursor: pointer;
   white-space: nowrap;
@@ -6111,6 +6114,18 @@
 .ops-filter-chip:hover {
   background: var(--ops-primary);
   color: #fff;
+}
+.ops-filter-count {
+  display: inline-grid;
+  place-items: center;
+  min-width: 1.25rem;
+  height: 1.25rem;
+  padding: 0 0.3rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, currentColor 14%, transparent);
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1;
 }
 .ops-list-body {
   flex: 1;
@@ -6578,13 +6593,13 @@
 .ops-flow-title-row h3 {
   margin: 0;
   font-family: var(--ops-display);
-  font-size: 1.35rem;
+  font-size: 1.45rem;
   font-weight: 700;
   color: var(--ops-ink);
   letter-spacing: -0.015em;
 }
 .ops-flow-state {
-  font-size: 0.8125rem;
+  font-size: 0.875rem;
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -6600,12 +6615,12 @@
   color: var(--ops-muted);
 }
 .ops-flow-blurb {
-  margin: 0.45rem 0 0;
-  font-size: 1.0625rem;
+  margin: 0.5rem 0 0;
+  font-size: 1.2rem;
   font-weight: 600;
   line-height: 1.5;
   color: var(--ops-ink);
-  opacity: 0.9;
+  opacity: 0.92;
   max-width: 32rem;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
@@ -6613,18 +6628,18 @@
 .ops-flow-panel {
   display: grid;
   gap: 0.9rem;
-  margin-top: 0.85rem;
+  margin-top: 0.9rem;
   max-width: 32rem;
 }
 .ops-flow-panel .ops-step-help,
 .ops-flow-panel .ops-field-label,
 .ops-flow-panel .ops-weight-field {
   font-weight: 700;
-  font-size: 1rem;
+  font-size: 1.1rem;
   color: var(--ops-ink);
 }
 .ops-flow-panel .ops-field-label {
-  font-size: 0.8125rem;
+  font-size: 0.875rem;
   color: var(--ops-muted);
 }
 .ops-flow-subsection {
@@ -6636,7 +6651,7 @@
 .ops-flow-later,
 .ops-step-help {
   margin: 0;
-  font-size: 1.0625rem;
+  font-size: 1.2rem;
   font-weight: 600;
   line-height: 1.5;
   color: var(--ops-ink);

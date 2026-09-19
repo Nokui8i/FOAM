@@ -168,6 +168,16 @@ export function isCollectedStage(status: OrderStatus) {
   return status === "picked_up" || status === "weighed";
 }
 
+/** After charge — plant / wash / drop-off until delivered. */
+export function isInProgressOrder(status: OrderStatus) {
+  return (
+    status === "picked_up" ||
+    status === "weighed" ||
+    status === "washing" ||
+    status === "out_for_delivery"
+  );
+}
+
 export type OrderPhotoKind =
   | "pickup"
   | "weight"
