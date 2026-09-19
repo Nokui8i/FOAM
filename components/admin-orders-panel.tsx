@@ -828,7 +828,9 @@ export function AdminOrdersPanel({
                           </span>
                         </button>
 
-                        <p className="ops-flow-blurb">{step.preview}</p>
+                        {!(active && open) ? (
+                          <p className="ops-flow-blurb">{step.preview}</p>
+                        ) : null}
 
                         {open ? (
                           <div className="ops-flow-panel">
