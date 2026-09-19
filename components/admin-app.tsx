@@ -154,18 +154,18 @@ export function AdminApp() {
   if (!user) {
     return (
       <main className="ops-login">
-        <section className="ops-login-form-pane">
-          <div className="ops-login-card">
+        <div className="ops-login-frame">
+          <header className="ops-login-chrome">
             <FoamMark />
-            <div className="ops-login-intro">
-              <p className="ops-eyebrow">Staff operations</p>
-              <h1 className="ops-login-title">Good to see you.</h1>
-              <p className="ops-muted">
-                Sign in to manage pickups, plant workflow, deliveries, and
-                customer inquiries.
+            <div className="ops-login-chrome-copy">
+              <h1 className="ops-login-title">Staff sign in</h1>
+              <p className="ops-login-hint">
+                Manage pickups, plant workflow, and deliveries.
               </p>
             </div>
+          </header>
 
+          <div className="ops-login-card">
             <Button
               type="button"
               size="lg"
@@ -186,7 +186,7 @@ export function AdminApp() {
 
             <form className="ops-login-fields" onSubmit={handleLogin}>
               <label>
-                Email address
+                Email
                 <input
                   name="email"
                   type="email"
@@ -206,38 +206,16 @@ export function AdminApp() {
                 />
               </label>
               {loginError ? <p className="ops-error">{loginError}</p> : null}
-              <Button type="submit" size="lg" disabled={loggingIn}>
-                {loggingIn ? "Signing in…" : "Sign in"}
+              <Button type="submit" size="lg" className="ops-login-cta" disabled={loggingIn}>
+                {loggingIn ? "Signing in…" : "Continue"}
               </Button>
             </form>
-
-            <p className="ops-login-foot">
-              Private console for authorized FOAM staff.
-            </p>
           </div>
-        </section>
 
-        <section className="ops-login-brand" aria-hidden>
-          <div className="ops-login-brand-pattern" />
-          <div className="ops-login-brand-ring" />
-          <div className="ops-login-brand-copy">
-            <div className="ops-login-dots">
-              <span />
-              <span />
-              <span />
-            </div>
-            <p className="ops-login-brand-title">
-              Every pickup.
-              <br />
-              Every detail.
-              <br />
-              Right on time.
-            </p>
-            <p className="ops-login-brand-sub">
-              The calm, focused workspace behind FOAM’s Las Vegas service.
-            </p>
-          </div>
-        </section>
+          <p className="ops-login-foot">
+            Private console for authorized FOAM staff.
+          </p>
+        </div>
       </main>
     );
   }
@@ -245,22 +223,27 @@ export function AdminApp() {
   if (!allowed) {
     return (
       <main className="ops-login">
-        <section className="ops-login-form-pane">
-          <div className="ops-login-card">
+        <div className="ops-login-frame">
+          <header className="ops-login-chrome">
             <FoamMark />
-            <h1 className="ops-login-title">Access denied</h1>
-            <p className="ops-muted">
-              Signed in as {user.email}, but this account is not an admin.
-            </p>
+            <div className="ops-login-chrome-copy">
+              <h1 className="ops-login-title">Access denied</h1>
+              <p className="ops-login-hint">
+                Signed in as {user.email}, but this account is not an admin.
+              </p>
+            </div>
+          </header>
+          <div className="ops-login-card ops-login-card--center">
             <Button
               type="button"
-              variant="outline"
+              size="lg"
+              className="ops-login-cta"
               onClick={() => void signOut(getFirebaseAuth())}
             >
               Sign out
             </Button>
           </div>
-        </section>
+        </div>
       </main>
     );
   }
