@@ -16,7 +16,6 @@ import {
   Camera,
   Check,
   ChevronDown,
-  CircleDollarSign,
   Clock3,
   ExternalLink,
   MapPin,
