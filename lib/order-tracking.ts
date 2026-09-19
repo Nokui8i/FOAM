@@ -66,6 +66,12 @@ export function customerPipelineSteps(status: OrderStatus) {
 
   return ORDER_PIPELINE_STEPS.map((step, index) => {
     const copy = CUSTOMER_PIPELINE_LABELS[step.id];
+    let label = copy.label;
+    let hint = copy.hint;
+    if (step.id === "waiting" && status === "confirmed") {
+      label = "Driver on the way";
+      hint = "Your courier left to pick up your bags.";
+    }
     let state: "done" | "active" | "upcoming" | "cancelled" = "upcoming";
     if (cancelled) {
       state = index === 0 ? "cancelled" : "upcoming";
@@ -78,8 +84,8 @@ export function customerPipelineSteps(status: OrderStatus) {
     }
     return {
       id: step.id,
-      label: copy.label,
-      hint: copy.hint,
+      label,
+      hint,
       state,
     };
   });

@@ -45,6 +45,7 @@ import {
   dryCleanItemsTotal,
   formatOrderAddress,
   isCollectedStage,
+  isEnRouteToPickup,
   isInProgressOrder,
   isWaitingForPickup,
   normalizeOrderStatus,
@@ -56,6 +57,7 @@ import {
   type OrderPhotoKind,
   type OrderStatus,
 } from "@/lib/orders";
+import { firstNameFromContact } from "@/lib/order-tracking";
 import { BUSINESS_WHATSAPP } from "@/lib/site-config";
 import { cn } from "@/lib/utils";
 
@@ -78,6 +80,8 @@ const FILTERS: { id: Filter; label: string }[] = [
   { id: "done", label: "Done" },
   { id: "all", label: "All" },
 ];
+const PRIMARY_FILTERS = FILTERS.slice(0, 3);
+const MORE_FILTERS = FILTERS.slice(3);
 
 function todayIso() {
   const d = new Date();
@@ -85,6 +89,25 @@ function todayIso() {
   const m = String(d.getMonth() + 1).padStart(2, "0");
   const day = String(d.getDate()).padStart(2, "0");
   return `${y}-${m}-${day}`;
+}
+
+function formatCreatedAt(
+  value: FoamOrder["createdAt"] | { toDate?: () => Date } | null | undefined
+) {
+  if (!value || typeof value !== "object" || typeof value.toDate !== "function") {
+    return "—";
+  }
+  try {
+    const date = value.toDate();
+    return date.toLocaleString(undefined, {
+      month: "short",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    });
+  } catch {
+    return "—";
+  }
 }
 
 function mapsUrl(order: FoamOrder) {
@@ -209,9 +232,7 @@ export function AdminOrdersPanel({
   const [openCatalog, setOpenCatalog] = useState(false);
   const [saving, setSaving] = useState(false);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
-  const [expandedSteps, setExpandedSteps] = useState<Record<string, boolean>>(
-    {}
-  );
+  const [showMoreFilters, setShowMoreFilters] = useState(false);
 
   useEffect(() => {
     const db = getFirebaseDb();
@@ -315,19 +336,15 @@ export function AdminOrdersPanel({
     setError("");
   }, [selected?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  useEffect(() => {
-    if (!selected) return;
-    const current = orderPipelineIndex(selected.status);
-    const activeId = ORDER_PIPELINE_STEPS[Math.max(0, current)]?.id;
-    setExpandedSteps(activeId ? { [activeId]: true } : {});
-  }, [selected?.id, selected?.status]);
-
-  async function patchOrder(data: Record<string, unknown>, ok = "Saved.") {
-    if (!selected) return;
+  async function patchOrderDoc(
+    order: FoamOrder,
+    data: Record<string, unknown>,
+    ok = "Saved."
+  ) {
     setSaving(true);
     setError("");
     try {
-      await updateDoc(doc(getFirebaseDb(), "orders", selected.id), {
+      await updateDoc(doc(getFirebaseDb(), "orders", order.id), {
         ...data,
         statusUpdatedAt: serverTimestamp(),
         lastUpdatedBy: adminEmail,
@@ -337,9 +354,9 @@ export function AdminOrdersPanel({
         typeof data.status === "string"
           ? normalizeOrderStatus(data.status)
           : null;
-      if (nextStatus && selected.trackKey) {
+      if (nextStatus && order.trackKey) {
         try {
-          await updateDoc(doc(getFirebaseDb(), "orderTracks", selected.trackKey), {
+          await updateDoc(doc(getFirebaseDb(), "orderTracks", order.trackKey), {
             status: nextStatus,
             updatedAt: serverTimestamp(),
           });
@@ -356,11 +373,30 @@ export function AdminOrdersPanel({
     }
   }
 
+  async function patchOrder(data: Record<string, unknown>, ok = "Saved.") {
+    if (!selected) return;
+    await patchOrderDoc(selected, data, ok);
+  }
+
   async function setStatus(status: OrderStatus) {
     await patchOrder({ status }, `Status → ${shortStatus(status)}`);
     if (status === "delivered") setFilter("done");
     else if (status === "cancelled") setFilter("cancelled");
     else if (isInProgressOrder(status)) setFilter("progress");
+  }
+
+  async function markLeftForPickup(order: FoamOrder) {
+    setSelectedId(order.id);
+    await patchOrderDoc(
+      order,
+      { status: "confirmed" },
+      "En route to pickup — customer tracking updated"
+    );
+    const first = firstNameFromContact(order.contact.name) || "there";
+    const body = `Hi ${first}, this is FOAM — your courier is on the way to pick up your bags (${order.pickup.date} · ${order.pickup.slot}).`;
+    window.open(waUrl(order.contact.phone, body), "_blank", "noopener,noreferrer");
+    setFilter("waiting");
+    onMobileViewChange("detail");
   }
 
   const dryMatches = useMemo(() => {
@@ -508,7 +544,7 @@ export function AdminOrdersPanel({
         status: "washing",
         "pricing.finalTotalPending": false,
       },
-      `Charged · $${finalTotal.toFixed(2)} · In progress`
+      `Charged · $${finalTotal.toFixed(2)} · Washing`
     );
     setFilter("progress");
   }
@@ -537,7 +573,13 @@ export function AdminOrdersPanel({
 
   const stageAction = (() => {
     if (!selected || selected.status === "cancelled") return null;
-    // Legacy "at plant" statuses + washing share one In progress stage
+    if (selected.status === "new") {
+      return {
+        label: "Left for pickup",
+        next: "confirmed" as const,
+      };
+    }
+    // Legacy "at plant" statuses + washing share one Washing stage
     if (
       isCollectedStage(selected.status) ||
       selected.status === "washing"
@@ -556,6 +598,8 @@ export function AdminOrdersPanel({
   const customerMsg = selected
     ? `Hi ${selected.contact.name.split(" ")[0] || "there"}, this is FOAM about your pickup on ${selected.pickup.date} (${selected.pickup.slot}).`
     : "";
+
+  const stage = selected ? orderPipelineIndex(selected.status) : 0;
 
   function selectOrder(id: string) {
     setSelectedId(id);
@@ -589,7 +633,7 @@ export function AdminOrdersPanel({
           </label>
 
           <div className="ops-filter-row" role="tablist" aria-label="Order tabs">
-            {FILTERS.map((item) => (
+            {PRIMARY_FILTERS.map((item) => (
               <button
                 key={item.id}
                 type="button"
@@ -605,7 +649,49 @@ export function AdminOrdersPanel({
                 <span className="ops-filter-count">{counts[item.id]}</span>
               </button>
             ))}
+            <button
+              type="button"
+              className={cn(
+                "ops-filter-chip ops-filter-more",
+                showMoreFilters && "is-open"
+              )}
+              aria-expanded={showMoreFilters}
+              onClick={() => setShowMoreFilters((v) => !v)}
+            >
+              More
+              <ChevronDown
+                size={14}
+                className={cn("ops-flow-chevron", showMoreFilters && "is-open")}
+                aria-hidden
+              />
+            </button>
           </div>
+
+          {showMoreFilters ||
+          MORE_FILTERS.some((item) => item.id === filter) ? (
+            <div
+              className="ops-filter-row ops-filter-row-more"
+              role="tablist"
+              aria-label="More order tabs"
+            >
+              {MORE_FILTERS.map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={filter === item.id}
+                  className={cn(
+                    "ops-filter-chip",
+                    filter === item.id && "is-active"
+                  )}
+                  onClick={() => setFilter(item.id)}
+                >
+                  {item.label}
+                  <span className="ops-filter-count">{counts[item.id]}</span>
+                </button>
+              ))}
+            </div>
+          ) : null}
         </div>
 
         {error && !selected ? <p className="ops-error ops-pad">{error}</p> : null}
@@ -615,29 +701,51 @@ export function AdminOrdersPanel({
             <p className="ops-empty">Live orders will appear here.</p>
           ) : (
             filtered.map((row) => (
-              <button
+              <div
                 key={row.id}
-                type="button"
                 className={cn(
                   "ops-row",
                   selectedId === row.id && "is-active"
                 )}
-                onClick={() => selectOrder(row.id)}
               >
-                <span className="ops-row-main">
-                  <span className="ops-row-name">{row.contact.name}</span>
-                </span>
-                <span
-                  className={cn(
-                    "ops-status-pill",
-                    row.status === "delivered" && "is-done",
-                    row.status === "cancelled" && "is-cancelled",
-                    isWaitingForPickup(row.status) && "is-new"
-                  )}
+                <button
+                  type="button"
+                  className="ops-row-select"
+                  onClick={() => selectOrder(row.id)}
                 >
-                  {shortStatus(row.status)}
-                </span>
-              </button>
+                  <span className="ops-row-main">
+                    <span className="ops-row-name">{row.contact.name}</span>
+                    <span className="ops-row-sub">
+                      {row.pickup.date} · {row.pickup.slot}
+                    </span>
+                    <span className="ops-row-meta">
+                      Ordered {formatCreatedAt(row.createdAt)}
+                    </span>
+                  </span>
+                  <span
+                    className={cn(
+                      "ops-status-pill",
+                      row.status === "delivered" && "is-done",
+                      row.status === "cancelled" && "is-cancelled",
+                      row.status === "new" && "is-new",
+                      isEnRouteToPickup(row.status) && "is-en-route"
+                    )}
+                  >
+                    {shortStatus(row.status)}
+                  </span>
+                </button>
+                {row.status === "new" ? (
+                  <button
+                    type="button"
+                    className="ops-row-action"
+                    disabled={saving}
+                    onClick={() => void markLeftForPickup(row)}
+                  >
+                    <Truck size={14} aria-hidden />
+                    Left for pickup
+                  </button>
+                ) : null}
+              </div>
             ))
           )}
         </div>
@@ -674,7 +782,8 @@ export function AdminOrdersPanel({
                         "ops-status-pill is-lg",
                         selected.status === "cancelled" && "is-cancelled",
                         selected.status === "delivered" && "is-done",
-                        isWaitingForPickup(selected.status) && "is-new"
+                        selected.status === "new" && "is-new",
+                        isEnRouteToPickup(selected.status) && "is-en-route"
                       )}
                     >
                       {shortStatus(selected.status)}
@@ -682,6 +791,8 @@ export function AdminOrdersPanel({
                   </div>
                   <p className="ops-muted">
                     {selected.pickup.date} · {selected.pickup.slot}
+                    {" · "}
+                    Ordered {formatCreatedAt(selected.createdAt)}
                   </p>
                 </div>
                 <div className="ops-icon-row">
@@ -802,327 +913,375 @@ export function AdminOrdersPanel({
                   <PanelTitleFixed icon={Truck} title="Order progress" />
                 </div>
 
-                {ORDER_PIPELINE_STEPS.map((step, index) => {
-                  const current = orderPipelineIndex(selected.status);
-                  const done =
-                    selected.status !== "cancelled" && current > index;
-                  const active =
-                    selected.status !== "cancelled" && current === index;
-                  const upcoming = !done && !active;
-                  const open = expandedSteps[step.id] ?? active;
-
-                  return (
-                    <div
-                      key={step.id}
-                      className={cn(
-                        "ops-flow-step",
-                        done && "is-done",
-                        active && "is-active",
-                        upcoming && "is-upcoming",
-                        open && "is-open"
-                      )}
-                    >
-                      <div className="ops-flow-rail" aria-hidden>
-                        <span className="ops-flow-dot">
-                          {done ? <Check size={12} /> : index + 1}
-                        </span>
-                        {index < ORDER_PIPELINE_STEPS.length - 1 ? (
-                          <span className="ops-flow-line" />
-                        ) : null}
-                      </div>
-
-                      <div className="ops-flow-body">
-                        <button
-                          type="button"
-                          className="ops-flow-title-row"
-                          aria-expanded={open}
-                          onClick={() =>
-                            setExpandedSteps(() =>
-                              open && !active
-                                ? {
-                                    [ORDER_PIPELINE_STEPS[
-                                      Math.max(0, current)
-                                    ]?.id ?? step.id]: true,
-                                  }
-                                : { [step.id]: true }
-                            )
-                          }
-                        >
-                          <h3>{step.label}</h3>
-                          <span className="ops-flow-title-end">
-                            <span className="ops-flow-state">
-                              {done ? "Done" : active ? "Now" : "Next"}
-                            </span>
-                            <ChevronDown
-                              size={16}
-                              className={cn(
-                                "ops-flow-chevron",
-                                open && "is-open"
-                              )}
-                              aria-hidden
-                            />
+                <div className="ops-timeline">
+                  {ORDER_PIPELINE_STEPS.map((step, index) => {
+                    const cancelled = selected.status === "cancelled";
+                    const done = !cancelled && stage > index;
+                    const active = !cancelled && stage === index;
+                    return (
+                      <div
+                        key={step.id}
+                        className={cn(
+                          "ops-timeline-step",
+                          done && "is-done",
+                          active && "is-active"
+                        )}
+                      >
+                        <div className="ops-timeline-node-row">
+                          <span className="ops-timeline-dot">
+                            {done ? <Check size={12} /> : index + 1}
                           </span>
-                        </button>
+                          {index < ORDER_PIPELINE_STEPS.length - 1 ? (
+                            <span className="ops-timeline-line" />
+                          ) : null}
+                        </div>
+                        <span className="ops-timeline-label">{step.label}</span>
+                      </div>
+                    );
+                  })}
+                </div>
 
-                        {open ? (
-                          <div className="ops-flow-panel">
-                            {active && index === 0 ? (
-                              <>
-                            {selected.services.laundry ? (
-                              <>
-                                <label className="ops-weight-field">
-                                  Weight in pounds
-                                  <span className="ops-weight-input">
-                                    <input
-                                      type="number"
-                                      inputMode="decimal"
-                                      min={0}
-                                      step={0.1}
-                                      value={weightInput}
-                                      onChange={(e) =>
-                                        setWeightInput(e.target.value)
-                                      }
-                                      placeholder="0.0"
-                                    />
-                                    <span>lb</span>
-                                  </span>
-                                </label>
-                                <div className="ops-photo-block">
-                                  <p className="ops-field-label">
-                                    Scale photo
-                                  </p>
-                                  <label className="ops-photo-upload is-primary">
-                                    <Camera size={16} aria-hidden />
-                                    <span>
-                                      {uploadingPhoto
-                                        ? "Uploading…"
-                                        : weightPhotos.length
-                                          ? "Add another scale photo"
-                                          : "Upload scale photo"}
-                                    </span>
-                                    <input
-                                      type="file"
-                                      accept="image/*"
-                                      capture="environment"
-                                      disabled={uploadingPhoto || saving}
-                                      onChange={(e) => {
-                                        const file = e.target.files?.[0] ?? null;
-                                        void handleOrderPhoto(file, "weight");
-                                        e.target.value = "";
-                                      }}
-                                    />
-                                  </label>
-                                  {weightPhotos.length ? (
-                                    <div className="ops-photo-thumbs">
-                                      {weightPhotos.map((photo) => (
-                                        <a
-                                          key={photo.url}
-                                          href={photo.url}
-                                          target="_blank"
-                                          rel="noreferrer"
-                                          className="ops-photo-thumb"
-                                        >
-                                          <img
-                                            src={photo.url}
-                                            alt="Weight scale photo"
-                                          />
-                                        </a>
-                                      ))}
-                                    </div>
-                                  ) : null}
-                                </div>
-                              </>
-                            ) : null}
+                {selected.status === "cancelled" ? (
+                  <div className="ops-cancelled-note">
+                    <p className="ops-flow-done-note">
+                      This order was cancelled — no further action needed.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="ops-stage-card">
+                    {stage === 0 ? (
+                      selected.status === "new" ? (
+                      <>
+                        <div className="ops-stage-card-head">
+                          <Truck size={16} aria-hidden />
+                          <h3>Start pickup run</h3>
+                          <span className="ops-stage-badge">Action needed</span>
+                        </div>
+                        <p className="ops-flow-done-note">
+                          Mark Left for pickup when you leave for this stop.
+                          The customer&rsquo;s tracking page updates, and WhatsApp
+                          opens so you can notify them you&rsquo;re on the way.
+                        </p>
+                        <div className="ops-action-row">
+                          <Button
+                            type="button"
+                            className="ops-btn-lg"
+                            disabled={saving || uploadingPhoto}
+                            onClick={() => void markLeftForPickup(selected)}
+                          >
+                            <Truck size={16} />
+                            Left for pickup
+                          </Button>
+                        </div>
+                      </>
+                      ) : (
+                      <>
+                        <div className="ops-stage-card-head">
+                          <Shirt size={16} aria-hidden />
+                          <h3>At the customer&rsquo;s stop</h3>
+                          <span className="ops-stage-badge">
+                            {isEnRouteToPickup(selected.status)
+                              ? "En route · collect"
+                              : "Action needed"}
+                          </span>
+                        </div>
 
-                            <div className="ops-flow-subsection">
-                              <p className="ops-field-label">
-                                Dry cleaning items
-                              </p>
-                              <div className="ops-catalog">
-                                <Button
-                                  type="button"
-                                  variant="outline"
-                                  className="ops-catalog-toggle"
-                                  onClick={() => setOpenCatalog((v) => !v)}
-                                >
-                                  Choose catalog items
-                                  <ChevronDown size={16} />
-                                </Button>
-                                {openCatalog ? (
-                                  <div className="ops-catalog-menu">
-                                    <label className="ops-search is-compact">
-                                      <Search size={14} aria-hidden />
-                                      <input
-                                        autoFocus
-                                        value={dryQuery}
-                                        onChange={(e) =>
-                                          setDryQuery(e.target.value)
-                                        }
-                                        placeholder="Search catalog"
-                                      />
-                                    </label>
-                                    <div className="ops-catalog-list">
-                                      {dryMatches.length === 0 ? (
-                                        <p className="ops-catalog-empty">
-                                          No catalog matches
-                                        </p>
-                                      ) : (
-                                        dryMatches.map((item) => (
-                                          <button
-                                            key={item.name}
-                                            type="button"
-                                            className="ops-catalog-item"
-                                            onClick={() => addDryItem(item)}
-                                          >
-                                            <span>{item.name}</span>
-                                            <strong>
-                                              ${item.price.toFixed(2)}
-                                            </strong>
-                                          </button>
-                                        ))
-                                      )}
-                                    </div>
-                                  </div>
-                                ) : null}
-                              </div>
-                              <div className="ops-chips">
-                                {dryItems.length ? (
-                                  dryItems.map((item, itemIndex) => (
-                                    <span
-                                      key={`${item.name}-${itemIndex}`}
-                                      className="ops-chip"
+                        {selected.services.laundry ? (
+                          <>
+                            <label className="ops-weight-field">
+                              Weight in pounds
+                              <span className="ops-weight-input">
+                                <input
+                                  type="number"
+                                  inputMode="decimal"
+                                  min={0}
+                                  step={0.1}
+                                  value={weightInput}
+                                  onChange={(e) =>
+                                    setWeightInput(e.target.value)
+                                  }
+                                  placeholder="0.0"
+                                />
+                                <span>lb</span>
+                              </span>
+                            </label>
+                            <div className="ops-photo-block">
+                              <p className="ops-field-label">Scale photo</p>
+                              <label className="ops-photo-upload is-primary">
+                                <Camera size={16} aria-hidden />
+                                <span>
+                                  {uploadingPhoto
+                                    ? "Uploading…"
+                                    : weightPhotos.length
+                                      ? "Add another scale photo"
+                                      : "Upload scale photo"}
+                                </span>
+                                <input
+                                  type="file"
+                                  accept="image/*"
+                                  capture="environment"
+                                  disabled={uploadingPhoto || saving}
+                                  onChange={(e) => {
+                                    const file = e.target.files?.[0] ?? null;
+                                    void handleOrderPhoto(file, "weight");
+                                    e.target.value = "";
+                                  }}
+                                />
+                              </label>
+                              {weightPhotos.length ? (
+                                <div className="ops-photo-thumbs">
+                                  {weightPhotos.map((photo) => (
+                                    <a
+                                      key={photo.url}
+                                      href={photo.url}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className="ops-photo-thumb"
                                     >
-                                      {item.name}{" "}
-                                      <b>${item.price.toFixed(2)}</b>
-                                      <button
-                                        type="button"
-                                        aria-label={`Remove ${item.name}`}
-                                        onClick={() =>
-                                          removeDryItem(itemIndex)
-                                        }
-                                      >
-                                        <X size={12} />
-                                      </button>
-                                    </span>
-                                  ))
-                                ) : (
-                                  <span className="ops-chips-empty">
-                                    No items selected
-                                  </span>
-                                )}
-                              </div>
+                                      <img
+                                        src={photo.url}
+                                        alt="Weight scale photo"
+                                      />
+                                    </a>
+                                  ))}
+                                </div>
+                              ) : null}
                             </div>
+                          </>
+                        ) : null}
 
-                            <div className="ops-billing-card">
-                              <div className="ops-billing-total">
-                                <span>Total</span>
-                                <strong>
-                                  {previewTotal != null
-                                    ? `$${previewTotal.toFixed(2)}`
-                                    : selected.finalTotal != null
-                                      ? `$${selected.finalTotal.toFixed(2)}`
-                                      : "—"}
-                                </strong>
-                              </div>
-                              <Button
-                                type="button"
-                                className="ops-billing-save"
-                                disabled={saving || uploadingPhoto}
-                                onClick={() => void saveBilling()}
-                              >
-                                Charge & mark collected
-                              </Button>
-                            </div>
-                              </>
-                            ) : null}
-
-                            {active &&
-                            selected.status === "out_for_delivery" ? (
-                              <div className="ops-photo-block">
-                                <p className="ops-field-label">
-                                  Delivery photo
-                                </p>
-                                <label className="ops-photo-upload is-primary">
-                                  <Camera size={16} aria-hidden />
-                                  <span>
-                                    {uploadingPhoto
-                                      ? "Uploading…"
-                                      : deliveryPhotos.length
-                                        ? "Add another delivery photo"
-                                        : "Upload delivery photo"}
-                                  </span>
+                        <div className="ops-flow-subsection">
+                          <p className="ops-field-label">
+                            Dry cleaning items
+                          </p>
+                          <div className="ops-catalog">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              className="ops-catalog-toggle"
+                              onClick={() => setOpenCatalog((v) => !v)}
+                            >
+                              Choose catalog items
+                              <ChevronDown size={16} />
+                            </Button>
+                            {openCatalog ? (
+                              <div className="ops-catalog-menu">
+                                <label className="ops-search is-compact">
+                                  <Search size={14} aria-hidden />
                                   <input
-                                    type="file"
-                                    accept="image/*"
-                                    capture="environment"
-                                    disabled={uploadingPhoto || saving}
-                                    onChange={(e) => {
-                                      const file = e.target.files?.[0] ?? null;
-                                      void handleOrderPhoto(file, "return");
-                                      e.target.value = "";
-                                    }}
+                                    autoFocus
+                                    value={dryQuery}
+                                    onChange={(e) =>
+                                      setDryQuery(e.target.value)
+                                    }
+                                    placeholder="Search catalog"
                                   />
                                 </label>
-                                {deliveryPhotos.length ? (
-                                  <div className="ops-photo-thumbs">
-                                    {deliveryPhotos.map((photo) => (
-                                      <a
-                                        key={photo.url}
-                                        href={photo.url}
-                                        target="_blank"
-                                        rel="noreferrer"
-                                        className="ops-photo-thumb"
+                                <div className="ops-catalog-list">
+                                  {dryMatches.length === 0 ? (
+                                    <p className="ops-catalog-empty">
+                                      No catalog matches
+                                    </p>
+                                  ) : (
+                                    dryMatches.map((item) => (
+                                      <button
+                                        key={item.name}
+                                        type="button"
+                                        className="ops-catalog-item"
+                                        onClick={() => addDryItem(item)}
                                       >
-                                        <img
-                                          src={photo.url}
-                                          alt="Delivery proof photo"
-                                        />
-                                      </a>
-                                    ))}
-                                  </div>
-                                ) : null}
+                                        <span>{item.name}</span>
+                                        <strong>
+                                          ${item.price.toFixed(2)}
+                                        </strong>
+                                      </button>
+                                    ))
+                                  )}
+                                </div>
                               </div>
-                            ) : null}
-
-                            {active && stageAction ? (
-                              <div className="ops-action-row">
-                                <Button
-                                  type="button"
-                                  className="ops-btn-lg"
-                                  disabled={saving || uploadingPhoto}
-                                  onClick={() => {
-                                    if (stageAction.next === "delivered") {
-                                      void markDelivered();
-                                      return;
-                                    }
-                                    void setStatus(stageAction.next);
-                                  }}
-                                >
-                                  <PackageCheck size={16} />
-                                  {stageAction.label}
-                                </Button>
-                              </div>
-                            ) : null}
-
-                            {done ? (
-                              <p className="ops-flow-done-note">
-                                {index === 0 && selected.finalTotal != null
-                                  ? `Charged $${selected.finalTotal.toFixed(2)}${
-                                      selected.weightLbs
-                                        ? ` · ${selected.weightLbs} lb`
-                                        : ""
-                                    }`
-                                  : index === 3 && deliveryPhotos.length
-                                    ? "Delivered with photo"
-                                    : "Completed"}
-                              </p>
                             ) : null}
                           </div>
+                          <div className="ops-chips">
+                            {dryItems.length ? (
+                              dryItems.map((item, itemIndex) => (
+                                <span
+                                  key={`${item.name}-${itemIndex}`}
+                                  className="ops-chip"
+                                >
+                                  {item.name} <b>${item.price.toFixed(2)}</b>
+                                  <button
+                                    type="button"
+                                    aria-label={`Remove ${item.name}`}
+                                    onClick={() => removeDryItem(itemIndex)}
+                                  >
+                                    <X size={12} />
+                                  </button>
+                                </span>
+                              ))
+                            ) : (
+                              <span className="ops-chips-empty">
+                                No items selected
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="ops-billing-card">
+                          <div className="ops-billing-total">
+                            <span>Total</span>
+                            <strong>
+                              {previewTotal != null
+                                ? `$${previewTotal.toFixed(2)}`
+                                : selected.finalTotal != null
+                                  ? `$${selected.finalTotal.toFixed(2)}`
+                                  : "—"}
+                            </strong>
+                          </div>
+                          <Button
+                            type="button"
+                            className="ops-billing-save"
+                            disabled={saving || uploadingPhoto}
+                            onClick={() => void saveBilling()}
+                          >
+                            Charge & mark collected
+                          </Button>
+                        </div>
+                      </>
+                      )
+                    ) : null}
+
+                    {stage === 1 ? (
+                      <>
+                        <div className="ops-stage-card-head">
+                          <Weight size={16} aria-hidden />
+                          <h3>Washing — nothing to do right now</h3>
+                        </div>
+                        <div className="ops-stage-stats">
+                          <div>
+                            <p className="ops-field-label">Weighed</p>
+                            <p className="ops-stage-stat-value">
+                              {selected.weightLbs
+                                ? `${selected.weightLbs} lb`
+                                : "—"}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="ops-field-label">Charged</p>
+                            <p className="ops-stage-stat-value">
+                              {selected.finalTotal != null
+                                ? `$${selected.finalTotal.toFixed(2)}`
+                                : "—"}
+                            </p>
+                          </div>
+                        </div>
+                        {stageAction ? (
+                          <div className="ops-action-row">
+                            <Button
+                              type="button"
+                              className="ops-btn-lg"
+                              disabled={saving || uploadingPhoto}
+                              onClick={() => void setStatus(stageAction.next)}
+                            >
+                              <PackageCheck size={16} />
+                              {stageAction.label}
+                            </Button>
+                          </div>
                         ) : null}
-                      </div>
-                    </div>
-                  );
-                })}
+                      </>
+                    ) : null}
+
+                    {stage === 2 ? (
+                      <>
+                        <div className="ops-stage-card-head">
+                          <Truck size={16} aria-hidden />
+                          <h3>With the driver</h3>
+                        </div>
+                        <div className="ops-photo-block">
+                          <p className="ops-field-label">Delivery photo</p>
+                          <label className="ops-photo-upload is-primary">
+                            <Camera size={16} aria-hidden />
+                            <span>
+                              {uploadingPhoto
+                                ? "Uploading…"
+                                : deliveryPhotos.length
+                                  ? "Add another delivery photo"
+                                  : "Upload delivery photo"}
+                            </span>
+                            <input
+                              type="file"
+                              accept="image/*"
+                              capture="environment"
+                              disabled={uploadingPhoto || saving}
+                              onChange={(e) => {
+                                const file = e.target.files?.[0] ?? null;
+                                void handleOrderPhoto(file, "return");
+                                e.target.value = "";
+                              }}
+                            />
+                          </label>
+                          {deliveryPhotos.length ? (
+                            <div className="ops-photo-thumbs">
+                              {deliveryPhotos.map((photo) => (
+                                <a
+                                  key={photo.url}
+                                  href={photo.url}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="ops-photo-thumb"
+                                >
+                                  <img
+                                    src={photo.url}
+                                    alt="Delivery proof photo"
+                                  />
+                                </a>
+                              ))}
+                            </div>
+                          ) : null}
+                        </div>
+                        {stageAction ? (
+                          <div className="ops-action-row">
+                            <Button
+                              type="button"
+                              className="ops-btn-lg"
+                              disabled={saving || uploadingPhoto}
+                              onClick={() => {
+                                if (stageAction.next === "delivered") {
+                                  void markDelivered();
+                                  return;
+                                }
+                                void setStatus(stageAction.next);
+                              }}
+                            >
+                              <PackageCheck size={16} />
+                              {stageAction.label}
+                            </Button>
+                          </div>
+                        ) : null}
+                      </>
+                    ) : null}
+
+                    {stage === 3 ? (
+                      <>
+                        <div className="ops-stage-card-head">
+                          <Check size={16} aria-hidden />
+                          <h3>Delivered — order complete</h3>
+                        </div>
+                        <p className="ops-flow-done-note">
+                          {selected.finalTotal != null
+                            ? `Charged $${selected.finalTotal.toFixed(2)}${
+                                selected.weightLbs
+                                  ? ` · ${selected.weightLbs} lb`
+                                  : ""
+                              }`
+                            : "Completed"}
+                          {deliveryPhotos.length
+                            ? " · Delivered with photo"
+                            : ""}
+                        </p>
+                      </>
+                    ) : null}
+                  </div>
+                )}
               </section>
               </div>
             </div>

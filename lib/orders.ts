@@ -21,18 +21,18 @@ export type OrderStatus = (typeof ORDER_STATUSES)[number];
 
 export const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
   new: "Waiting for pickup",
-  confirmed: "Waiting for pickup",
-  picked_up: "In progress",
-  weighed: "In progress",
-  washing: "In progress",
+  confirmed: "En route to pickup",
+  picked_up: "Washing",
+  weighed: "Washing",
+  washing: "Washing",
   out_for_delivery: "Out for delivery",
   delivered: "Delivered",
   cancelled: "Cancelled",
 };
 
 export const ORDER_STATUS_HELP: Record<OrderStatus, string> = {
-  new: "At the customer stop — weigh, photo, then charge.",
-  confirmed: "At the customer stop — weigh, photo, then charge.",
+  new: "Tap Left for pickup when the driver leaves for the customer.",
+  confirmed: "Driver is on the way — at the stop, weigh, photo, then charge.",
   picked_up: "At the plant / being washed. Tap when it leaves for the customer.",
   weighed: "At the plant / being washed. Tap when it leaves for the customer.",
   washing: "Being washed. Tap when it leaves for the customer.",
@@ -113,18 +113,19 @@ export const ORDER_STATUS_NEXT: Partial<Record<OrderStatus, OrderStatus[]>> = {
   cancelled: [],
 };
 
-/** Visual pipeline (ops + customer). At-plant merged into In progress. */
+/** Visual pipeline (ops + customer). At-plant merged into Washing. */
 export const ORDER_PIPELINE_STEPS = [
   {
     id: "waiting",
     label: "At stop",
     statuses: ["new", "confirmed"],
-    preview: "Weigh, photo the scale, add dry-clean if needed, then charge.",
-    actionHint: "Charge & mark collected",
+    preview:
+      "First: Left for pickup. At the stop: weigh, photo, dry-clean, then charge.",
+    actionHint: "Left for pickup → Charge & collect",
   },
   {
     id: "progress",
-    label: "In progress",
+    label: "Washing",
     statuses: ["picked_up", "weighed", "washing"],
     preview: "At the plant and being washed.",
     actionHint: "Out for delivery",
@@ -155,6 +156,11 @@ export function orderPipelineIndex(status: OrderStatus): number {
 
 export function isWaitingForPickup(status: OrderStatus) {
   return status === "new" || status === "confirmed";
+}
+
+/** Driver left the depot / plant and is heading to collect bags. */
+export function isEnRouteToPickup(status: OrderStatus) {
+  return status === "confirmed";
 }
 
 export function isCollectedStage(status: OrderStatus) {
