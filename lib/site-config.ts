@@ -1,12 +1,17 @@
 // Single booking form for the whole site — header, footer, CTAs, etc.
 export const BOOKING_PATH = "/book";
 
+/** Private ops console path (not linked from public marketing pages). */
+export const OPS_PATH =
+  process.env.NEXT_PUBLIC_OPS_PATH?.trim() || "/ops";
+
 // ⚠️ EDIT ME — replace with the real FOAM contact email.
 export const CONTACT_EMAIL = "hello@foamlaundry.com";
 
-/** Comma-separated admin emails allowed into /admin */
+/** Comma-separated admin emails allowed into the ops console */
 export const ADMIN_EMAILS = (
-  process.env.NEXT_PUBLIC_ADMIN_EMAILS ?? "paylocksmith@gmail.com"
+  process.env.NEXT_PUBLIC_ADMIN_EMAILS ??
+  "paylocksmith@gmail.com,iaaoamar12@gmail.com"
 )
   .split(",")
   .map((email) => email.trim().toLowerCase())

@@ -20,15 +20,86 @@ export const ORDER_STATUSES = [
 export type OrderStatus = (typeof ORDER_STATUSES)[number];
 
 export const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
-  new: "New",
-  confirmed: "Confirmed",
-  picked_up: "Picked up",
-  weighed: "Weighed",
-  washing: "Washing",
-  out_for_delivery: "Out for delivery",
-  delivered: "Delivered",
+  new: "1 · New order",
+  confirmed: "2 · Confirmed",
+  picked_up: "3 · Picked up",
+  weighed: "4 · Weighed",
+  washing: "5 · Washing",
+  out_for_delivery: "6 · Out for delivery",
+  delivered: "7 · Delivered",
   cancelled: "Cancelled",
 };
+
+export const ORDER_STATUS_HELP: Record<OrderStatus, string> = {
+  new: "Just submitted — call/text to confirm pickup window.",
+  confirmed: "Customer confirmed — go collect bags.",
+  picked_up: "Bags in van — weigh at facility.",
+  weighed: "Weight + total saved — start wash.",
+  washing: "In process — prepare return.",
+  out_for_delivery: "On the way back to customer.",
+  delivered: "Done — closed.",
+  cancelled: "Order stopped — keep notes why.",
+};
+
+/** Ops / customer-service situations to resolve in admin */
+export const ORDER_ISSUE_OPTIONS = [
+  { id: "", label: "No open issue" },
+  // Customer service / money
+  { id: "cancel_request", label: "CS · Cancel request" },
+  { id: "refund_request", label: "CS · Refund request" },
+  { id: "billing_dispute", label: "CS · Billing / price dispute" },
+  { id: "complaint", label: "CS · Complaint / bad experience" },
+  { id: "change_request", label: "CS · Change date, address, or prefs" },
+  { id: "repeat_stop", label: "CS · Stop weekly / automation" },
+  // Field / pickup
+  { id: "no_answer", label: "Field · No answer / unreachable" },
+  { id: "not_home", label: "Field · Not home at pickup/return" },
+  { id: "access_blocked", label: "Field · Gate / access blocked" },
+  { id: "wrong_address", label: "Field · Wrong / incomplete address" },
+  { id: "no_bags", label: "Field · No bags ready" },
+  { id: "extra_bags", label: "Field · More bags than ordered" },
+  { id: "outside_area", label: "Field · Outside service area" },
+  // Product quality
+  { id: "contaminated", label: "Quality · Contaminated items" },
+  { id: "damaged_in", label: "Quality · Damage at pickup" },
+  { id: "damaged_out", label: "Quality · Damage claim after return" },
+  { id: "missing_item", label: "Quality · Missing item claim" },
+  { id: "weight_dispute", label: "Quality · Weight / total dispute" },
+  { id: "payment_fail", label: "Money · Payment / tip failed" },
+  { id: "reschedule", label: "Ops · Needs reschedule" },
+  { id: "other", label: "Other — see notes" },
+] as const;
+
+export type OrderIssueId = (typeof ORDER_ISSUE_OPTIONS)[number]["id"];
+
+export const REFUND_STATUSES = [
+  "none",
+  "requested",
+  "approved",
+  "issued",
+  "denied",
+] as const;
+
+export type RefundStatus = (typeof REFUND_STATUSES)[number];
+
+export const REFUND_STATUS_LABELS: Record<RefundStatus, string> = {
+  none: "No refund",
+  requested: "Refund requested",
+  approved: "Refund approved",
+  issued: "Refund issued",
+  denied: "Refund denied",
+};
+
+export const CANCEL_REASONS = [
+  "",
+  "Customer requested",
+  "Could not reach customer",
+  "Outside service area",
+  "No bags / false order",
+  "Duplicate order",
+  "Weather / ops capacity",
+  "Other — see notes",
+] as const;
 
 /** Next sensible status buttons for ops */
 export const ORDER_STATUS_NEXT: Partial<Record<OrderStatus, OrderStatus[]>> = {
@@ -39,7 +110,7 @@ export const ORDER_STATUS_NEXT: Partial<Record<OrderStatus, OrderStatus[]>> = {
   washing: ["out_for_delivery", "cancelled"],
   out_for_delivery: ["delivered", "cancelled"],
   delivered: [],
-  cancelled: [],
+  cancelled: ["new"],
 };
 
 export type OrderPhotoKind =
@@ -54,6 +125,21 @@ export type OrderPhoto = {
   caption?: string;
   createdAt?: unknown;
 };
+
+export type DryCleanItem = {
+  name: string;
+  price: number;
+};
+
+/** Sum of ad-hoc dry-cleaning items ops added for this order. */
+export function dryCleanItemsTotal(items?: DryCleanItem[] | null): number {
+  if (!items || items.length === 0) return 0;
+  const sum = items.reduce(
+    (total, item) => total + (Number(item.price) || 0),
+    0
+  );
+  return Math.round(sum * 100) / 100;
+}
 
 export type FoamOrder = {
   id: string;
@@ -99,8 +185,13 @@ export type FoamOrder = {
   promoCode?: string;
   /** Ops fields (admin-written) */
   weightLbs?: number | null;
+  dryCleanItems?: DryCleanItem[];
   finalTotal?: number | null;
   opsNotes?: string;
+  opsIssue?: string;
+  refundStatus?: RefundStatus | string;
+  refundAmount?: number | null;
+  cancelReason?: string;
   photos?: OrderPhoto[];
   statusHistory?: { status: OrderStatus; at: unknown; by?: string }[];
   createdAt?: { toDate: () => Date } | null;

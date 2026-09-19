@@ -3,22 +3,46 @@
 import { useEffect, useState, type FormEvent } from "react";
 import {
   GoogleAuthProvider,
+  getRedirectResult,
   onAuthStateChanged,
   signInWithEmailAndPassword,
   signInWithPopup,
+  signInWithRedirect,
   signOut,
   type User,
 } from "firebase/auth";
-import { LogOut, MessageSquare, Package } from "lucide-react";
+import { collection, onSnapshot } from "firebase/firestore";
+import { Inbox, LogOut, Truck } from "lucide-react";
 
 import { AdminContactsPanel } from "@/components/admin-contacts-panel";
 import { AdminOrdersPanel } from "@/components/admin-orders-panel";
 import { Button } from "@/components/ui/button";
-import { getFirebaseAuth } from "@/lib/firebase";
+import { getFirebaseAuth, getFirebaseDb } from "@/lib/firebase";
 import { isAdminEmail } from "@/lib/site-config";
 import { cn } from "@/lib/utils";
 
 type AdminTab = "orders" | "contacts";
+type MobileView = "list" | "detail";
+
+function FoamMark({ compact = false }: { compact?: boolean }) {
+  return (
+    <div
+      className={cn("ops-wordmark", compact && "is-compact")}
+      aria-label="FOAM"
+    >
+      F
+      <span className="ops-wordmark-o" aria-hidden="true">
+        <span className="ops-wordmark-bubbles">
+          <i />
+          <i />
+          <i />
+        </span>
+        O
+      </span>
+      AM.
+    </div>
+  );
+}
 
 export function AdminApp() {
   const [user, setUser] = useState<User | null>(null);
@@ -26,16 +50,39 @@ export function AdminApp() {
   const [loginError, setLoginError] = useState("");
   const [loggingIn, setLoggingIn] = useState(false);
   const [tab, setTab] = useState<AdminTab>("orders");
+  const [mobileView, setMobileView] = useState<MobileView>("list");
+  const [openInquiriesCount, setOpenInquiriesCount] = useState(0);
 
   const allowed = isAdminEmail(user?.email);
 
   useEffect(() => {
     const auth = getFirebaseAuth();
+    void getRedirectResult(auth)
+      .then(async (result) => {
+        if (!result) return;
+        if (!isAdminEmail(result.user.email)) {
+          await signOut(auth);
+          setLoginError("This Google account is not allowed to access admin.");
+        }
+      })
+      .catch(() => {
+        /* ignore stray redirect errors */
+      });
+
     return onAuthStateChanged(auth, (next) => {
       setUser(next);
       setAuthReady(true);
     });
   }, []);
+
+  useEffect(() => {
+    if (!allowed) return;
+    const db = getFirebaseDb();
+    return onSnapshot(collection(db, "contactMessages"), (snap) => {
+      const open = snap.docs.filter((d) => d.data().status !== "done").length;
+      setOpenInquiriesCount(open);
+    });
+  }, [allowed]);
 
   async function handleLogin(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -65,132 +112,247 @@ export function AdminApp() {
   async function handleGoogleLogin() {
     setLoggingIn(true);
     setLoginError("");
+    const auth = getFirebaseAuth();
+    const provider = new GoogleAuthProvider();
     try {
-      const provider = new GoogleAuthProvider();
-      const result = await signInWithPopup(getFirebaseAuth(), provider);
+      const result = await signInWithPopup(auth, provider);
       if (!isAdminEmail(result.user.email)) {
-        await signOut(getFirebaseAuth());
+        await signOut(auth);
         setLoginError("This Google account is not allowed to access admin.");
       }
     } catch {
-      setLoginError(
-        "Google sign-in failed. Enable Google in Firebase Authentication first."
-      );
+      try {
+        await signInWithRedirect(auth, provider);
+        return;
+      } catch {
+        setLoginError(
+          "Google sign-in failed. Enable Google in Firebase Authentication first."
+        );
+      }
     } finally {
       setLoggingIn(false);
     }
   }
 
+  function setDestination(next: AdminTab) {
+    setTab(next);
+    setMobileView("list");
+  }
+
   if (!authReady) {
-    return <p className="admin-muted">Loading...</p>;
+    return <p className="ops-muted ops-loading">Loading…</p>;
   }
 
   if (!user) {
     return (
-      <div className="admin-login">
-        <h1 className="admin-title">FOAM Ops</h1>
-        <p className="admin-muted">
-          Orders, weigh-ins, and Contact Us — sign in on phone or desktop.
-        </p>
+      <main className="ops-login">
+        <section className="ops-login-form-pane">
+          <div className="ops-login-card">
+            <FoamMark />
+            <div className="ops-login-intro">
+              <p className="ops-eyebrow">Staff operations</p>
+              <h1 className="ops-login-title">Good to see you.</h1>
+              <p className="ops-muted">
+                Sign in to manage pickups, plant workflow, deliveries, and
+                customer inquiries.
+              </p>
+            </div>
 
-        <Button
-          type="button"
-          size="lg"
-          variant="outline"
-          disabled={loggingIn}
-          onClick={() => void handleGoogleLogin()}
-        >
-          Continue with Google
-        </Button>
+            <Button
+              type="button"
+              size="lg"
+              variant="outline"
+              className="ops-login-google"
+              disabled={loggingIn}
+              onClick={() => void handleGoogleLogin()}
+            >
+              <span className="ops-google-badge" aria-hidden>
+                G
+              </span>
+              Continue with Google
+            </Button>
 
-        <div className="admin-login-divider">
-          <span>or email</span>
-        </div>
+            <div className="ops-login-divider">
+              <span>or use email</span>
+            </div>
 
-        <form className="admin-login-form" onSubmit={handleLogin}>
-          <label>
-            Email
-            <input name="email" type="email" required autoComplete="username" />
-          </label>
-          <label>
-            Password
-            <input
-              name="password"
-              type="password"
-              required
-              autoComplete="current-password"
-            />
-          </label>
-          {loginError ? <p className="admin-error">{loginError}</p> : null}
-          <Button type="submit" size="lg" disabled={loggingIn}>
-            {loggingIn ? "Signing in..." : "Sign in"}
-          </Button>
-        </form>
-      </div>
+            <form className="ops-login-fields" onSubmit={handleLogin}>
+              <label>
+                Email address
+                <input
+                  name="email"
+                  type="email"
+                  required
+                  autoComplete="username"
+                  placeholder="name@foam.co"
+                />
+              </label>
+              <label>
+                Password
+                <input
+                  name="password"
+                  type="password"
+                  required
+                  autoComplete="current-password"
+                  placeholder="Enter your password"
+                />
+              </label>
+              {loginError ? <p className="ops-error">{loginError}</p> : null}
+              <Button type="submit" size="lg" disabled={loggingIn}>
+                {loggingIn ? "Signing in…" : "Sign in"}
+              </Button>
+            </form>
+
+            <p className="ops-login-foot">
+              Private console for authorized FOAM staff.
+            </p>
+          </div>
+        </section>
+
+        <section className="ops-login-brand" aria-hidden>
+          <div className="ops-login-brand-pattern" />
+          <div className="ops-login-brand-ring" />
+          <div className="ops-login-brand-copy">
+            <div className="ops-login-dots">
+              <span />
+              <span />
+              <span />
+            </div>
+            <p className="ops-login-brand-title">
+              Every pickup.
+              <br />
+              Every detail.
+              <br />
+              Right on time.
+            </p>
+            <p className="ops-login-brand-sub">
+              The calm, focused workspace behind FOAM’s Las Vegas service.
+            </p>
+          </div>
+        </section>
+      </main>
     );
   }
 
   if (!allowed) {
     return (
-      <div className="admin-login">
-        <h1 className="admin-title">Access denied</h1>
-        <p className="admin-muted">
-          Signed in as {user.email}, but this account is not an admin.
-        </p>
-        <Button
-          type="button"
-          variant="outline"
-          onClick={() => void signOut(getFirebaseAuth())}
-        >
-          Sign out
-        </Button>
-      </div>
+      <main className="ops-login">
+        <section className="ops-login-form-pane">
+          <div className="ops-login-card">
+            <FoamMark />
+            <h1 className="ops-login-title">Access denied</h1>
+            <p className="ops-muted">
+              Signed in as {user.email}, but this account is not an admin.
+            </p>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => void signOut(getFirebaseAuth())}
+            >
+              Sign out
+            </Button>
+          </div>
+        </section>
+      </main>
     );
   }
 
+  const sectionLabel = tab === "orders" ? "Orders" : "Inquiries";
+
   return (
-    <div className="admin-shell">
-      <header className="admin-top">
-        <div>
-          <p className="admin-eyebrow">FOAM Ops</p>
-          <h1 className="admin-title">
-            {tab === "orders" ? "Orders" : "Contact Us"}
-          </h1>
-          <p className="admin-muted">{user.email}</p>
+    <div className="ops-shell">
+      <aside className="ops-nav" aria-label="Ops sections">
+        <div className="ops-nav-brand">
+          <FoamMark compact />
         </div>
-        <Button
-          type="button"
-          variant="outline"
-          onClick={() => void signOut(getFirebaseAuth())}
-        >
-          <LogOut /> Sign out
-        </Button>
-      </header>
 
-      <nav className="admin-tabs" aria-label="Admin sections">
-        <button
-          type="button"
-          className={cn("admin-tab", tab === "orders" && "is-active")}
-          onClick={() => setTab("orders")}
-        >
-          <Package size={16} aria-hidden />
-          Orders
-        </button>
-        <button
-          type="button"
-          className={cn("admin-tab", tab === "contacts" && "is-active")}
-          onClick={() => setTab("contacts")}
-        >
-          <MessageSquare size={16} aria-hidden />
-          Contacts
-        </button>
-      </nav>
+        <nav className="ops-nav-links">
+          <button
+            type="button"
+            className={cn("ops-nav-btn", tab === "orders" && "is-active")}
+            onClick={() => setDestination("orders")}
+          >
+            <Truck size={18} aria-hidden />
+            Orders
+            {tab === "orders" ? <span className="ops-nav-rail" /> : null}
+          </button>
+          <button
+            type="button"
+            className={cn("ops-nav-btn", tab === "contacts" && "is-active")}
+            onClick={() => setDestination("contacts")}
+          >
+            <Inbox size={18} aria-hidden />
+            Inquiries
+            {openInquiriesCount > 0 ? (
+              <span className="ops-nav-badge">{openInquiriesCount}</span>
+            ) : null}
+            {tab === "contacts" ? <span className="ops-nav-rail" /> : null}
+          </button>
+        </nav>
 
-      {tab === "orders" ? (
-        <AdminOrdersPanel adminEmail={user.email ?? ""} />
-      ) : (
-        <AdminContactsPanel />
-      )}
+        <div className="ops-nav-foot">
+          <p className="ops-nav-email">{user.email}</p>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="ops-nav-signout"
+            onClick={() => void signOut(getFirebaseAuth())}
+          >
+            <LogOut size={16} />
+            Sign out
+          </Button>
+        </div>
+      </aside>
+
+      <div className="ops-workspace">
+        <header className="ops-topbar">
+          <div className="ops-topbar-mobile-brand">
+            <FoamMark compact />
+          </div>
+          <div className="ops-topbar-copy">
+            <p className="ops-topbar-title">{sectionLabel} management</p>
+            <p className="ops-topbar-sub">FOAM staff operations</p>
+          </div>
+          <div className="ops-topbar-end">
+            <span className="ops-topbar-email">{user.email}</span>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="ops-topbar-signout-mobile"
+              onClick={() => void signOut(getFirebaseAuth())}
+            >
+              <LogOut size={16} />
+            </Button>
+            <span className="ops-avatar" aria-hidden>
+              FO
+            </span>
+          </div>
+        </header>
+
+        <main className="ops-main">
+          <div
+            className={cn(
+              "ops-panel",
+              mobileView === "detail" && "is-detail-open"
+            )}
+          >
+            {tab === "orders" ? (
+              <AdminOrdersPanel
+                adminEmail={user.email ?? ""}
+                mobileView={mobileView}
+                onMobileViewChange={setMobileView}
+              />
+            ) : (
+              <AdminContactsPanel
+                mobileView={mobileView}
+                onMobileViewChange={setMobileView}
+              />
+            )}
+          </div>
+        </main>
+      </div>
     </div>
   );
 }

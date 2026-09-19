@@ -30,7 +30,7 @@ export function SiteHeader() {
             </span>
             O
           </span>
-          AM<span className="text-accent-strong">.</span>
+          AM.
         </Link>
 
         <div className="site-header-nav">
