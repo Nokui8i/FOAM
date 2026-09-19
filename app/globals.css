@@ -2028,6 +2028,148 @@
   }
 }
 
+@utility admin-shell-body {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.85rem;
+
+  @media (max-width: 719px) {
+    flex-direction: column;
+  }
+}
+
+@utility admin-rail {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 0.5rem;
+  border: 1px solid color-mix(in oklch, var(--color-border) 80%, transparent);
+  border-radius: 0.9rem;
+  background: white;
+  flex-shrink: 0;
+  position: sticky;
+  top: 0.75rem;
+
+  @media (max-width: 719px) {
+    flex-direction: row;
+    width: 100%;
+    position: static;
+  }
+}
+
+@utility admin-rail-btn {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  width: 3.6rem;
+  padding: 0.55rem 0.3rem;
+  border: 0;
+  border-radius: 0.65rem;
+  background: transparent;
+  color: var(--color-muted-foreground);
+  font-size: 0.65rem;
+  font-weight: 700;
+  cursor: pointer;
+
+  &.is-active {
+    background: color-mix(in oklch, var(--color-accent) 40%, white);
+    color: var(--color-foreground);
+  }
+}
+
+@utility admin-rail-badge {
+  position: absolute;
+  top: 0.25rem;
+  right: 0.55rem;
+  min-width: 1rem;
+  height: 1rem;
+  padding: 0 0.25rem;
+  border-radius: 999px;
+  background: var(--color-destructive);
+  color: white;
+  font-size: 0.6rem;
+  font-weight: 800;
+  line-height: 1rem;
+  text-align: center;
+}
+
+@utility admin-main {
+  flex: 1;
+  min-width: 0;
+}
+
+@utility admin-dry-results {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  margin-top: 0.4rem;
+  border: 1px solid var(--color-border);
+  border-radius: 0.7rem;
+  overflow: hidden;
+}
+
+@utility admin-dry-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.5rem 0.7rem;
+  border: 0;
+  background: white;
+  font: inherit;
+  font-size: 0.82rem;
+  text-align: left;
+  cursor: pointer;
+
+  &:hover {
+    background: #f6f6f4;
+  }
+  & + & {
+    border-top: 1px solid var(--color-border);
+  }
+}
+
+@utility admin-dry-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.3rem 0.5rem 0.3rem 0.7rem;
+  border-radius: 999px;
+  background: color-mix(in oklch, var(--color-accent) 30%, white);
+  font-size: 0.78rem;
+  font-weight: 650;
+
+  & button {
+    border: 0;
+    background: transparent;
+    cursor: pointer;
+    color: var(--color-muted-foreground);
+    font-weight: 800;
+    line-height: 1;
+  }
+}
+
+@utility admin-chip-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+@utility admin-total-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding-top: 0.6rem;
+  border-top: 1px solid var(--color-border);
+
+  & strong {
+    font-family: var(--font-display);
+    font-size: 1.4rem;
+  }
+}
+
 /* Legacy aliases kept so older class names don't break */
 @utility admin-top {
   display: none;

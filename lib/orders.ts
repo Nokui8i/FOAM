@@ -126,6 +126,21 @@ export type OrderPhoto = {
   createdAt?: unknown;
 };
 
+export type DryCleanItem = {
+  name: string;
+  price: number;
+};
+
+/** Sum of ad-hoc dry-cleaning items ops added for this order. */
+export function dryCleanItemsTotal(items?: DryCleanItem[] | null): number {
+  if (!items || items.length === 0) return 0;
+  const sum = items.reduce(
+    (total, item) => total + (Number(item.price) || 0),
+    0
+  );
+  return Math.round(sum * 100) / 100;
+}
+
 export type FoamOrder = {
   id: string;
   status: OrderStatus;
@@ -170,6 +185,7 @@ export type FoamOrder = {
   promoCode?: string;
   /** Ops fields (admin-written) */
   weightLbs?: number | null;
+  dryCleanItems?: DryCleanItem[];
   finalTotal?: number | null;
   opsNotes?: string;
   opsIssue?: string;

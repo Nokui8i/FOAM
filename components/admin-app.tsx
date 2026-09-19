@@ -11,12 +11,13 @@ import {
   signOut,
   type User,
 } from "firebase/auth";
-import { LogOut } from "lucide-react";
+import { collection, onSnapshot } from "firebase/firestore";
+import { LogOut, MessageCircle, Package } from "lucide-react";
 
 import { AdminContactsPanel } from "@/components/admin-contacts-panel";
 import { AdminOrdersPanel } from "@/components/admin-orders-panel";
 import { Button } from "@/components/ui/button";
-import { getFirebaseAuth } from "@/lib/firebase";
+import { getFirebaseAuth, getFirebaseDb } from "@/lib/firebase";
 import { isAdminEmail } from "@/lib/site-config";
 import { cn } from "@/lib/utils";
 
@@ -28,6 +29,7 @@ export function AdminApp() {
   const [loginError, setLoginError] = useState("");
   const [loggingIn, setLoggingIn] = useState(false);
   const [tab, setTab] = useState<AdminTab>("orders");
+  const [openInquiriesCount, setOpenInquiriesCount] = useState(0);
 
   const allowed = isAdminEmail(user?.email);
 
@@ -50,6 +52,15 @@ export function AdminApp() {
       setAuthReady(true);
     });
   }, []);
+
+  useEffect(() => {
+    if (!allowed) return;
+    const db = getFirebaseDb();
+    return onSnapshot(collection(db, "contactMessages"), (snap) => {
+      const open = snap.docs.filter((d) => d.data().status !== "done").length;
+      setOpenInquiriesCount(open);
+    });
+  }, [allowed]);
 
   async function handleLogin(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -171,25 +182,6 @@ export function AdminApp() {
       <header className="admin-bar">
         <div className="admin-bar-brand">
           <span className="admin-bar-mark">FOAM</span>
-          <nav className="admin-bar-nav" aria-label="Ops sections">
-            <button
-              type="button"
-              className={cn("admin-bar-link", tab === "orders" && "is-active")}
-              onClick={() => setTab("orders")}
-            >
-              Orders
-            </button>
-            <button
-              type="button"
-              className={cn(
-                "admin-bar-link",
-                tab === "contacts" && "is-active"
-              )}
-              onClick={() => setTab("contacts")}
-            >
-              Inbox
-            </button>
-          </nav>
         </div>
         <div className="admin-bar-end">
           <span className="admin-bar-email">{user.email}</span>
@@ -204,11 +196,37 @@ export function AdminApp() {
         </div>
       </header>
 
-      {tab === "orders" ? (
-        <AdminOrdersPanel adminEmail={user.email ?? ""} />
-      ) : (
-        <AdminContactsPanel />
-      )}
+      <div className="admin-shell-body">
+        <nav className="admin-rail" aria-label="Ops sections">
+          <button
+            type="button"
+            className={cn("admin-rail-btn", tab === "orders" && "is-active")}
+            onClick={() => setTab("orders")}
+          >
+            <Package size={18} aria-hidden />
+            Orders
+          </button>
+          <button
+            type="button"
+            className={cn("admin-rail-btn", tab === "contacts" && "is-active")}
+            onClick={() => setTab("contacts")}
+          >
+            <MessageCircle size={18} aria-hidden />
+            Inquiries
+            {openInquiriesCount > 0 ? (
+              <span className="admin-rail-badge">{openInquiriesCount}</span>
+            ) : null}
+          </button>
+        </nav>
+
+        <div className="admin-main">
+          {tab === "orders" ? (
+            <AdminOrdersPanel adminEmail={user.email ?? ""} />
+          ) : (
+            <AdminContactsPanel />
+          )}
+        </div>
+      </div>
     </div>
   );
 }

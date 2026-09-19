@@ -10,10 +10,11 @@ import {
   updateDoc,
   type Timestamp,
 } from "firebase/firestore";
-import { Mail, Phone } from "lucide-react";
+import { Mail, MessageCircle, Phone } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { getFirebaseDb } from "@/lib/firebase";
+import { BUSINESS_WHATSAPP } from "@/lib/site-config";
 import { cn } from "@/lib/utils";
 
 type ContactRow = {
@@ -25,36 +26,26 @@ type ContactRow = {
   message: string;
   status: "new" | "done";
   read: boolean;
-  csNotes: string;
   createdAt: Timestamp | null;
 };
 
-type InboxFilter = "open" | "done" | "cs" | "all";
+type InboxFilter = "open" | "done" | "all";
 
 function formatDate(value: Timestamp | null) {
   if (!value) return "Just now";
   return value.toDate().toLocaleString();
 }
 
-function isCsTopic(topic: string) {
-  const t = topic.toLowerCase();
-  return (
-    t.includes("cancel") ||
-    t.includes("refund") ||
-    t.includes("billing") ||
-    t.includes("complaint") ||
-    t.includes("change pickup") ||
-    t.includes("quality")
-  );
+function waUrl(phone: string, body: string) {
+  const digits = phone.replace(/\D/g, "");
+  const to = digits || BUSINESS_WHATSAPP;
+  return `https://wa.me/${to}?text=${encodeURIComponent(body)}`;
 }
 
 export function AdminContactsPanel() {
   const [rows, setRows] = useState<ContactRow[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [filter, setFilter] = useState<InboxFilter>("open");
-  const [csNotes, setCsNotes] = useState("");
-  const [saving, setSaving] = useState(false);
-  const [okMsg, setOkMsg] = useState("");
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -78,7 +69,6 @@ export function AdminContactsPanel() {
             message: String(data.message ?? ""),
             status: data.status === "done" ? "done" : "new",
             read: Boolean(data.read),
-            csNotes: String(data.csNotes ?? ""),
             createdAt: (data.createdAt as Timestamp | null) ?? null,
           } satisfies ContactRow;
         });
@@ -96,7 +86,6 @@ export function AdminContactsPanel() {
     () => ({
       open: rows.filter((r) => r.status !== "done").length,
       done: rows.filter((r) => r.status === "done").length,
-      cs: rows.filter((r) => isCsTopic(r.topic)).length,
       all: rows.length,
     }),
     [rows]
@@ -106,21 +95,11 @@ export function AdminContactsPanel() {
     return rows.filter((row) => {
       if (filter === "open" && row.status === "done") return false;
       if (filter === "done" && row.status !== "done") return false;
-      if (filter === "cs" && !isCsTopic(row.topic)) return false;
       return true;
     });
   }, [rows, filter]);
 
   const selected = rows.find((row) => row.id === selectedId) ?? null;
-
-  useEffect(() => {
-    if (!selected) {
-      setCsNotes("");
-      return;
-    }
-    setCsNotes(selected.csNotes ?? "");
-    setOkMsg("");
-  }, [selected?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function markRead(id: string) {
     await updateDoc(doc(getFirebaseDb(), "contactMessages", id), {
@@ -142,31 +121,9 @@ export function AdminContactsPanel() {
     }
   }
 
-  async function saveCsNotes() {
-    if (!selected) return;
-    setSaving(true);
-    setError("");
-    setOkMsg("");
-    try {
-      await updateDoc(doc(getFirebaseDb(), "contactMessages", selected.id), {
-        csNotes: csNotes.trim(),
-        read: true,
-      });
-      setOkMsg("Saved.");
-    } catch {
-      setError("Could not save notes.");
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  function replyMailto(row: ContactRow) {
-    const subject = encodeURIComponent(`Re: FOAM — ${row.topic}`);
-    const body = encodeURIComponent(
-      `Hi ${row.name.split(" ")[0] || "there"},\n\nThanks for reaching out about "${row.topic}".\n\n\n\n— FOAM Laundry\n`
-    );
-    return `mailto:${row.email}?subject=${subject}&body=${body}`;
-  }
+  const replyBody = selected
+    ? `Hi ${selected.name.split(" ")[0] || "there"}, thanks for reaching out about "${selected.topic}".`
+    : "";
 
   return (
     <div className="admin-layout">
@@ -179,7 +136,6 @@ export function AdminContactsPanel() {
             aria-label="Filter inbox"
           >
             <option value="open">Open ({counts.open})</option>
-            <option value="cs">Cancel / refund ({counts.cs})</option>
             <option value="done">Done ({counts.done})</option>
             <option value="all">All ({counts.all})</option>
           </select>
@@ -197,18 +153,14 @@ export function AdminContactsPanel() {
               className={cn(
                 "admin-list-item",
                 selectedId === row.id && "is-active",
-                !row.read && "is-unread",
-                isCsTopic(row.topic) && row.status !== "done" && "has-issue"
+                !row.read && "is-unread"
               )}
               onClick={() => void selectRow(row)}
             >
               <span className="admin-list-name">{row.name}</span>
               <span className="admin-list-meta">{row.topic}</span>
               <span
-                className={cn(
-                  "admin-pill",
-                  row.status === "done" && "is-done"
-                )}
+                className={cn("admin-pill", row.status === "done" && "is-done")}
               >
                 {row.status === "done" ? "Done" : "Open"}
               </span>
@@ -230,13 +182,6 @@ export function AdminContactsPanel() {
                 </p>
               </div>
               <div className="admin-icon-row">
-                <a
-                  className="admin-icon-btn"
-                  href={replyMailto(selected)}
-                  aria-label="Reply by email"
-                >
-                  <Mail size={16} />
-                </a>
                 {selected.phone ? (
                   <a
                     className="admin-icon-btn"
@@ -246,22 +191,26 @@ export function AdminContactsPanel() {
                     <Phone size={16} />
                   </a>
                 ) : null}
-                <Button
-                  type="button"
-                  size="sm"
-                  variant={selected.status === "done" ? "outline" : "default"}
-                  onClick={() => void toggleDone(selected)}
+                {selected.phone ? (
+                  <a
+                    className="admin-icon-btn"
+                    href={waUrl(selected.phone, replyBody)}
+                    target="_blank"
+                    rel="noreferrer"
+                    aria-label="WhatsApp"
+                  >
+                    <MessageCircle size={16} />
+                  </a>
+                ) : null}
+                <a
+                  className="admin-icon-btn"
+                  href={`mailto:${selected.email}?subject=${encodeURIComponent(`Re: FOAM — ${selected.topic}`)}`}
+                  aria-label="Email"
                 >
-                  {selected.status === "done" ? "Reopen" : "Done"}
-                </Button>
+                  <Mail size={16} />
+                </a>
               </div>
             </div>
-
-            {(okMsg || error) && (
-              <p className={error ? "admin-error" : "admin-ok"}>
-                {error || okMsg}
-              </p>
-            )}
 
             <div className="admin-pane">
               <p className="admin-message-body">{selected.message}</p>
@@ -283,22 +232,12 @@ export function AdminContactsPanel() {
                 ) : null}
               </dl>
 
-              <label className="admin-field">
-                Notes
-                <textarea
-                  rows={3}
-                  value={csNotes}
-                  onChange={(e) => setCsNotes(e.target.value)}
-                  placeholder="Reply summary, linked order…"
-                />
-              </label>
               <Button
                 type="button"
-                variant="outline"
-                disabled={saving}
-                onClick={() => void saveCsNotes()}
+                variant={selected.status === "done" ? "outline" : "default"}
+                onClick={() => void toggleDone(selected)}
               >
-                Save notes
+                {selected.status === "done" ? "Reopen" : "Mark done"}
               </Button>
             </div>
           </>
