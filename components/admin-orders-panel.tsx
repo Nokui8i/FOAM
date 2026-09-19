@@ -844,7 +844,6 @@ export function AdminOrdersPanel({
                 <PanelTitleFixed
                   icon={CircleDollarSign}
                   title="Billing summary"
-                  note="Laundry weight, dry-cleaning items, fees, and tip."
                 />
                 <div className="ops-billing-total">
                   <span>Calculated total</span>
@@ -864,9 +863,6 @@ export function AdminOrdersPanel({
                 >
                   Save total
                 </Button>
-                <p className="ops-billing-note">
-                  This stores the total only. Card charging will be added later.
-                </p>
               </section>
             </div>
           </article>
