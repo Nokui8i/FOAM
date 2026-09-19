@@ -987,12 +987,8 @@ export function AdminOrdersPanel({
                             </div>
 
                             <div className="ops-billing-card">
-                              <PanelTitleFixed
-                                icon={CircleDollarSign}
-                                title="Billing"
-                              />
                               <div className="ops-billing-total">
-                                <span>Calculated total</span>
+                                <span>Total</span>
                                 <strong>
                                   {previewTotal != null
                                     ? `$${previewTotal.toFixed(2)}`
@@ -1003,7 +999,7 @@ export function AdminOrdersPanel({
                               </div>
                               <Button
                                 type="button"
-                                className="ops-btn-lg ops-billing-save"
+                                className="ops-billing-save"
                                 disabled={saving || uploadingPhoto}
                                 onClick={() => void saveBilling()}
                               >
