@@ -6337,8 +6337,9 @@
 .ops-detail-main {
   min-width: 0;
   min-height: 0;
-  max-width: 44rem;
+  max-width: 26rem;
   width: 100%;
+  justify-self: start;
   overflow-x: hidden;
   overflow-y: auto;
   scrollbar-width: none;
@@ -6350,8 +6351,7 @@
 @media (min-width: 1100px) {
   .ops-detail-main {
     max-height: 100%;
-    justify-self: stretch;
-    max-width: none;
+    max-width: 26rem;
   }
 }
 .ops-aside-card .ops-fields-stack {
@@ -6589,10 +6589,20 @@
 .ops-flow-step.is-upcoming .ops-flow-state {
   color: var(--ops-muted);
 }
+.ops-flow-blurb {
+  margin: 0.35rem 0 0;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--ops-ink);
+  opacity: 0.72;
+  max-width: 22rem;
+}
 .ops-flow-panel {
   display: grid;
   gap: 0.75rem;
   margin-top: 0.75rem;
+  max-width: 22rem;
 }
 .ops-flow-panel .ops-step-help,
 .ops-flow-panel .ops-field-label,
@@ -6606,16 +6616,52 @@
 }
 .ops-flow-done-note,
 .ops-flow-wait-note {
-  margin: 0.4rem 0 0;
+  margin: 0;
   font-size: 0.8125rem;
   font-weight: 700;
   line-height: 1.45;
   color: var(--ops-ink);
-  opacity: 0.78;
+  opacity: 0.85;
+}
+.ops-flow-preview-card {
+  display: grid;
+  gap: 0.55rem;
+  padding: 0.75rem 0.85rem;
+  border-radius: var(--ops-radius);
+  border: 1px dashed color-mix(in srgb, var(--ops-muted) 45%, transparent);
+  background: color-mix(in srgb, var(--ops-surface) 80%, transparent);
+}
+.ops-flow-preview-card strong {
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ops-muted);
+}
+.ops-flow-preview-action {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  max-width: 100%;
+  padding: 0.45rem 0.7rem;
+  border-radius: var(--ops-radius);
+  border: 1px solid var(--ops-border);
+  background: var(--ops-card);
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--ops-ink);
+  opacity: 0.7;
 }
 .ops-flow-panel .ops-billing-card {
   justify-self: stretch;
-  max-width: none;
+  max-width: 100%;
+  width: 100%;
+  grid-template-columns: 1fr;
+}
+.ops-flow-panel .ops-billing-total {
+  align-items: flex-start;
+}
+.ops-flow-panel .ops-billing-save {
   width: 100%;
 }
 .ops-panel-title {
@@ -6793,7 +6839,8 @@
   cursor: pointer;
 }
 .ops-photo-upload.is-primary {
-  width: 100%;
+  width: fit-content;
+  max-width: 100%;
   justify-content: center;
   height: 2.75rem;
   background: var(--ops-card);
@@ -6829,6 +6876,7 @@
 .ops-weight-input {
   position: relative;
   display: block;
+  max-width: 9.5rem;
 }
 .ops-weight-input input {
   width: 100%;
@@ -6852,7 +6900,8 @@
 
 .ops-catalog { position: relative; }
 .ops-catalog-toggle {
-  width: 100% !important;
+  width: auto !important;
+  max-width: 100% !important;
   height: 2.75rem !important;
   justify-content: space-between !important;
   background: var(--ops-card) !important;

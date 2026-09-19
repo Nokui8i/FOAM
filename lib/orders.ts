@@ -119,31 +119,36 @@ export const ORDER_PIPELINE_STEPS = [
     id: "waiting",
     label: "Waiting",
     statuses: ["new", "confirmed"],
-    preview: "Weigh, photo the scale, add dry-clean items, then charge.",
+    preview: "At the stop: weigh, photo the scale, add dry-clean items, then charge.",
+    actionHint: "Charge & mark collected",
   },
   {
     id: "collected",
     label: "Collected",
     statuses: ["picked_up", "weighed"],
     preview: "At the plant — confirm the order entered the work process.",
+    actionHint: "Confirm entered plant process",
   },
   {
     id: "plant",
     label: "In process",
     statuses: ["washing"],
     preview: "When ready for return — confirm it left for delivery.",
+    actionHint: "Confirm out for delivery",
   },
   {
     id: "delivery",
     label: "Delivery",
     statuses: ["out_for_delivery"],
     preview: "Hand off to the customer, then mark delivered.",
+    actionHint: "Mark delivered",
   },
   {
     id: "done",
     label: "Done",
     statuses: ["delivered"],
-    preview: "Order complete.",
+    preview: "Order complete — nothing left to do.",
+    actionHint: null,
   },
 ] as const;
 

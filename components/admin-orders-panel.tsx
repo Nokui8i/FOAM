@@ -756,7 +756,7 @@ export function AdminOrdersPanel({
                   <PanelTitleFixed
                     icon={Truck}
                     title="Order progress"
-                    note="The open stage is what you do now. Tap another stage to preview it."
+                    note="Active stage is open. Tap any other stage to see what happens there."
                   />
                 </div>
 
@@ -821,6 +821,10 @@ export function AdminOrdersPanel({
                             />
                           </span>
                         </button>
+
+                        {!open ? (
+                          <p className="ops-flow-blurb">{step.preview}</p>
+                        ) : null}
 
                         {open ? (
                           <div className="ops-flow-panel">
@@ -1061,7 +1065,17 @@ export function AdminOrdersPanel({
                             ) : null}
 
                             {!active && !done ? (
-                              <p className="ops-flow-wait-note">{step.preview}</p>
+                              <div className="ops-flow-preview-card">
+                                <strong>Coming up</strong>
+                                <p className="ops-flow-wait-note">
+                                  {step.preview}
+                                </p>
+                                {step.actionHint ? (
+                                  <span className="ops-flow-preview-action">
+                                    Later: {step.actionHint}
+                                  </span>
+                                ) : null}
+                              </div>
                             ) : null}
                           </div>
                         ) : null}
