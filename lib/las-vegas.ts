@@ -11,10 +11,12 @@ export const LAS_VEGAS_BOUNDS = {
   east: -115.02,
 } as const;
 
-/** Las Vegas mailing ZIPs are primarily 891xx. */
+/** Las Vegas mailing ZIPs: 891xx city + common North Las Vegas 890xx. */
 export function isLasVegasZip(zip: string) {
   const digits = zip.replace(/\D/g, "").slice(0, 5);
-  return /^891\d{2}$/.test(digits);
+  if (/^891\d{2}$/.test(digits)) return true;
+  // North Las Vegas (suggestions include these streets)
+  return /^890(30|31|32|36|81|84|85|86|87)$/.test(digits);
 }
 
 export function normalizeLasVegasCity(city: string) {
@@ -57,7 +59,7 @@ export function isLasVegasSuggestionText(...parts: string[]) {
     text.includes("paradise, nv") ||
     text.includes("spring valley, nv") ||
     text.includes("enterprise, nv") ||
-    /nv\s*891\d{2}/.test(text)
+    /nv\s*89[01]\d{2}/.test(text)
   );
 }
 
@@ -97,10 +99,12 @@ type AddressComponent = {
   types: string[];
 };
 
-/** Pull a Las Vegas mailing ZIP (891xx) from free-form Places text. */
+/** Pull a Las Vegas Valley mailing ZIP from free-form Places text. */
 export function extractLasVegasZip(...parts: string[]) {
   const text = parts.filter(Boolean).join(" ");
-  const match = text.match(/\b(891\d{2})(?:-\d{4})?\b/);
+  const match = text.match(
+    /\b(891\d{2}|890(?:30|31|32|36|81|84|85|86|87))(?:-\d{4})?\b/
+  );
   return match?.[1] ?? "";
 }
 
@@ -141,9 +145,8 @@ export function parseGoogleAddressComponents(
   if (!route && !streetNumber && !fallbackText.trim()) return null;
 
   const city = normalizeLasVegasCity(locality || LAS_VEGAS_CITY);
-  // Outside service area — reject entirely
+  // Outside service area — reject entirely (unknown city name)
   if (city !== LAS_VEGAS_CITY) return null;
-  if (zip && !isLasVegasZip(zip)) return null;
 
   let address = `${streetNumber} ${route}`.trim();
   if (!address && fallbackText.trim()) {
@@ -154,6 +157,9 @@ export function parseGoogleAddressComponents(
 
   if (!zip) zip = extractLasVegasZip(fallbackText, address);
 
+  // Keep ZIP in the form even when out of area — Continue validation will block.
+  // Returning null here left Street filled and ZIP blank (looked like a bug).
+  const inArea = !zip || isLasVegasZip(zip);
   const complete = Boolean(
     hasHouseNumber(address) && zip && isLasVegasZip(zip)
   );
@@ -163,6 +169,6 @@ export function parseGoogleAddressComponents(
     city: LAS_VEGAS_CITY,
     zip: zip || "",
     unit,
-    complete,
+    complete: complete && inArea,
   };
 }
