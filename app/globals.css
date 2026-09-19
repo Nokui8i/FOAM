@@ -5480,6 +5480,8 @@
   height: 100dvh;
   max-height: 100dvh;
   overflow: hidden;
+  overflow-x: hidden;
+  max-width: 100vw;
 }
 
 .admin-page a { color: inherit; }
@@ -5742,6 +5744,7 @@
   flex-direction: column;
   height: 100dvh;
   max-height: 100dvh;
+  max-width: 100vw;
   overflow: hidden;
   background: var(--ops-surface);
 }
@@ -5767,7 +5770,7 @@
     position: sticky;
     top: 0;
     inset: auto;
-    width: 14rem;
+    width: 12rem;
     height: 100dvh;
     flex-shrink: 0;
     grid-template-columns: 1fr;
@@ -5887,6 +5890,7 @@
   min-height: 0;
   flex: 1;
   height: 100%;
+  max-width: 100%;
   overflow: hidden;
   padding-bottom: 4rem;
 }
@@ -5981,14 +5985,14 @@
 }
 @media (min-width: 768px) {
   .ops-panel {
-    grid-template-columns: minmax(280px, 32%) 1fr;
+    grid-template-columns: minmax(0, 30%) minmax(0, 1fr);
     border: 1px solid var(--ops-border);
     border-radius: var(--ops-radius);
     box-shadow: var(--ops-shadow);
   }
 }
 @media (min-width: 1280px) {
-  .ops-panel { grid-template-columns: 360px 1fr; }
+  .ops-panel { grid-template-columns: minmax(0, 320px) minmax(0, 1fr); }
 }
 
 .ops-list-pane {
@@ -6073,24 +6077,26 @@
 .ops-search.is-compact { margin-top: 0; margin-bottom: 0.5rem; }
 .ops-filter-row {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.25rem;
   margin-top: 0.75rem;
   padding-bottom: 0.5rem;
   border-bottom: 1px solid var(--ops-border);
-  overflow-x: auto;
+  overflow: hidden;
 }
 .ops-filter-chip {
-  flex-shrink: 0;
-  height: 2rem;
+  flex: 0 1 auto;
+  height: 1.75rem;
   border: 0;
   border-radius: var(--ops-radius);
-  padding: 0 0.625rem;
+  padding: 0 0.5rem;
   background: transparent;
   color: var(--ops-muted);
   font: inherit;
-  font-size: 0.75rem;
+  font-size: 0.6875rem;
   font-weight: 600;
   cursor: pointer;
+  white-space: nowrap;
 }
 .ops-filter-chip.is-active,
 .ops-filter-chip:hover {
@@ -6100,22 +6106,26 @@
 .ops-list-body {
   flex: 1;
   min-height: 0;
+  overflow-x: hidden;
   overflow-y: auto;
   border-top: 1px solid var(--ops-border);
 }
 .ops-row {
-  display: flex;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
-  gap: 0.75rem;
+  gap: 0.5rem;
   width: 100%;
+  max-width: 100%;
   min-height: 4.25rem;
-  padding: 0.65rem 1rem;
+  padding: 0.65rem 0.75rem;
   border: 0;
   border-bottom: 1px solid var(--ops-border);
   background: transparent;
   text-align: left;
   cursor: pointer;
   font: inherit;
+  overflow: hidden;
 }
 .ops-row:hover,
 .ops-row.is-active { background: var(--ops-surface); }
@@ -6150,15 +6160,19 @@
   white-space: nowrap;
 }
 .ops-status-pill {
-  flex-shrink: 0;
+  flex-shrink: 1;
+  max-width: 100%;
   border-radius: 999px;
   border: 1px solid var(--ops-border);
   background: var(--ops-card);
-  padding: 0.25rem 0.625rem;
-  font-size: 0.625rem;
+  padding: 0.2rem 0.45rem;
+  font-size: 0.5625rem;
   font-weight: 700;
   text-transform: uppercase;
   color: var(--ops-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .ops-status-pill.is-lg {
   font-size: 0.75rem;
@@ -6258,6 +6272,7 @@
   padding: 0.75rem 1rem 1rem;
   flex: 1;
   min-height: 0;
+  overflow-x: hidden;
   overflow-y: auto;
   align-content: start;
 }
@@ -6430,7 +6445,7 @@
   flex: 1;
   min-width: 0;
 }
-.ops-step:last-child { flex: 0 0 auto; }
+.ops-step:last-child { flex: 1; min-width: 0; }
 .ops-step-dot {
   position: relative;
   z-index: 1;
@@ -6453,13 +6468,16 @@
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--ops-primary) 25%, transparent);
 }
 .ops-step-label {
-  font-size: 0.625rem;
+  font-size: 0.5625rem;
   font-weight: 700;
   letter-spacing: 0.02em;
   text-transform: uppercase;
   color: var(--ops-muted);
   text-align: center;
   line-height: 1.2;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .ops-step-label.is-on {
   color: var(--ops-ink);
