@@ -641,6 +641,7 @@ function EmptyState({
 export function AccountApp() {
   const {
     user,
+    ready,
     signInEmail,
     signUpEmail,
     signInApple,
@@ -652,6 +653,12 @@ export function AccountApp() {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [oauthBusy, setOauthBusy] = useState(false);
+  // pending → waiting for Firebase ready
+  // existing → opened /account already signed in → show profile
+  // fresh → signed in during this visit → go home
+  const [sessionGate, setSessionGate] = useState<
+    "pending" | "existing" | "fresh"
+  >("pending");
 
   useEffect(() => {
     if (oauthReturnError) {
@@ -659,6 +666,17 @@ export function AccountApp() {
       clearOauthReturnError();
     }
   }, [oauthReturnError, clearOauthReturnError]);
+
+  useEffect(() => {
+    if (!ready || sessionGate !== "pending") return;
+    setSessionGate(user ? "existing" : "fresh");
+  }, [ready, user, sessionGate]);
+
+  useEffect(() => {
+    if (sessionGate === "fresh" && user) {
+      window.location.replace("/");
+    }
+  }, [sessionGate, user]);
 
   async function handleSignOut() {
     await signOut();
@@ -681,14 +699,13 @@ export function AccountApp() {
       } else {
         await signInEmail(email, password);
       }
-      window.location.assign("/");
+      window.location.replace("/");
     } catch {
       setError(
         mode === "signup"
           ? "Could not create account. Try a different email or stronger password."
           : "Could not sign in. Check your email and password."
       );
-    } finally {
       setBusy(false);
     }
   }
@@ -699,20 +716,26 @@ export function AccountApp() {
     setOauthBusy(true);
     try {
       await signInApple();
-      window.location.assign("/");
+      window.location.replace("/");
     } catch (err) {
       setError(
         err instanceof Error
           ? err.message
           : "Apple sign-in failed. Email login still works."
       );
-    } finally {
       setOauthBusy(false);
     }
   }
 
-  // Don't block the sign-in UI on Firebase ready — LAN/mobile often delays auth init.
-  if (user) {
+  if (sessionGate === "pending") {
+    return (
+      <p className="py-10 text-center text-sm text-muted-foreground">
+        Loading…
+      </p>
+    );
+  }
+
+  if (user && sessionGate === "existing") {
     return (
       <AccountProfile
         uid={user.uid}
@@ -726,24 +749,32 @@ export function AccountApp() {
     );
   }
 
+  if (user && sessionGate === "fresh") {
+    return (
+      <p className="py-10 text-center text-sm text-muted-foreground">
+        Signing you in…
+      </p>
+    );
+  }
+
   const fieldClass =
-    "mt-1.5 mb-4 w-full rounded-xl border border-gray-200 bg-white px-4 py-3.5 text-base text-foreground outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 sm:mb-5 sm:rounded-lg sm:py-2.5 sm:text-sm";
+    "mt-1 mb-3.5 w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-[15px] text-foreground outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 sm:mb-5 sm:py-2.5 sm:text-sm";
 
   const socialClass =
-    "flex min-h-12 w-full touch-manipulation items-center justify-center rounded-xl bg-white px-4 py-3.5 text-base font-semibold text-gray-700 shadow-sm ring-1 ring-gray-200 transition hover:bg-gray-50 active:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 sm:min-h-0 sm:rounded-lg sm:py-3 sm:shadow-md sm:ring-0";
+    "flex min-h-11 w-full touch-manipulation items-center justify-center rounded-lg bg-white px-3 py-2.5 text-[15px] font-semibold text-gray-700 shadow-sm ring-1 ring-gray-200 transition hover:bg-gray-50 active:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 sm:min-h-0 sm:py-3 sm:text-base sm:shadow-md sm:ring-0";
 
   return (
-    <div className="foam-login-mobile relative z-20 mx-auto w-full max-w-md">
-      <div className="relative z-20 border-0 bg-transparent px-1 py-2 sm:rounded-3xl sm:border sm:border-gray-200 sm:bg-white sm:px-8 sm:py-10 sm:shadow-xl">
+    <div className="foam-login-mobile relative z-20 mx-auto w-full max-w-sm sm:max-w-md">
+      <div className="relative z-20 border-0 bg-transparent px-1 py-1 sm:rounded-3xl sm:border sm:border-gray-200 sm:bg-white sm:px-8 sm:py-10 sm:shadow-xl">
         <div className="mx-auto w-full">
-          <h1 className="text-center font-display text-[2rem] font-extrabold tracking-tight text-black sm:text-[1.85rem]">
+          <h1 className="text-center font-display text-[1.55rem] font-extrabold tracking-tight text-black sm:text-[1.85rem]">
             {mode === "signin" ? "LOGIN" : "SIGN UP"}
           </h1>
 
-          <form id="foam-auth-form" className="mt-6 sm:mt-5" onSubmit={handleSubmit}>
+          <form id="foam-auth-form" className="mt-4 sm:mt-5" onSubmit={handleSubmit}>
             {mode === "signup" ? (
               <label
-                className="mb-1 block text-sm font-semibold text-gray-600"
+                className="mb-1 block text-[13px] font-semibold text-gray-600 sm:text-sm"
                 htmlFor="account-name"
               >
                 Name
@@ -761,7 +792,7 @@ export function AccountApp() {
             ) : null}
 
             <label
-              className="mb-1 block text-sm font-semibold text-gray-600"
+              className="mb-1 block text-[13px] font-semibold text-gray-600 sm:text-sm"
               htmlFor="account-email"
             >
               E-mail
@@ -779,7 +810,7 @@ export function AccountApp() {
             />
 
             <label
-              className="mb-1 block text-sm font-semibold text-gray-600"
+              className="mb-1 block text-[13px] font-semibold text-gray-600 sm:text-sm"
               htmlFor="account-password"
             >
               Password
@@ -797,10 +828,10 @@ export function AccountApp() {
             />
 
             {mode === "signin" ? (
-              <div className="mb-5 text-right sm:mb-4">
+              <div className="mb-3.5 text-right sm:mb-4">
                 <button
                   type="button"
-                  className="cursor-pointer touch-manipulation py-1 font-display text-sm font-semibold text-gray-500 hover:text-gray-600 sm:text-xs"
+                  className="cursor-pointer touch-manipulation py-0.5 font-display text-xs font-semibold text-gray-500 hover:text-gray-600"
                   onClick={() =>
                     setError(
                       "Password reset is coming soon. For now contact support if you need help."
@@ -815,7 +846,7 @@ export function AccountApp() {
 
           {error ? (
             <p
-              className="relative z-30 mb-4 rounded-xl bg-red-50 px-3 py-3 text-sm font-medium text-red-600 sm:bg-transparent sm:px-0 sm:py-0"
+              className="relative z-30 mb-3 rounded-lg bg-red-50 px-3 py-2.5 text-[13px] font-medium text-red-600 sm:mb-4 sm:bg-transparent sm:px-0 sm:py-0 sm:text-sm"
               role="alert"
             >
               {error}
@@ -823,7 +854,7 @@ export function AccountApp() {
           ) : null}
 
           {/* Outside <form> so mobile Safari doesn't swallow taps */}
-          <div className="relative z-30 mt-1 flex w-full flex-col gap-3 sm:gap-4">
+          <div className="relative z-30 mt-0.5 flex w-full flex-col gap-2.5 sm:gap-4">
             <GoogleSignInButton
               className={`${socialClass} cursor-pointer disabled:opacity-60`}
               onError={(message) => {
@@ -843,8 +874,8 @@ export function AccountApp() {
             >
               <svg
                 viewBox="0 0 30 30"
-                height="28"
-                width="28"
+                height="22"
+                width="22"
                 xmlns="http://www.w3.org/2000/svg"
                 aria-hidden
                 className="pointer-events-none"
@@ -857,12 +888,12 @@ export function AccountApp() {
             </button>
           </div>
 
-          <div className="mt-4 sm:mt-5">
+          <div className="mt-3 sm:mt-5">
             <button
               type="submit"
               form="foam-auth-form"
               disabled={busy || oauthBusy}
-              className="min-h-12 w-full touch-manipulation rounded-xl bg-blue-600 px-4 py-3.5 text-center text-base font-semibold text-white shadow-md transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-0 sm:rounded-lg sm:py-3"
+              className="min-h-11 w-full touch-manipulation rounded-lg bg-blue-600 px-4 py-2.5 text-center text-[15px] font-semibold text-white shadow-md transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-0 sm:py-3 sm:text-base"
             >
               {busy || oauthBusy
                 ? "Please wait..."
@@ -872,11 +903,11 @@ export function AccountApp() {
             </button>
           </div>
 
-          <div className="mt-5 flex items-center justify-between sm:mt-4">
+          <div className="mt-4 flex items-center justify-between sm:mt-4">
             <span className="w-1/5 border-b border-gray-300 md:w-1/4" />
             <button
               type="button"
-              className="touch-manipulation px-3 py-2 text-xs uppercase tracking-wide text-gray-500 hover:underline"
+              className="touch-manipulation px-2 py-1.5 text-[11px] uppercase tracking-wide text-gray-500 hover:underline sm:text-xs"
               onClick={() => {
                 setMode(mode === "signin" ? "signup" : "signin");
                 setError("");
