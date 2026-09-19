@@ -6268,6 +6268,7 @@
 
 .ops-detail-grid {
   display: grid;
+  grid-template-columns: 1fr;
   gap: 0.75rem;
   padding: 0.75rem 1rem 1rem;
   flex: 1;
@@ -6277,12 +6278,7 @@
   align-content: start;
 }
 @media (min-width: 768px) {
-  .ops-detail-grid { padding: 0.85rem 1.15rem 1rem; }
-}
-@media (min-width: 1024px) {
-  .ops-detail-grid {
-    grid-template-columns: 1fr 1fr;
-  }
+  .ops-detail-grid { padding: 0.85rem 1.15rem 1rem; max-width: 42rem; }
 }
 
 .ops-pickup-card {
@@ -6379,6 +6375,110 @@
 }
 .ops-workflow-card {
   min-width: 0;
+}
+
+.ops-flow {
+  display: grid;
+  gap: 0;
+  border: 1px solid var(--ops-border);
+  border-radius: var(--ops-radius);
+  background: var(--ops-card);
+  overflow: hidden;
+}
+.ops-flow-head {
+  padding: 0.85rem 1rem 0.5rem;
+  border-bottom: 1px solid var(--ops-border);
+}
+.ops-flow-step {
+  display: grid;
+  grid-template-columns: 2rem minmax(0, 1fr);
+  gap: 0.75rem;
+  padding: 0.85rem 1rem;
+  border-bottom: 1px solid var(--ops-border);
+}
+.ops-flow-step:last-child { border-bottom: 0; }
+.ops-flow-step.is-upcoming { opacity: 0.55; }
+.ops-flow-step.is-active {
+  background: color-mix(in srgb, var(--ops-accent) 28%, transparent);
+}
+.ops-flow-rail {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+}
+.ops-flow-dot {
+  display: grid;
+  place-items: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 999px;
+  background: var(--ops-surface);
+  color: var(--ops-muted);
+  font-size: 0.625rem;
+  font-weight: 800;
+  flex-shrink: 0;
+}
+.ops-flow-step.is-done .ops-flow-dot,
+.ops-flow-step.is-active .ops-flow-dot {
+  background: var(--ops-primary);
+  color: #fff;
+}
+.ops-flow-line {
+  flex: 1;
+  width: 2px;
+  min-height: 1rem;
+  background: var(--ops-border);
+  border-radius: 999px;
+}
+.ops-flow-step.is-done .ops-flow-line {
+  background: var(--ops-primary);
+}
+.ops-flow-body { min-width: 0; }
+.ops-flow-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+.ops-flow-title-row h3 {
+  margin: 0;
+  font-family: var(--ops-display);
+  font-size: 0.95rem;
+  font-weight: 800;
+}
+.ops-flow-state {
+  font-size: 0.625rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ops-muted);
+}
+.ops-flow-step.is-active .ops-flow-state {
+  color: var(--ops-primary);
+}
+.ops-flow-step.is-done .ops-flow-state {
+  color: var(--ops-success);
+}
+.ops-flow-panel {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+}
+.ops-flow-subsection {
+  display: grid;
+  gap: 0.5rem;
+}
+.ops-flow-done-note,
+.ops-flow-wait-note {
+  margin: 0.35rem 0 0;
+  font-size: 0.75rem;
+  color: var(--ops-muted);
+}
+.ops-flow-panel .ops-billing-card {
+  justify-self: stretch;
+  max-width: none;
+  width: 100%;
 }
 .ops-panel-title {
   display: flex;

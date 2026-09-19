@@ -735,243 +735,279 @@ export function AdminOrdersPanel({
                 </a>
               </section>
 
-              <section className="ops-card ops-workflow-card">
-                <PanelTitleFixed
-                  icon={Truck}
-                  title="Order progress"
-                  note="Follow the real stop → plant → delivery flow."
-                />
-                <div className="ops-stepper" aria-label="Order stages">
-                  {ORDER_PIPELINE_STEPS.map((step, index) => {
-                    const current = orderPipelineIndex(selected.status);
-                    const done = current > index;
-                    const active = current === index;
-                    return (
-                      <div key={step.id} className="ops-step">
-                        <span
-                          className={cn(
-                            "ops-step-dot",
-                            (done || active) &&
-                              selected.status !== "cancelled" &&
-                              "is-on",
-                            active &&
-                              selected.status !== "cancelled" &&
-                              "is-current"
-                          )}
-                          aria-current={active ? "step" : undefined}
-                        >
+              <section className="ops-flow" aria-label="Order stages">
+                <div className="ops-flow-head">
+                  <PanelTitleFixed
+                    icon={Truck}
+                    title="Order progress"
+                    note="One stage at a time — finish the current step to unlock the next."
+                  />
+                </div>
+
+                {ORDER_PIPELINE_STEPS.map((step, index) => {
+                  const current = orderPipelineIndex(selected.status);
+                  const done =
+                    selected.status !== "cancelled" && current > index;
+                  const active =
+                    selected.status !== "cancelled" && current === index;
+                  const upcoming = !done && !active;
+
+                  return (
+                    <div
+                      key={step.id}
+                      className={cn(
+                        "ops-flow-step",
+                        done && "is-done",
+                        active && "is-active",
+                        upcoming && "is-upcoming"
+                      )}
+                    >
+                      <div className="ops-flow-rail" aria-hidden>
+                        <span className="ops-flow-dot">
                           {done ? <Check size={12} /> : index + 1}
                         </span>
-                        <span
-                          className={cn(
-                            "ops-step-label",
-                            (done || active) &&
-                              selected.status !== "cancelled" &&
-                              "is-on"
-                          )}
-                        >
-                          {step.label}
-                        </span>
                         {index < ORDER_PIPELINE_STEPS.length - 1 ? (
-                          <span
-                            className={cn(
-                              "ops-step-bar",
-                              done && selected.status !== "cancelled" && "is-on"
-                            )}
-                          />
+                          <span className="ops-flow-line" />
                         ) : null}
                       </div>
-                    );
-                  })}
-                </div>
-                <p className="ops-muted ops-step-help">
-                  {ORDER_STATUS_HELP[selected.status]}
-                </p>
-                {stageAction ? (
-                  <div className="ops-action-row">
-                    <Button
-                      type="button"
-                      className="ops-btn-lg"
-                      disabled={saving}
-                      onClick={() => void setStatus(stageAction.next)}
-                    >
-                      <PackageCheck size={16} />
-                      {stageAction.label}
-                    </Button>
-                  </div>
-                ) : null}
-                {isWaitingForPickup(selected.status) ? (
-                  <p className="ops-muted ops-step-help">
-                    Use weigh-in, weight photo, and Charge below to mark this
-                    order Collected.
-                  </p>
-                ) : null}
-              </section>
 
-              {selected.services.laundry ? (
-                <section className="ops-card">
-                  <PanelTitleFixed
-                    icon={Weight}
-                    title="Weigh-in"
-                    note="At pickup: enter pounds and photo the scale."
-                  />
-                  <label className="ops-weight-field">
-                    Weight in pounds
-                    <span className="ops-weight-input">
-                      <input
-                        type="number"
-                        inputMode="decimal"
-                        min={0}
-                        step={0.1}
-                        value={weightInput}
-                        onChange={(e) => setWeightInput(e.target.value)}
-                        placeholder="0.0"
-                      />
-                      <span>lb</span>
-                    </span>
-                  </label>
-                  <div className="ops-photo-block">
-                    <label className="ops-photo-upload">
-                      <Camera size={16} aria-hidden />
-                      <span>
-                        {uploadingPhoto
-                          ? "Uploading…"
-                          : weightPhotos.length
-                            ? "Add another scale photo"
-                            : "Upload scale photo"}
-                      </span>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        capture="environment"
-                        disabled={uploadingPhoto || saving}
-                        onChange={(e) => {
-                          const file = e.target.files?.[0] ?? null;
-                          void handleWeightPhoto(file);
-                          e.target.value = "";
-                        }}
-                      />
-                    </label>
-                    {weightPhotos.length ? (
-                      <div className="ops-photo-thumbs">
-                        {weightPhotos.map((photo) => (
-                          <a
-                            key={photo.url}
-                            href={photo.url}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="ops-photo-thumb"
-                          >
-                            <img src={photo.url} alt="Weight scale photo" />
-                          </a>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="ops-muted ops-step-help">
-                        Required before charge when laundry is on the order.
-                      </p>
-                    )}
-                  </div>
-                </section>
-              ) : null}
+                      <div className="ops-flow-body">
+                        <div className="ops-flow-title-row">
+                          <h3>{step.label}</h3>
+                          <span className="ops-flow-state">
+                            {done ? "Done" : active ? "Now" : "Next"}
+                          </span>
+                        </div>
 
-              <section className="ops-card">
-                <PanelTitleFixed
-                  icon={Shirt}
-                  title="Dry cleaning items"
-                  note="Add one or more catalog items to this order."
-                />
-                <div className="ops-catalog">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="ops-catalog-toggle"
-                    onClick={() => setOpenCatalog((v) => !v)}
-                  >
-                    Choose catalog items
-                    <ChevronDown size={16} />
-                  </Button>
-                  {openCatalog ? (
-                    <div className="ops-catalog-menu">
-                      <label className="ops-search is-compact">
-                        <Search size={14} aria-hidden />
-                        <input
-                          autoFocus
-                          value={dryQuery}
-                          onChange={(e) => setDryQuery(e.target.value)}
-                          placeholder="Search catalog"
-                        />
-                      </label>
-                      <div className="ops-catalog-list">
-                        {dryMatches.length === 0 ? (
-                          <p className="ops-catalog-empty">No catalog matches</p>
-                        ) : (
-                          dryMatches.map((item) => (
-                            <button
-                              key={item.name}
-                              type="button"
-                              className="ops-catalog-item"
-                              onClick={() => addDryItem(item)}
-                            >
-                              <span>{item.name}</span>
-                              <strong>${item.price.toFixed(2)}</strong>
-                            </button>
-                          ))
-                        )}
+                        {active && index === 0 ? (
+                          <div className="ops-flow-panel">
+                            <p className="ops-muted ops-step-help">
+                              At the stop: weigh, photo the scale, add dry-clean
+                              items if needed, then charge.
+                            </p>
+
+                            {selected.services.laundry ? (
+                              <>
+                                <label className="ops-weight-field">
+                                  Weight in pounds
+                                  <span className="ops-weight-input">
+                                    <input
+                                      type="number"
+                                      inputMode="decimal"
+                                      min={0}
+                                      step={0.1}
+                                      value={weightInput}
+                                      onChange={(e) =>
+                                        setWeightInput(e.target.value)
+                                      }
+                                      placeholder="0.0"
+                                    />
+                                    <span>lb</span>
+                                  </span>
+                                </label>
+                                <div className="ops-photo-block">
+                                  <label className="ops-photo-upload">
+                                    <Camera size={16} aria-hidden />
+                                    <span>
+                                      {uploadingPhoto
+                                        ? "Uploading…"
+                                        : weightPhotos.length
+                                          ? "Add another scale photo"
+                                          : "Upload scale photo"}
+                                    </span>
+                                    <input
+                                      type="file"
+                                      accept="image/*"
+                                      capture="environment"
+                                      disabled={uploadingPhoto || saving}
+                                      onChange={(e) => {
+                                        const file = e.target.files?.[0] ?? null;
+                                        void handleWeightPhoto(file);
+                                        e.target.value = "";
+                                      }}
+                                    />
+                                  </label>
+                                  {weightPhotos.length ? (
+                                    <div className="ops-photo-thumbs">
+                                      {weightPhotos.map((photo) => (
+                                        <a
+                                          key={photo.url}
+                                          href={photo.url}
+                                          target="_blank"
+                                          rel="noreferrer"
+                                          className="ops-photo-thumb"
+                                        >
+                                          <img
+                                            src={photo.url}
+                                            alt="Weight scale photo"
+                                          />
+                                        </a>
+                                      ))}
+                                    </div>
+                                  ) : (
+                                    <p className="ops-muted ops-step-help">
+                                      Required before charge when laundry is on
+                                      the order.
+                                    </p>
+                                  )}
+                                </div>
+                              </>
+                            ) : null}
+
+                            <div className="ops-flow-subsection">
+                              <p className="ops-field-label">Dry cleaning items</p>
+                              <div className="ops-catalog">
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  className="ops-catalog-toggle"
+                                  onClick={() => setOpenCatalog((v) => !v)}
+                                >
+                                  Choose catalog items
+                                  <ChevronDown size={16} />
+                                </Button>
+                                {openCatalog ? (
+                                  <div className="ops-catalog-menu">
+                                    <label className="ops-search is-compact">
+                                      <Search size={14} aria-hidden />
+                                      <input
+                                        autoFocus
+                                        value={dryQuery}
+                                        onChange={(e) =>
+                                          setDryQuery(e.target.value)
+                                        }
+                                        placeholder="Search catalog"
+                                      />
+                                    </label>
+                                    <div className="ops-catalog-list">
+                                      {dryMatches.length === 0 ? (
+                                        <p className="ops-catalog-empty">
+                                          No catalog matches
+                                        </p>
+                                      ) : (
+                                        dryMatches.map((item) => (
+                                          <button
+                                            key={item.name}
+                                            type="button"
+                                            className="ops-catalog-item"
+                                            onClick={() => addDryItem(item)}
+                                          >
+                                            <span>{item.name}</span>
+                                            <strong>
+                                              ${item.price.toFixed(2)}
+                                            </strong>
+                                          </button>
+                                        ))
+                                      )}
+                                    </div>
+                                  </div>
+                                ) : null}
+                              </div>
+                              <div className="ops-chips">
+                                {dryItems.length ? (
+                                  dryItems.map((item, itemIndex) => (
+                                    <span
+                                      key={`${item.name}-${itemIndex}`}
+                                      className="ops-chip"
+                                    >
+                                      {item.name}{" "}
+                                      <b>${item.price.toFixed(2)}</b>
+                                      <button
+                                        type="button"
+                                        aria-label={`Remove ${item.name}`}
+                                        onClick={() =>
+                                          removeDryItem(itemIndex)
+                                        }
+                                      >
+                                        <X size={12} />
+                                      </button>
+                                    </span>
+                                  ))
+                                ) : (
+                                  <span className="ops-chips-empty">
+                                    No items selected
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+
+                            <div className="ops-billing-card">
+                              <PanelTitleFixed
+                                icon={CircleDollarSign}
+                                title="Billing summary"
+                              />
+                              <div className="ops-billing-total">
+                                <span>Calculated total</span>
+                                <strong>
+                                  {previewTotal != null
+                                    ? `$${previewTotal.toFixed(2)}`
+                                    : selected.finalTotal != null
+                                      ? `$${selected.finalTotal.toFixed(2)}`
+                                      : "—"}
+                                </strong>
+                              </div>
+                              <Button
+                                type="button"
+                                className="ops-btn-lg ops-billing-save"
+                                disabled={saving || uploadingPhoto}
+                                onClick={() => void saveBilling()}
+                              >
+                                Charge & mark collected
+                              </Button>
+                            </div>
+                          </div>
+                        ) : null}
+
+                        {active && stageAction ? (
+                          <div className="ops-flow-panel">
+                            <p className="ops-muted ops-step-help">
+                              {ORDER_STATUS_HELP[selected.status]}
+                            </p>
+                            <div className="ops-action-row">
+                              <Button
+                                type="button"
+                                className="ops-btn-lg"
+                                disabled={saving}
+                                onClick={() => void setStatus(stageAction.next)}
+                              >
+                                <PackageCheck size={16} />
+                                {stageAction.label}
+                              </Button>
+                            </div>
+                          </div>
+                        ) : null}
+
+                        {active && index === 4 ? (
+                          <div className="ops-flow-panel">
+                            <p className="ops-muted ops-step-help">
+                              Delivery is complete.
+                            </p>
+                          </div>
+                        ) : null}
+
+                        {done ? (
+                          <p className="ops-flow-done-note">
+                            {index === 0 && selected.finalTotal != null
+                              ? `Charged $${selected.finalTotal.toFixed(2)}${
+                                  selected.weightLbs
+                                    ? ` · ${selected.weightLbs} lb`
+                                    : ""
+                                }`
+                              : "Completed"}
+                          </p>
+                        ) : null}
+
+                        {upcoming ? (
+                          <p className="ops-flow-wait-note">
+                            Waiting for previous stage.
+                          </p>
+                        ) : null}
                       </div>
                     </div>
-                  ) : null}
-                </div>
-                <div className="ops-chips">
-                  {dryItems.length ? (
-                    dryItems.map((item, index) => (
-                      <span
-                        key={`${item.name}-${index}`}
-                        className="ops-chip"
-                      >
-                        {item.name}{" "}
-                        <b>${item.price.toFixed(2)}</b>
-                        <button
-                          type="button"
-                          aria-label={`Remove ${item.name}`}
-                          onClick={() => removeDryItem(index)}
-                        >
-                          <X size={12} />
-                        </button>
-                      </span>
-                    ))
-                  ) : (
-                    <span className="ops-chips-empty">No items selected</span>
-                  )}
-                </div>
+                  );
+                })}
               </section>
 
-              <section className="ops-billing-card">
-                <PanelTitleFixed
-                  icon={CircleDollarSign}
-                  title="Billing summary"
-                />
-                <div className="ops-billing-total">
-                  <span>Calculated total</span>
-                  <strong>
-                    {previewTotal != null
-                      ? `$${previewTotal.toFixed(2)}`
-                      : selected.finalTotal != null
-                        ? `$${selected.finalTotal.toFixed(2)}`
-                        : "—"}
-                  </strong>
-                </div>
-                <Button
-                  type="button"
-                  className="ops-btn-lg ops-billing-save"
-                  disabled={saving || uploadingPhoto}
-                  onClick={() => void saveBilling()}
-                >
-                  {isWaitingForPickup(selected.status)
-                    ? "Charge & mark collected"
-                    : "Save total"}
-                </Button>
-              </section>
             </div>
           </article>
         )}
