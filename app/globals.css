@@ -6360,6 +6360,10 @@
   border: 1px solid var(--ops-border);
   background: var(--ops-card);
   padding: 0.85rem 1rem;
+  align-self: start;
+}
+.ops-workflow-card {
+  min-width: 0;
 }
 .ops-panel-title {
   display: flex;
@@ -6413,19 +6417,23 @@
 
 .ops-stepper {
   display: flex;
-  align-items: center;
-  gap: 0.25rem;
-  margin-bottom: 1.25rem;
+  align-items: flex-start;
+  gap: 0;
+  margin-bottom: 0.75rem;
 }
 .ops-step {
+  position: relative;
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 0.25rem;
+  gap: 0.35rem;
   flex: 1;
   min-width: 0;
 }
-.ops-step:last-child { flex: 0; }
+.ops-step:last-child { flex: 0 0 auto; }
 .ops-step-dot {
+  position: relative;
+  z-index: 1;
   display: grid;
   place-items: center;
   width: 1.5rem;
@@ -6441,11 +6449,31 @@
   background: var(--ops-primary);
   color: #fff;
 }
-.ops-step-bar {
-  height: 2px;
-  flex: 1;
-  background: var(--ops-border);
+.ops-step-dot.is-current {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--ops-primary) 25%, transparent);
 }
+.ops-step-label {
+  font-size: 0.625rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--ops-muted);
+  text-align: center;
+  line-height: 1.2;
+}
+.ops-step-label.is-on {
+  color: var(--ops-ink);
+}
+.ops-step-bar {
+  position: absolute;
+  top: 0.7rem;
+  left: calc(50% + 0.85rem);
+  right: calc(-50% + 0.85rem);
+  height: 2px;
+  background: var(--ops-border);
+  z-index: 0;
+}
+.ops-step:last-child .ops-step-bar { display: none; }
 .ops-step-bar.is-on { background: var(--ops-primary); }
 .ops-step-help {
   min-height: 0;

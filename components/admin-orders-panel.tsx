@@ -38,6 +38,7 @@ import {
 } from "@/lib/dry-clean-catalog";
 import { getFirebaseDb } from "@/lib/firebase";
 import {
+  ORDER_STATUS_HELP,
   ORDER_STATUS_LABELS,
   ORDER_STATUS_NEXT,
   computeFinalTotal,
@@ -72,6 +73,22 @@ const ADVANCE_LABEL: Partial<Record<OrderStatus, string>> = {
   washing: "Out for delivery",
   out_for_delivery: "Mark delivered",
 };
+
+const PIPELINE_STEPS: { id: OrderStatus; label: string }[] = [
+  { id: "new", label: "New" },
+  { id: "picked_up", label: "Pickup" },
+  { id: "washing", label: "Plant" },
+  { id: "out_for_delivery", label: "Delivery" },
+  { id: "delivered", label: "Done" },
+];
+
+function pipelineIndex(status: OrderStatus) {
+  if (status === "cancelled") return -1;
+  if (status === "confirmed") return 0;
+  if (status === "weighed") return 2;
+  const index = PIPELINE_STEPS.findIndex((step) => step.id === status);
+  return Math.max(0, index);
+}
 
 function todayIso() {
   const d = new Date();
@@ -404,21 +421,6 @@ export function AdminOrdersPanel({
     ? `Hi ${selected.contact.name.split(" ")[0] || "there"}, this is FOAM about your pickup on ${selected.pickup.date} (${selected.pickup.slot}).`
     : "";
 
-  const pipeline: OrderStatus[] = [
-    "new",
-    "picked_up",
-    "washing",
-    "out_for_delivery",
-    "delivered",
-  ];
-
-  function pipelineIndex(status: OrderStatus) {
-    if (status === "cancelled") return -1;
-    if (status === "confirmed") return 0;
-    if (status === "weighed") return 2;
-    return Math.max(0, pipeline.indexOf(status));
-  }
-
   function selectOrder(id: string) {
     setSelectedId(id);
     onMobileViewChange("detail");
@@ -658,30 +660,44 @@ export function AdminOrdersPanel({
                 </a>
               </section>
 
-              <section className="ops-card">
+              <section className="ops-card ops-workflow-card">
                 <PanelTitleFixed
                   icon={Truck}
-                  title="Workflow"
-                  note="Status advances only when the current handoff is complete."
+                  title="Order progress"
+                  note="Move the order forward as each stage is done."
                 />
-                <div className="ops-stepper" aria-hidden>
-                  {pipeline.map((status, index) => {
+                <div className="ops-stepper" aria-label="Order stages">
+                  {PIPELINE_STEPS.map((step, index) => {
                     const current = pipelineIndex(selected.status);
                     const done = current > index;
                     const active = current === index;
                     return (
-                      <div key={status} className="ops-step">
+                      <div key={step.id} className="ops-step">
                         <span
                           className={cn(
                             "ops-step-dot",
                             (done || active) &&
                               selected.status !== "cancelled" &&
-                              "is-on"
+                              "is-on",
+                            active &&
+                              selected.status !== "cancelled" &&
+                              "is-current"
                           )}
+                          aria-current={active ? "step" : undefined}
                         >
                           {done ? <Check size={12} /> : index + 1}
                         </span>
-                        {index < pipeline.length - 1 ? (
+                        <span
+                          className={cn(
+                            "ops-step-label",
+                            (done || active) &&
+                              selected.status !== "cancelled" &&
+                              "is-on"
+                          )}
+                        >
+                          {step.label}
+                        </span>
+                        {index < PIPELINE_STEPS.length - 1 ? (
                           <span
                             className={cn(
                               "ops-step-bar",
@@ -695,10 +711,10 @@ export function AdminOrdersPanel({
                 </div>
                 <p className="ops-muted ops-step-help">
                   {selected.status === "cancelled"
-                    ? "This order is closed and cannot advance."
+                    ? "This order is cancelled."
                     : selected.status === "delivered"
                       ? "Delivery is complete."
-                      : "Complete the current step, then move this order forward."}
+                      : ORDER_STATUS_HELP[selected.status]}
                 </p>
                 <div className="ops-action-row">
                   {advanceStatus ? (
