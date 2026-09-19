@@ -412,9 +412,15 @@ export function AdminOrdersPanel({
         statusUpdatedAt: serverTimestamp(),
         lastUpdatedBy: adminEmail,
       });
-      setOkMsg("Weight photo uploaded.");
-    } catch {
-      setError("Could not upload weight photo.");
+      setOkMsg(
+        uploaded.storage === "inline"
+          ? "Weight photo saved."
+          : "Weight photo uploaded."
+      );
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Could not upload weight photo."
+      );
     } finally {
       setUploadingPhoto(false);
     }
