@@ -258,6 +258,8 @@ export type FoamOrder = {
   refundAmount?: number | null;
   cancelReason?: string;
   photos?: OrderPhoto[];
+  /** Unguessable key for public /track?k=… page */
+  trackKey?: string;
   statusHistory?: { status: OrderStatus; at: unknown; by?: string }[];
   createdAt?: { toDate: () => Date } | null;
   statusUpdatedAt?: { toDate: () => Date } | null;

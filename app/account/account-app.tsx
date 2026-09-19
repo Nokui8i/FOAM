@@ -15,10 +15,10 @@ import {
   ChevronDown,
   CreditCard,
   LogOut,
-  PackageOpen,
 } from "lucide-react";
 
 import { AddressAutocomplete } from "@/components/address-autocomplete";
+import { AccountOrders } from "@/components/account-orders";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/components/auth-provider";
 import { GoogleSignInButton } from "@/components/google-sign-in-button";
@@ -476,21 +476,7 @@ function AccountProfile({
           </form>
         ) : null}
 
-        {activeTab === "Orders" ? (
-          <EmptyState
-            id="panel-orders"
-            labelledBy="tab-orders"
-            icon={<PackageOpen />}
-            title="Recent orders"
-            text="No orders yet. After your first pickup, your order history will show up here."
-          >
-            <Button asChild>
-              <Link href={BOOKING_PATH}>
-                Book a Pickup <ArrowRight />
-              </Link>
-            </Button>
-          </EmptyState>
-        ) : null}
+        {activeTab === "Orders" ? <AccountOrders uid={uid} /> : null}
 
         {activeTab === "Payments" ? (
           <EmptyState

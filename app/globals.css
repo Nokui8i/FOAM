@@ -3872,6 +3872,186 @@
     margin-top: 1.25rem;
   }
 
+  .order-progress {
+    display: grid;
+    gap: 0.85rem;
+  }
+
+  .order-progress-cancelled {
+    margin: 0;
+    padding: 0.65rem 0.75rem;
+    border: 1px solid color-mix(in oklch, var(--color-destructive) 35%, transparent);
+    border-radius: 0.65rem;
+    background: color-mix(in oklch, var(--color-destructive) 8%, white);
+    font-size: 0.85rem;
+    font-weight: 650;
+    color: var(--color-destructive);
+  }
+
+  .order-progress-list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    display: grid;
+    gap: 0;
+  }
+
+  .order-progress-step {
+    display: grid;
+    grid-template-columns: 1.35rem minmax(0, 1fr);
+    gap: 0.65rem;
+    padding: 0.65rem 0;
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  .order-progress-step:last-child {
+    border-bottom: 0;
+  }
+
+  .order-progress-dot {
+    display: grid;
+    place-items: center;
+    width: 1.35rem;
+    height: 1.35rem;
+    margin-top: 0.1rem;
+    border-radius: 999px;
+    border: 1.5px solid var(--color-border);
+    background: #fff;
+    color: #fff;
+  }
+
+  .order-progress-step.is-done .order-progress-dot,
+  .order-progress-step.is-active .order-progress-dot {
+    border-color: var(--color-accent-strong);
+    background: var(--color-accent-strong);
+  }
+
+  .order-progress-step.is-upcoming .order-progress-copy {
+    opacity: 0.55;
+  }
+
+  .order-progress-copy {
+    min-width: 0;
+    display: grid;
+    gap: 0.15rem;
+  }
+
+  .order-progress-copy strong {
+    font-size: 0.95rem;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+  }
+
+  .order-progress-copy small {
+    font-size: 0.78rem;
+    color: var(--color-muted-foreground);
+    line-height: 1.4;
+  }
+
+  .order-progress-status {
+    margin: 0;
+    font-size: 0.75rem;
+    font-weight: 650;
+    color: var(--color-muted-foreground);
+  }
+
+  .track-page {
+    background: var(--color-background);
+  }
+
+  .track-card {
+    border: 1px solid var(--color-border);
+    border-radius: 0.9rem;
+    background: #fff;
+    padding: 1.15rem;
+  }
+
+  .track-meta {
+    display: grid;
+    gap: 0.35rem;
+    margin-bottom: 1rem;
+    padding-bottom: 0.85rem;
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  .track-meta p {
+    margin: 0;
+    font-size: 0.85rem;
+    color: var(--color-muted-foreground);
+  }
+
+  .track-meta strong {
+    color: var(--color-foreground);
+    font-weight: 700;
+  }
+
+  .account-orders {
+    display: grid;
+    gap: 0.75rem;
+  }
+
+  .account-order-card {
+    border: 1px solid var(--color-border);
+    border-radius: 0.9rem;
+    background: #fff;
+    padding: 0.85rem 1rem;
+  }
+
+  .account-order-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.5rem 1rem;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    text-align: left;
+    cursor: pointer;
+    font: inherit;
+    color: inherit;
+  }
+
+  .account-order-head h3 {
+    margin: 0;
+    font-family: var(--font-display);
+    font-size: 0.98rem;
+    font-weight: 750;
+    letter-spacing: -0.02em;
+  }
+
+  .account-order-head p {
+    margin: 0.2rem 0 0;
+    font-size: 0.8rem;
+    color: var(--color-muted-foreground);
+  }
+
+  .account-order-badge {
+    flex-shrink: 0;
+    border: 1px solid var(--color-border);
+    border-radius: 999px;
+    padding: 0.25rem 0.55rem;
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--color-muted-foreground);
+  }
+
+  .account-order-badge.is-active {
+    border-color: transparent;
+    background: color-mix(in oklch, var(--color-accent-strong) 16%, white);
+    color: var(--color-accent-strong);
+  }
+
+  .account-order-body {
+    margin-top: 0.85rem;
+    padding-top: 0.85rem;
+    border-top: 1px solid var(--color-border);
+  }
+
   .book-modal-root {
     position: fixed;
     inset: 0;

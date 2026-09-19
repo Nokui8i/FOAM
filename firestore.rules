@@ -80,6 +80,38 @@ service cloud.firestore {
       allow update, delete: if isAdmin();
     }
 
+    match /orderTracks/{key} {
+      // Secret URL key is the access control — get only (no list).
+      allow get: if true;
+
+      allow create: if
+        key.size() >= 16
+        && key.size() <= 64
+        && request.resource.data.keys().hasOnly([
+          'orderId', 'ref', 'status', 'firstName',
+          'pickupDate', 'pickupSlot', 'laundry', 'dryCleaning',
+          'bagCount', 'createdAt', 'updatedAt'
+        ])
+        && request.resource.data.orderId is string
+        && request.resource.data.orderId.size() > 0
+        && request.resource.data.orderId.size() <= 64
+        && request.resource.data.ref is string
+        && request.resource.data.ref.size() > 0
+        && request.resource.data.ref.size() <= 16
+        && request.resource.data.status == 'new'
+        && request.resource.data.firstName is string
+        && request.resource.data.firstName.size() <= 40
+        && request.resource.data.pickupDate is string
+        && request.resource.data.pickupSlot is string
+        && request.resource.data.laundry is bool
+        && request.resource.data.dryCleaning is bool
+        && request.resource.data.bagCount is number
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time;
+
+      allow update, delete: if isAdmin();
+    }
+
     match /{document=**} {
       allow read, write: if false;
     }

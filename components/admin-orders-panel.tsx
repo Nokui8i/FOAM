@@ -159,6 +159,7 @@ function mapOrder(id: string, data: Record<string, unknown>): FoamOrder {
           (photo) => photo && typeof photo.url === "string"
         )
       : [],
+    trackKey: typeof data.trackKey === "string" ? data.trackKey : undefined,
     createdAt: (data.createdAt as FoamOrder["createdAt"]) ?? null,
     statusUpdatedAt:
       (data.statusUpdatedAt as FoamOrder["statusUpdatedAt"]) ?? null,
@@ -331,6 +332,22 @@ export function AdminOrdersPanel({
         statusUpdatedAt: serverTimestamp(),
         lastUpdatedBy: adminEmail,
       });
+
+      const nextStatus =
+        typeof data.status === "string"
+          ? normalizeOrderStatus(data.status)
+          : null;
+      if (nextStatus && selected.trackKey) {
+        try {
+          await updateDoc(doc(getFirebaseDb(), "orderTracks", selected.trackKey), {
+            status: nextStatus,
+            updatedAt: serverTimestamp(),
+          });
+        } catch {
+          /* older orders may lack a track doc */
+        }
+      }
+
       setOkMsg(ok);
     } catch {
       setError("Update failed. Try again.");

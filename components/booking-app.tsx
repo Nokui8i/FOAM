@@ -6,11 +6,13 @@ import { useRouter } from "next/navigation";
 import {
   addDoc,
   collection,
+  doc,
   getDocs,
   limit,
   orderBy,
   query,
   serverTimestamp,
+  setDoc,
   where,
 } from "firebase/firestore";
 import { ArrowLeft, Check, ChevronDown, ChevronLeft, ChevronRight, Minus, Plus, Repeat, Shirt, Sparkles, X } from "lucide-react";
@@ -19,6 +21,11 @@ import { AddressAutocomplete } from "@/components/address-autocomplete";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/components/auth-provider";
 import { getFirebaseDb } from "@/lib/firebase";
+import {
+  buildOrderTrackDoc,
+  makeTrackKey,
+  trackPath,
+} from "@/lib/order-tracking";
 import { getUserProfile, saveUserProfile } from "@/lib/user-profile";
 import {
   BOOKING_STEPS,
@@ -92,6 +99,7 @@ export function BookingApp() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [doneId, setDoneId] = useState<string | null>(null);
+  const [doneTrackKey, setDoneTrackKey] = useState<string | null>(null);
   const [repeatDiscountEligible, setRepeatDiscountEligible] = useState(false);
   const [guestGateOpen, setGuestGateOpen] = useState(false);
   const [draftHydrated, setDraftHydrated] = useState(false);
@@ -275,10 +283,12 @@ export function BookingApp() {
       const repeatActive = Boolean(user) && wantsRepeat;
       const pricing = pricingForOrder({ weeklyAutomation: repeatActive });
       const tip = resolvedTip(draft);
+      const trackKey = makeTrackKey();
       const payload = {
         status: "new",
         guest: !user,
         uid: user?.uid ?? null,
+        trackKey,
         services: {
           laundry: draft.laundry,
           dryCleaning: draft.dryCleaning,
@@ -328,6 +338,22 @@ export function BookingApp() {
       };
 
       const ref = await addDoc(collection(getFirebaseDb(), "orders"), payload);
+
+      await setDoc(doc(getFirebaseDb(), "orderTracks", trackKey), {
+        ...buildOrderTrackDoc({
+          orderId: ref.id,
+          status: "new",
+          name: draft.name.trim(),
+          pickupDate: draft.pickupDate,
+          pickupSlot: draft.pickupSlot,
+          laundry: draft.laundry,
+          dryCleaning: draft.dryCleaning,
+          bagCount: draft.laundry ? Number(draft.bagCount) || 1 : 0,
+        }),
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
+
       clearBookingDraft();
 
       if (user) {
@@ -383,6 +409,7 @@ export function BookingApp() {
       }
 
       setDoneId(ref.id);
+      setDoneTrackKey(trackKey);
     } catch {
       setError("Could not submit. Check connection and try again.");
     } finally {
@@ -408,16 +435,24 @@ export function BookingApp() {
             </p>
             <p className="book-hint">
               {user
-                ? "Saved to Account → Orders."
-                : "Create an account anytime to track future pickups."}
+                ? "Saved to Account → Orders. You can also track with the link below."
+                : "Save your tracking link — it’s the only way to follow this order as a guest."}
             </p>
             <div className="book-success-actions">
-              <Button asChild>
-                <Link href="/">Home</Link>
-              </Button>
-              <Button variant="outline" asChild>
-                <Link href="/account">{user ? "My account" : "Login"}</Link>
-              </Button>
+              {doneTrackKey ? (
+                <Button asChild>
+                  <Link href={trackPath(doneTrackKey)}>Track your order</Link>
+                </Button>
+              ) : null}
+              {user ? (
+                <Button variant="outline" asChild>
+                  <Link href="/account">My account</Link>
+                </Button>
+              ) : (
+                <Button variant="outline" asChild>
+                  <Link href="/">Home</Link>
+                </Button>
+              )}
             </div>
           </div>
         </div>
