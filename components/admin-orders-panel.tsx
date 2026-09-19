@@ -505,10 +505,10 @@ export function AdminOrdersPanel({
         ...(hasLaundry ? { weightLbs: lbs } : {}),
         dryCleanItems: dryItems,
         finalTotal,
-        status: "picked_up",
+        status: "washing",
         "pricing.finalTotalPending": false,
       },
-      `Charged · $${finalTotal.toFixed(2)} · Collected`
+      `Charged · $${finalTotal.toFixed(2)} · In progress`
     );
     setFilter("progress");
   }
@@ -537,12 +537,13 @@ export function AdminOrdersPanel({
 
   const stageAction = (() => {
     if (!selected || selected.status === "cancelled") return null;
-    if (isCollectedStage(selected.status)) {
-      return { label: "Start washing", next: "washing" as const };
-    }
-    if (selected.status === "washing") {
+    // Legacy "at plant" statuses + washing share one In progress stage
+    if (
+      isCollectedStage(selected.status) ||
+      selected.status === "washing"
+    ) {
       return {
-        label: "Left for drop-off",
+        label: "Out for delivery",
         next: "out_for_delivery" as const,
       };
     }

@@ -13,13 +13,9 @@ export const CUSTOMER_PIPELINE_LABELS: Record<
     label: "Waiting for pickup",
     hint: "Scheduled — we’ll collect your bags in the pickup window.",
   },
-  collected: {
-    label: "Collected",
-    hint: "Your bags are at the plant.",
-  },
-  plant: {
-    label: "Washing",
-    hint: "We’re cleaning your order now.",
+  progress: {
+    label: "In progress",
+    hint: "Your bags are at the plant and being cleaned.",
   },
   delivery: {
     label: "Out for delivery",

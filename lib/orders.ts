@@ -22,9 +22,9 @@ export type OrderStatus = (typeof ORDER_STATUSES)[number];
 export const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
   new: "Waiting for pickup",
   confirmed: "Waiting for pickup",
-  picked_up: "At plant",
-  weighed: "At plant",
-  washing: "Washing",
+  picked_up: "In progress",
+  weighed: "In progress",
+  washing: "In progress",
   out_for_delivery: "Out for delivery",
   delivered: "Delivered",
   cancelled: "Cancelled",
@@ -33,9 +33,9 @@ export const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
 export const ORDER_STATUS_HELP: Record<OrderStatus, string> = {
   new: "At the customer stop — weigh, photo, then charge.",
   confirmed: "At the customer stop — weigh, photo, then charge.",
-  picked_up: "Bags are at the plant. Tap when washing starts.",
-  weighed: "Bags are at the plant. Tap when washing starts.",
-  washing: "Still at the plant. Tap when the order leaves for drop-off.",
+  picked_up: "At the plant / being washed. Tap when it leaves for the customer.",
+  weighed: "At the plant / being washed. Tap when it leaves for the customer.",
+  washing: "Being washed. Tap when it leaves for the customer.",
   out_for_delivery: "With the driver. Tap when the customer has the bags.",
   delivered: "Finished.",
   cancelled: "Cancelled.",
@@ -103,17 +103,17 @@ export const CANCEL_REASONS = [
 
 /** Next status moves for ops (no cancel in the main progress UI). */
 export const ORDER_STATUS_NEXT: Partial<Record<OrderStatus, OrderStatus[]>> = {
-  new: ["picked_up"],
-  confirmed: ["picked_up"],
-  picked_up: ["washing"],
-  weighed: ["washing"],
+  new: ["washing"],
+  confirmed: ["washing"],
+  picked_up: ["out_for_delivery"],
+  weighed: ["out_for_delivery"],
   washing: ["out_for_delivery"],
   out_for_delivery: ["delivered"],
   delivered: [],
   cancelled: [],
 };
 
-/** Visual pipeline shown in ops (maps several DB statuses into one stage). */
+/** Visual pipeline (ops + customer). At-plant merged into In progress. */
 export const ORDER_PIPELINE_STEPS = [
   {
     id: "waiting",
@@ -123,22 +123,15 @@ export const ORDER_PIPELINE_STEPS = [
     actionHint: "Charge & mark collected",
   },
   {
-    id: "collected",
-    label: "At plant",
-    statuses: ["picked_up", "weighed"],
-    preview: "Bags arrived. Tap when washing starts.",
-    actionHint: "Start washing",
-  },
-  {
-    id: "plant",
-    label: "Washing",
-    statuses: ["washing"],
-    preview: "Still at the plant. Tap when it leaves for drop-off.",
-    actionHint: "Left for drop-off",
+    id: "progress",
+    label: "In progress",
+    statuses: ["picked_up", "weighed", "washing"],
+    preview: "At the plant and being washed.",
+    actionHint: "Out for delivery",
   },
   {
     id: "delivery",
-    label: "Drop-off",
+    label: "Out for delivery",
     statuses: ["out_for_delivery"],
     preview: "With the driver. Tap when the customer has the bags.",
     actionHint: "Mark delivered",
