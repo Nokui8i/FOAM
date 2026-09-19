@@ -268,7 +268,14 @@ export function AdminOrdersPanel({
     });
   }, [rows, filter, queryText]);
 
-  const selected = rows.find((row) => row.id === selectedId) ?? null;
+  // Keep detail pane on a row that is actually visible in the current list.
+  useEffect(() => {
+    const stillVisible = filtered.some((row) => row.id === selectedId);
+    if (stillVisible) return;
+    setSelectedId(filtered[0]?.id ?? null);
+  }, [filtered, selectedId]);
+
+  const selected = filtered.find((row) => row.id === selectedId) ?? null;
 
   useEffect(() => {
     if (!selected) return;
