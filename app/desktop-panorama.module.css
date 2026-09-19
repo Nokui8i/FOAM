@@ -58,15 +58,15 @@
   }
 
   .mobileBlend {
-    margin-top: -5vw;
-    -webkit-mask-image: linear-gradient(to bottom, transparent 0, rgb(0 0 0 / 18%) 1.2vw, rgb(0 0 0 / 62%) 3vw, #000 5vw);
-    mask-image: linear-gradient(to bottom, transparent 0, rgb(0 0 0 / 18%) 1.2vw, rgb(0 0 0 / 62%) 3vw, #000 5vw);
+    margin-top: -12px;
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0, rgb(0 0 0 / 18%) 3px, rgb(0 0 0 / 62%) 7px, #000 12px);
+    mask-image: linear-gradient(to bottom, transparent 0, rgb(0 0 0 / 18%) 3px, rgb(0 0 0 / 62%) 7px, #000 12px);
   }
 
   /* Preserve the price copy and the final call-to-action near their seams. */
   .mobileShortBlend {
-    margin-top: -3vw;
-    -webkit-mask-image: linear-gradient(to bottom, transparent, #000 3vw);
-    mask-image: linear-gradient(to bottom, transparent, #000 3vw);
+    margin-top: -8px;
+    -webkit-mask-image: linear-gradient(to bottom, transparent, #000 8px);
+    mask-image: linear-gradient(to bottom, transparent, #000 8px);
   }
 }
