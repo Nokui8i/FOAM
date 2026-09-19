@@ -999,7 +999,7 @@ export function AdminOrdersPanel({
 
                         {upcoming ? (
                           <p className="ops-flow-wait-note">
-                            Waiting for previous stage.
+                            Locked for now — {step.preview}
                           </p>
                         ) : null}
                       </div>

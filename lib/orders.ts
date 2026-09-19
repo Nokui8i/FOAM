@@ -115,11 +115,36 @@ export const ORDER_STATUS_NEXT: Partial<Record<OrderStatus, OrderStatus[]>> = {
 
 /** Visual pipeline shown in ops (maps several DB statuses into one stage). */
 export const ORDER_PIPELINE_STEPS = [
-  { id: "waiting", label: "Waiting", statuses: ["new", "confirmed"] },
-  { id: "collected", label: "Collected", statuses: ["picked_up", "weighed"] },
-  { id: "plant", label: "In process", statuses: ["washing"] },
-  { id: "delivery", label: "Delivery", statuses: ["out_for_delivery"] },
-  { id: "done", label: "Done", statuses: ["delivered"] },
+  {
+    id: "waiting",
+    label: "Waiting",
+    statuses: ["new", "confirmed"],
+    preview: "Weigh, photo the scale, add dry-clean items, then charge.",
+  },
+  {
+    id: "collected",
+    label: "Collected",
+    statuses: ["picked_up", "weighed"],
+    preview: "At the plant — confirm the order entered the work process.",
+  },
+  {
+    id: "plant",
+    label: "In process",
+    statuses: ["washing"],
+    preview: "When ready for return — confirm it left for delivery.",
+  },
+  {
+    id: "delivery",
+    label: "Delivery",
+    statuses: ["out_for_delivery"],
+    preview: "Hand off to the customer, then mark delivered.",
+  },
+  {
+    id: "done",
+    label: "Done",
+    statuses: ["delivered"],
+    preview: "Order complete.",
+  },
 ] as const;
 
 export function orderPipelineIndex(status: OrderStatus): number {
