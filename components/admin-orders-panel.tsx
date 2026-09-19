@@ -40,7 +40,6 @@ import { getFirebaseDb } from "@/lib/firebase";
 import { uploadOrderPhoto } from "@/lib/order-photos";
 import {
   ORDER_PIPELINE_STEPS,
-  ORDER_STATUS_HELP,
   ORDER_STATUS_LABELS,
   computeFinalTotal,
   dryCleanItemsTotal,
@@ -54,6 +53,7 @@ import {
   type DryCleanItem,
   type FoamOrder,
   type OrderPhoto,
+  type OrderPhotoKind,
   type OrderStatus,
 } from "@/lib/orders";
 import { BUSINESS_WHATSAPP } from "@/lib/site-config";
@@ -411,37 +411,45 @@ export function AdminOrdersPanel({
     [selected?.photos]
   );
 
-  async function handleWeightPhoto(file: File | null) {
+  const deliveryPhotos = useMemo(
+    () => (selected?.photos ?? []).filter((photo) => photo.kind === "return"),
+    [selected?.photos]
+  );
+
+  async function handleOrderPhoto(file: File | null, kind: OrderPhotoKind) {
     if (!selected || !file) return;
     setUploadingPhoto(true);
     setError("");
     try {
       const uploaded = await uploadOrderPhoto({
         orderId: selected.id,
-        kind: "weight",
+        kind,
         file,
       });
       await updateDoc(doc(getFirebaseDb(), "orders", selected.id), {
         photos: arrayUnion({
           url: uploaded.url,
-          kind: "weight",
+          kind,
           createdAt: new Date().toISOString(),
         }),
         statusUpdatedAt: serverTimestamp(),
         lastUpdatedBy: adminEmail,
       });
-      setOkMsg(
-        uploaded.storage === "inline"
-          ? "Weight photo saved."
-          : "Weight photo uploaded."
-      );
+      setOkMsg(kind === "return" ? "Delivery photo saved." : "Photo saved.");
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Could not upload weight photo."
-      );
+      setError(err instanceof Error ? err.message : "Could not save photo.");
     } finally {
       setUploadingPhoto(false);
     }
+  }
+
+  async function markDelivered() {
+    if (!selected) return;
+    if (deliveryPhotos.length === 0) {
+      setError("Upload a delivery photo before marking delivered.");
+      return;
+    }
+    await setStatus("delivered");
   }
 
   async function chargeAndCollect() {
@@ -773,11 +781,7 @@ export function AdminOrdersPanel({
               <div className="ops-detail-main">
               <section className="ops-flow" aria-label="Order stages">
                 <div className="ops-flow-head">
-                  <PanelTitleFixed
-                    icon={Truck}
-                    title="Order progress"
-                    note="Do the open stage (Now). Later stages are for the plant and drop-off."
-                  />
+                  <PanelTitleFixed icon={Truck} title="Order progress" />
                 </div>
 
                 {ORDER_PIPELINE_STEPS.map((step, index) => {
@@ -842,10 +846,6 @@ export function AdminOrdersPanel({
                           </span>
                         </button>
 
-                        {!(active && open) ? (
-                          <p className="ops-flow-blurb">{step.preview}</p>
-                        ) : null}
-
                         {open ? (
                           <div className="ops-flow-panel">
                             {active && index === 0 ? (
@@ -889,7 +889,7 @@ export function AdminOrdersPanel({
                                       disabled={uploadingPhoto || saving}
                                       onChange={(e) => {
                                         const file = e.target.files?.[0] ?? null;
-                                        void handleWeightPhoto(file);
+                                        void handleOrderPhoto(file, "weight");
                                         e.target.value = "";
                                       }}
                                     />
@@ -911,12 +911,7 @@ export function AdminOrdersPanel({
                                         </a>
                                       ))}
                                     </div>
-                                  ) : (
-                                    <p className="ops-muted ops-step-help">
-                                      Needed before charge when laundry is on
-                                      the order.
-                                    </p>
-                                  )}
+                                  ) : null}
                                 </div>
                               </>
                             ) : null}
@@ -1023,31 +1018,72 @@ export function AdminOrdersPanel({
                               </>
                             ) : null}
 
-                            {active && stageAction ? (
-                              <>
-                                <p className="ops-step-help">
-                                  {ORDER_STATUS_HELP[selected.status]}
+                            {active &&
+                            selected.status === "out_for_delivery" ? (
+                              <div className="ops-photo-block">
+                                <p className="ops-field-label">
+                                  Delivery photo
                                 </p>
-                                <div className="ops-action-row">
-                                  <Button
-                                    type="button"
-                                    className="ops-btn-lg"
-                                    disabled={saving}
-                                    onClick={() =>
-                                      void setStatus(stageAction.next)
-                                    }
-                                  >
-                                    <PackageCheck size={16} />
-                                    {stageAction.label}
-                                  </Button>
-                                </div>
-                              </>
+                                <label className="ops-photo-upload is-primary">
+                                  <Camera size={16} aria-hidden />
+                                  <span>
+                                    {uploadingPhoto
+                                      ? "Uploading…"
+                                      : deliveryPhotos.length
+                                        ? "Add another delivery photo"
+                                        : "Upload delivery photo"}
+                                  </span>
+                                  <input
+                                    type="file"
+                                    accept="image/*"
+                                    capture="environment"
+                                    disabled={uploadingPhoto || saving}
+                                    onChange={(e) => {
+                                      const file = e.target.files?.[0] ?? null;
+                                      void handleOrderPhoto(file, "return");
+                                      e.target.value = "";
+                                    }}
+                                  />
+                                </label>
+                                {deliveryPhotos.length ? (
+                                  <div className="ops-photo-thumbs">
+                                    {deliveryPhotos.map((photo) => (
+                                      <a
+                                        key={photo.url}
+                                        href={photo.url}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="ops-photo-thumb"
+                                      >
+                                        <img
+                                          src={photo.url}
+                                          alt="Delivery proof photo"
+                                        />
+                                      </a>
+                                    ))}
+                                  </div>
+                                ) : null}
+                              </div>
                             ) : null}
 
-                            {active && index === 4 ? (
-                              <p className="ops-step-help">
-                                Finished — nothing left to do.
-                              </p>
+                            {active && stageAction ? (
+                              <div className="ops-action-row">
+                                <Button
+                                  type="button"
+                                  className="ops-btn-lg"
+                                  disabled={saving || uploadingPhoto}
+                                  onClick={() => {
+                                    if (stageAction.next === "delivered") {
+                                      void markDelivered();
+                                      return;
+                                    }
+                                    void setStatus(stageAction.next);
+                                  }}
+                                >
+                                  <PackageCheck size={16} />
+                                  {stageAction.label}
+                                </Button>
+                              </div>
                             ) : null}
 
                             {done ? (
@@ -1058,13 +1094,9 @@ export function AdminOrdersPanel({
                                         ? ` · ${selected.weightLbs} lb`
                                         : ""
                                     }`
-                                  : "Completed"}
-                              </p>
-                            ) : null}
-
-                            {!active && !done && step.actionHint ? (
-                              <p className="ops-flow-later">
-                                Later button: {step.actionHint}
+                                  : index === 3 && deliveryPhotos.length
+                                    ? "Delivered with photo"
+                                    : "Completed"}
                               </p>
                             ) : null}
                           </div>
