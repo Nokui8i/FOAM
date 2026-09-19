@@ -756,7 +756,7 @@ export function AdminOrdersPanel({
                   <PanelTitleFixed
                     icon={Truck}
                     title="Order progress"
-                    note="Open any stage to preview it. Work the current stage to move forward."
+                    note="The open stage is what you do now. Tap another stage to preview it."
                   />
                 </div>
 
@@ -795,10 +795,15 @@ export function AdminOrdersPanel({
                           className="ops-flow-title-row"
                           aria-expanded={open}
                           onClick={() =>
-                            setExpandedSteps((prev) => ({
-                              ...prev,
-                              [step.id]: !open,
-                            }))
+                            setExpandedSteps(() =>
+                              open && !active
+                                ? {
+                                    [ORDER_PIPELINE_STEPS[
+                                      Math.max(0, current)
+                                    ]?.id ?? step.id]: true,
+                                  }
+                                : { [step.id]: true }
+                            )
                           }
                         >
                           <h3>{step.label}</h3>
@@ -821,15 +826,28 @@ export function AdminOrdersPanel({
                           <div className="ops-flow-panel">
                             {active && index === 0 ? (
                               <>
-                            <p className="ops-muted ops-step-help">
-                              At the stop: weigh, photo the scale, add dry-clean
-                              items if needed, then charge.
-                            </p>
+                            <ol className="ops-todo-list">
+                              <li>
+                                <strong>1.</strong> Enter the bag weight in
+                                pounds.
+                              </li>
+                              <li>
+                                <strong>2.</strong> Upload a photo of the scale.
+                              </li>
+                              <li>
+                                <strong>3.</strong> Add dry-clean items if
+                                needed.
+                              </li>
+                              <li>
+                                <strong>4.</strong> Press{" "}
+                                <strong>Charge & mark collected</strong>.
+                              </li>
+                            </ol>
 
                             {selected.services.laundry ? (
                               <>
                                 <label className="ops-weight-field">
-                                  Weight in pounds
+                                  1 · Weight in pounds
                                   <span className="ops-weight-input">
                                     <input
                                       type="number"
@@ -846,7 +864,10 @@ export function AdminOrdersPanel({
                                   </span>
                                 </label>
                                 <div className="ops-photo-block">
-                                  <label className="ops-photo-upload">
+                                  <p className="ops-field-label">
+                                    2 · Scale photo
+                                  </p>
+                                  <label className="ops-photo-upload is-primary">
                                     <Camera size={16} aria-hidden />
                                     <span>
                                       {uploadingPhoto
@@ -895,7 +916,9 @@ export function AdminOrdersPanel({
                             ) : null}
 
                             <div className="ops-flow-subsection">
-                              <p className="ops-field-label">Dry cleaning items</p>
+                              <p className="ops-field-label">
+                                3 · Dry cleaning items
+                              </p>
                               <div className="ops-catalog">
                                 <Button
                                   type="button"
@@ -974,7 +997,7 @@ export function AdminOrdersPanel({
                             <div className="ops-billing-card">
                               <PanelTitleFixed
                                 icon={CircleDollarSign}
-                                title="Billing summary"
+                                title="4 · Billing summary"
                               />
                               <div className="ops-billing-total">
                                 <span>Calculated total</span>
