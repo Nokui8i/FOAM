@@ -5,6 +5,17 @@ import { Button } from "@/components/ui/button";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { BOOKING_PATH } from "@/lib/site-config";
+import styles from "./desktop-panorama.module.css";
+
+const MOBILE_ARTWORK_HEIGHT = 13469;
+const MOBILE_PANELS = [
+  { start: 0, end: 2790, shortBlend: false },
+  { start: 2790, end: 5217, shortBlend: false },
+  { start: 5217, end: 6817, shortBlend: false },
+  { start: 6817, end: 9561, shortBlend: false },
+  { start: 9561, end: 11869, shortBlend: true },
+  { start: 11869, end: MOBILE_ARTWORK_HEIGHT, shortBlend: true },
+] as const;
 
 export default function Home() {
   return (
@@ -15,23 +26,78 @@ export default function Home() {
         <span id="how" className="home-anchor home-anchor--how" aria-hidden="true" />
         <span id="services" className="home-anchor home-anchor--services" aria-hidden="true" />
         <span id="pricing" className="home-anchor home-anchor--pricing" aria-hidden="true" />
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src="/home-mockup-mobile-v18.png"
-          alt="FOAM laundry: More time for what matters. Pickup, wash, fold and delivery in Las Vegas — how it works, services, pricing, and schedule a pickup."
-          width={1440}
-          height={13469}
-          className="home-full-image home-full-image--mobile"
-        />
+        <div
+          className={`home-full-image--mobile ${styles.mobilePanorama}`}
+          role="img"
+          aria-label="FOAM laundry: More time for what matters. Pickup, wash, fold and delivery in Las Vegas — how it works, services, pricing, and schedule a pickup."
+        >
+          {MOBILE_PANELS.map(({ start, end, shortBlend }, index) => {
+            const height = end - start;
+
+            return (
+              <div
+                key={start}
+                className={`${styles.mobilePanel} ${index > 0 ? styles.mobileBlend : ""} ${shortBlend ? styles.mobileShortBlend : ""}`}
+                style={{ aspectRatio: `1440 / ${height}` }}
+                aria-hidden="true"
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src="/home-mockup-mobile-v18.png"
+                  alt=""
+                  width={1440}
+                  height={MOBILE_ARTWORK_HEIGHT}
+                  style={{
+                    height: `${(MOBILE_ARTWORK_HEIGHT / height) * 100}%`,
+                    top: `${-(start / height) * 100}%`,
+                  }}
+                />
+                {index > 0 && (
+                  // Keep headings crisp when they begin immediately below a seam.
+                  // This duplicate uses the same cached asset and restores only a
+                  // softly feathered area around the centered heading.
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src="/home-mockup-mobile-v18.png"
+                    alt=""
+                    width={1440}
+                    height={MOBILE_ARTWORK_HEIGHT}
+                    className={styles.mobileTextRestore}
+                    style={{
+                      height: `${(MOBILE_ARTWORK_HEIGHT / height) * 100}%`,
+                      top: `${-(start / height) * 100}%`,
+                    }}
+                  />
+                )}
+              </div>
+            );
+          })}
+        </div>
         <div className="home-full-desktop-shell">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="/home-mockup-desktop-v21.png"
-            alt="FOAM laundry: More time for what matters. Pickup, wash, fold and delivery in Las Vegas — how it works, services, pricing, and schedule a pickup."
-            width={3840}
-            height={12960}
-            className="home-full-image home-full-image--desktop"
-          />
+          <div
+            className={`home-full-image--desktop ${styles.panorama}`}
+            role="img"
+            aria-label="FOAM laundry: More time for what matters. Pickup, wash, fold and delivery in Las Vegas — how it works, services, pricing, and schedule a pickup."
+          >
+            {/* Six equal 3840 × 2160 panels from the original desktop artwork.
+                Each layer reuses the same URL, so the browser caches one asset. */}
+            {Array.from({ length: 6 }, (_, index) => (
+              <div
+                key={index}
+                className={`${styles.panel} ${index > 0 ? styles.blend : ""} ${index >= 4 ? styles.shortBlend : ""}`}
+                aria-hidden="true"
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src="/home-mockup-desktop-v21.png"
+                  alt=""
+                  width={3840}
+                  height={12960}
+                  style={{ top: `${index * -100}%` }}
+                />
+              </div>
+            ))}
+          </div>
         </div>
       </section>
 

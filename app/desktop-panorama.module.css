@@ -1,0 +1,85 @@
+/* This entire treatment is limited to the existing desktop breakpoint. */
+@media (min-width: 768px) {
+  .panorama {
+    overflow: hidden;
+    isolation: isolate;
+    background: #86c1e6;
+  }
+
+  .panel {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    overflow: hidden;
+  }
+
+  .panel img {
+    position: absolute;
+    display: block;
+    left: 0;
+    width: 100%;
+    height: 600%;
+    max-width: none;
+  }
+
+  .blend {
+    margin-top: -4%;
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0%, rgb(0 0 0 / 10%) 1%, rgb(0 0 0 / 50%) 3%, #000 7.12%);
+    mask-image: linear-gradient(to bottom, transparent 0%, rgb(0 0 0 / 10%) 1%, rgb(0 0 0 / 50%) 3%, #000 7.12%);
+  }
+
+  /* Less overlap at the pricing boundaries keeps their content visible. */
+  .shortBlend {
+    margin-top: -2%;
+    -webkit-mask-image: linear-gradient(to bottom, transparent, #000 3.56%);
+    mask-image: linear-gradient(to bottom, transparent, #000 3.56%);
+  }
+}
+
+@media (max-width: 767px) {
+  .mobilePanorama {
+    overflow: hidden;
+    isolation: isolate;
+    background: #86c1e6;
+  }
+
+  .mobilePanel {
+    position: relative;
+    width: 100%;
+    overflow: hidden;
+  }
+
+  .mobilePanel img {
+    position: absolute;
+    display: block;
+    left: 0;
+    width: 100%;
+    max-width: none;
+  }
+
+  .mobileBlend {
+    margin-top: -12px;
+  }
+
+  .mobileBlend > img:not(.mobileTextRestore) {
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0, rgb(0 0 0 / 18%) 3px, rgb(0 0 0 / 62%) 7px, #000 12px);
+    mask-image: linear-gradient(to bottom, transparent 0, rgb(0 0 0 / 18%) 3px, rgb(0 0 0 / 62%) 7px, #000 12px);
+  }
+
+  /* Preserve the price copy and the final call-to-action near their seams. */
+  .mobileShortBlend {
+    margin-top: -8px;
+  }
+
+  .mobileShortBlend > img:not(.mobileTextRestore) {
+    -webkit-mask-image: linear-gradient(to bottom, transparent, #000 8px);
+    mask-image: linear-gradient(to bottom, transparent, #000 8px);
+  }
+
+  .mobileTextRestore {
+    z-index: 1;
+    clip-path: inset(0 4% calc(100% - 120px) 4%);
+    -webkit-mask-image: radial-gradient(ellipse 64% 74px at 50% 43px, #000 52%, transparent 100%);
+    mask-image: radial-gradient(ellipse 64% 74px at 50% 43px, #000 52%, transparent 100%);
+  }
+}
