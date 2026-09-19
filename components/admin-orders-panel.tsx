@@ -201,6 +201,9 @@ export function AdminOrdersPanel({
   const [openCatalog, setOpenCatalog] = useState(false);
   const [saving, setSaving] = useState(false);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [expandedSteps, setExpandedSteps] = useState<Record<string, boolean>>(
+    {}
+  );
 
   useEffect(() => {
     const db = getFirebaseDb();
@@ -295,6 +298,13 @@ export function AdminOrdersPanel({
     setOkMsg("");
     setError("");
   }, [selected?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!selected) return;
+    const current = orderPipelineIndex(selected.status);
+    const activeId = ORDER_PIPELINE_STEPS[Math.max(0, current)]?.id;
+    setExpandedSteps(activeId ? { [activeId]: true } : {});
+  }, [selected?.id, selected?.status]);
 
   async function patchOrder(data: Record<string, unknown>, ok = "Saved.") {
     if (!selected) return;
@@ -746,7 +756,7 @@ export function AdminOrdersPanel({
                   <PanelTitleFixed
                     icon={Truck}
                     title="Order progress"
-                    note="One stage at a time — finish the current step to unlock the next."
+                    note="Open any stage to preview it. Work the current stage to move forward."
                   />
                 </div>
 
@@ -757,6 +767,7 @@ export function AdminOrdersPanel({
                   const active =
                     selected.status !== "cancelled" && current === index;
                   const upcoming = !done && !active;
+                  const open = expandedSteps[step.id] ?? active;
 
                   return (
                     <div
@@ -765,7 +776,8 @@ export function AdminOrdersPanel({
                         "ops-flow-step",
                         done && "is-done",
                         active && "is-active",
-                        upcoming && "is-upcoming"
+                        upcoming && "is-upcoming",
+                        open && "is-open"
                       )}
                     >
                       <div className="ops-flow-rail" aria-hidden>
@@ -778,15 +790,37 @@ export function AdminOrdersPanel({
                       </div>
 
                       <div className="ops-flow-body">
-                        <div className="ops-flow-title-row">
+                        <button
+                          type="button"
+                          className="ops-flow-title-row"
+                          aria-expanded={open}
+                          onClick={() =>
+                            setExpandedSteps((prev) => ({
+                              ...prev,
+                              [step.id]: !open,
+                            }))
+                          }
+                        >
                           <h3>{step.label}</h3>
-                          <span className="ops-flow-state">
-                            {done ? "Done" : active ? "Now" : "Next"}
+                          <span className="ops-flow-title-end">
+                            <span className="ops-flow-state">
+                              {done ? "Done" : active ? "Now" : "Next"}
+                            </span>
+                            <ChevronDown
+                              size={16}
+                              className={cn(
+                                "ops-flow-chevron",
+                                open && "is-open"
+                              )}
+                              aria-hidden
+                            />
                           </span>
-                        </div>
+                        </button>
 
-                        {active && index === 0 ? (
+                        {open ? (
                           <div className="ops-flow-panel">
+                            {active && index === 0 ? (
+                              <>
                             <p className="ops-muted ops-step-help">
                               At the stop: weigh, photo the scale, add dry-clean
                               items if needed, then charge.
@@ -961,52 +995,52 @@ export function AdminOrdersPanel({
                                 Charge & mark collected
                               </Button>
                             </div>
+                              </>
+                            ) : null}
+
+                            {active && stageAction ? (
+                              <>
+                                <p className="ops-muted ops-step-help">
+                                  {ORDER_STATUS_HELP[selected.status]}
+                                </p>
+                                <div className="ops-action-row">
+                                  <Button
+                                    type="button"
+                                    className="ops-btn-lg"
+                                    disabled={saving}
+                                    onClick={() =>
+                                      void setStatus(stageAction.next)
+                                    }
+                                  >
+                                    <PackageCheck size={16} />
+                                    {stageAction.label}
+                                  </Button>
+                                </div>
+                              </>
+                            ) : null}
+
+                            {active && index === 4 ? (
+                              <p className="ops-muted ops-step-help">
+                                Delivery is complete.
+                              </p>
+                            ) : null}
+
+                            {done ? (
+                              <p className="ops-flow-done-note">
+                                {index === 0 && selected.finalTotal != null
+                                  ? `Charged $${selected.finalTotal.toFixed(2)}${
+                                      selected.weightLbs
+                                        ? ` · ${selected.weightLbs} lb`
+                                        : ""
+                                    }`
+                                  : "Completed"}
+                              </p>
+                            ) : null}
+
+                            {!active && !done ? (
+                              <p className="ops-flow-wait-note">{step.preview}</p>
+                            ) : null}
                           </div>
-                        ) : null}
-
-                        {active && stageAction ? (
-                          <div className="ops-flow-panel">
-                            <p className="ops-muted ops-step-help">
-                              {ORDER_STATUS_HELP[selected.status]}
-                            </p>
-                            <div className="ops-action-row">
-                              <Button
-                                type="button"
-                                className="ops-btn-lg"
-                                disabled={saving}
-                                onClick={() => void setStatus(stageAction.next)}
-                              >
-                                <PackageCheck size={16} />
-                                {stageAction.label}
-                              </Button>
-                            </div>
-                          </div>
-                        ) : null}
-
-                        {active && index === 4 ? (
-                          <div className="ops-flow-panel">
-                            <p className="ops-muted ops-step-help">
-                              Delivery is complete.
-                            </p>
-                          </div>
-                        ) : null}
-
-                        {done ? (
-                          <p className="ops-flow-done-note">
-                            {index === 0 && selected.finalTotal != null
-                              ? `Charged $${selected.finalTotal.toFixed(2)}${
-                                  selected.weightLbs
-                                    ? ` · ${selected.weightLbs} lb`
-                                    : ""
-                                }`
-                              : "Completed"}
-                          </p>
-                        ) : null}
-
-                        {upcoming ? (
-                          <p className="ops-flow-wait-note">
-                            Locked for now — {step.preview}
-                          </p>
                         ) : null}
                       </div>
                     </div>

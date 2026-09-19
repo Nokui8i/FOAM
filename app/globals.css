@@ -6495,7 +6495,6 @@
 }
 .ops-flow-step:last-child { border-bottom: 0; }
 .ops-flow-step.is-upcoming {
-  opacity: 1;
   background: color-mix(in srgb, var(--ops-surface) 70%, transparent);
 }
 .ops-flow-step.is-active {
@@ -6541,9 +6540,31 @@
 .ops-flow-body { min-width: 0; }
 .ops-flow-title-row {
   display: flex;
+  width: 100%;
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+.ops-flow-title-end {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-shrink: 0;
+}
+.ops-flow-chevron {
+  color: var(--ops-muted);
+  transition: transform 0.15s ease;
+}
+.ops-flow-chevron.is-open {
+  transform: rotate(180deg);
 }
 .ops-flow-title-row h3 {
   margin: 0;
