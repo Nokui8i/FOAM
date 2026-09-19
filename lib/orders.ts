@@ -20,25 +20,25 @@ export const ORDER_STATUSES = [
 export type OrderStatus = (typeof ORDER_STATUSES)[number];
 
 export const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
-  new: "1 · New order",
-  confirmed: "2 · Confirmed",
-  picked_up: "3 · Picked up",
-  weighed: "4 · Weighed",
-  washing: "5 · Washing",
-  out_for_delivery: "6 · Out for delivery",
-  delivered: "7 · Delivered",
+  new: "Waiting for pickup",
+  confirmed: "Waiting for pickup",
+  picked_up: "Collected",
+  weighed: "Collected",
+  washing: "In process",
+  out_for_delivery: "Out for delivery",
+  delivered: "Delivered",
   cancelled: "Cancelled",
 };
 
 export const ORDER_STATUS_HELP: Record<OrderStatus, string> = {
-  new: "Just submitted — call/text to confirm pickup window.",
-  confirmed: "Customer confirmed — go collect bags.",
-  picked_up: "Bags in van — weigh at facility.",
-  weighed: "Weight + total saved — start wash.",
-  washing: "In process — prepare return.",
-  out_for_delivery: "On the way back to customer.",
-  delivered: "Done — closed.",
-  cancelled: "Order stopped — keep notes why.",
+  new: "Order is waiting for pickup. At the stop: weigh, photo the scale, then charge.",
+  confirmed: "Order is waiting for pickup. At the stop: weigh, photo the scale, then charge.",
+  picked_up: "Collected after charge. At the plant, confirm it entered the work process.",
+  weighed: "Collected after charge. At the plant, confirm it entered the work process.",
+  washing: "In the plant process. When ready for return, confirm it left for delivery.",
+  out_for_delivery: "On the way back to the customer. Mark delivered when handed off.",
+  delivered: "Order is complete.",
+  cancelled: "Order is cancelled.",
 };
 
 /** Ops / customer-service situations to resolve in admin */
@@ -101,17 +101,42 @@ export const CANCEL_REASONS = [
   "Other — see notes",
 ] as const;
 
-/** Next sensible status buttons for ops */
+/** Next status moves for ops (no cancel in the main progress UI). */
 export const ORDER_STATUS_NEXT: Partial<Record<OrderStatus, OrderStatus[]>> = {
-  new: ["confirmed", "cancelled"],
-  confirmed: ["picked_up", "cancelled"],
-  picked_up: ["weighed", "cancelled"],
-  weighed: ["washing", "cancelled"],
-  washing: ["out_for_delivery", "cancelled"],
-  out_for_delivery: ["delivered", "cancelled"],
+  new: ["picked_up"],
+  confirmed: ["picked_up"],
+  picked_up: ["washing"],
+  weighed: ["washing"],
+  washing: ["out_for_delivery"],
+  out_for_delivery: ["delivered"],
   delivered: [],
-  cancelled: ["new"],
+  cancelled: [],
 };
+
+/** Visual pipeline shown in ops (maps several DB statuses into one stage). */
+export const ORDER_PIPELINE_STEPS = [
+  { id: "waiting", label: "Waiting", statuses: ["new", "confirmed"] },
+  { id: "collected", label: "Collected", statuses: ["picked_up", "weighed"] },
+  { id: "plant", label: "In process", statuses: ["washing"] },
+  { id: "delivery", label: "Delivery", statuses: ["out_for_delivery"] },
+  { id: "done", label: "Done", statuses: ["delivered"] },
+] as const;
+
+export function orderPipelineIndex(status: OrderStatus): number {
+  if (status === "cancelled") return -1;
+  const index = ORDER_PIPELINE_STEPS.findIndex((step) =>
+    (step.statuses as readonly string[]).includes(status)
+  );
+  return Math.max(0, index);
+}
+
+export function isWaitingForPickup(status: OrderStatus) {
+  return status === "new" || status === "confirmed";
+}
+
+export function isCollectedStage(status: OrderStatus) {
+  return status === "picked_up" || status === "weighed";
+}
 
 export type OrderPhotoKind =
   | "pickup"

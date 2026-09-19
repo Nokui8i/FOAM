@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import {
+  arrayUnion,
   collection,
   doc,
   onSnapshot,
@@ -12,6 +13,7 @@ import {
 } from "firebase/firestore";
 import {
   ArrowLeft,
+  Camera,
   Check,
   ChevronDown,
   CircleDollarSign,
@@ -37,17 +39,22 @@ import {
   type DryCleanCatalogItem,
 } from "@/lib/dry-clean-catalog";
 import { getFirebaseDb } from "@/lib/firebase";
+import { uploadOrderPhoto } from "@/lib/order-photos";
 import {
+  ORDER_PIPELINE_STEPS,
   ORDER_STATUS_HELP,
   ORDER_STATUS_LABELS,
-  ORDER_STATUS_NEXT,
   computeFinalTotal,
   dryCleanItemsTotal,
   formatOrderAddress,
+  isCollectedStage,
+  isWaitingForPickup,
   normalizeOrderStatus,
+  orderPipelineIndex,
   servicesSummary,
   type DryCleanItem,
   type FoamOrder,
+  type OrderPhoto,
   type OrderStatus,
 } from "@/lib/orders";
 import { BUSINESS_WHATSAPP } from "@/lib/site-config";
@@ -58,37 +65,12 @@ type MobileView = "list" | "detail";
 
 const FILTERS: { id: Filter; label: string }[] = [
   { id: "active", label: "Active" },
-  { id: "new", label: "New" },
+  { id: "new", label: "Waiting" },
   { id: "today", label: "Today" },
   { id: "cancelled", label: "Cancelled" },
   { id: "done", label: "Done" },
   { id: "all", label: "All" },
 ];
-
-const ADVANCE_LABEL: Partial<Record<OrderStatus, string>> = {
-  new: "Confirm order",
-  confirmed: "Mark collected",
-  picked_up: "Save weight & continue",
-  weighed: "Start work at plant",
-  washing: "Out for delivery",
-  out_for_delivery: "Mark delivered",
-};
-
-const PIPELINE_STEPS: { id: OrderStatus; label: string }[] = [
-  { id: "new", label: "New" },
-  { id: "picked_up", label: "Pickup" },
-  { id: "washing", label: "Plant" },
-  { id: "out_for_delivery", label: "Delivery" },
-  { id: "delivered", label: "Done" },
-];
-
-function pipelineIndex(status: OrderStatus) {
-  if (status === "cancelled") return -1;
-  if (status === "confirmed") return 0;
-  if (status === "weighed") return 2;
-  const index = PIPELINE_STEPS.findIndex((step) => step.id === status);
-  return Math.max(0, index);
-}
 
 function todayIso() {
   const d = new Date();
@@ -111,7 +93,7 @@ function waUrl(phone: string, body: string) {
 }
 
 function shortStatus(status: OrderStatus) {
-  return ORDER_STATUS_LABELS[status].replace(/^\d+ · /, "");
+  return ORDER_STATUS_LABELS[status];
 }
 
 function isToday(date: string) {
@@ -165,6 +147,11 @@ function mapOrder(id: string, data: Record<string, unknown>): FoamOrder {
             typeof item.price === "number"
         )
       : [],
+    photos: Array.isArray(data.photos)
+      ? (data.photos as OrderPhoto[]).filter(
+          (photo) => photo && typeof photo.url === "string"
+        )
+      : [],
     createdAt: (data.createdAt as FoamOrder["createdAt"]) ?? null,
     statusUpdatedAt:
       (data.statusUpdatedAt as FoamOrder["statusUpdatedAt"]) ?? null,
@@ -213,6 +200,7 @@ export function AdminOrdersPanel({
   const [dryQuery, setDryQuery] = useState("");
   const [openCatalog, setOpenCatalog] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
   useEffect(() => {
     const db = getFirebaseDb();
@@ -239,7 +227,7 @@ export function AdminOrdersPanel({
       active: rows.filter(
         (r) => r.status !== "delivered" && r.status !== "cancelled"
       ).length,
-      new: rows.filter((r) => r.status === "new").length,
+      new: rows.filter((r) => isWaitingForPickup(r.status)).length,
       today: rows.filter((r) => r.pickup.date === today).length,
       cancelled: rows.filter((r) => r.status === "cancelled").length,
       done: rows.filter(
@@ -253,7 +241,7 @@ export function AdminOrdersPanel({
     const q = queryText.trim().toLowerCase();
     const today = todayIso();
     return rows.filter((row) => {
-      if (filter === "new" && row.status !== "new") return false;
+      if (filter === "new" && !isWaitingForPickup(row.status)) return false;
       if (filter === "today" && row.pickup.date !== today) return false;
       if (filter === "cancelled" && row.status !== "cancelled") return false;
       if (
@@ -350,6 +338,11 @@ export function AdminOrdersPanel({
 
   async function saveBilling() {
     if (!selected) return;
+    if (isWaitingForPickup(selected.status)) {
+      await chargeAndCollect();
+      return;
+    }
+
     const hasLaundry = selected.services.laundry;
     let lbs = 0;
     if (hasLaundry) {
@@ -379,21 +372,86 @@ export function AdminOrdersPanel({
         ...(hasLaundry ? { weightLbs: lbs } : {}),
         dryCleanItems: dryItems,
         finalTotal,
-        status:
-          hasLaundry && selected.status === "picked_up"
-            ? "weighed"
-            : selected.status,
         "pricing.finalTotalPending": false,
       },
-      `Total saved · $${finalTotal.toFixed(2)}`
+      `Total updated · $${finalTotal.toFixed(2)}`
     );
   }
 
-  const nextStatuses = selected
-    ? ORDER_STATUS_NEXT[selected.status] ?? []
-    : [];
-  const advanceStatus = nextStatuses.find((s) => s !== "cancelled");
-  const canCancel = nextStatuses.includes("cancelled");
+  const weightPhotos = useMemo(
+    () => (selected?.photos ?? []).filter((photo) => photo.kind === "weight"),
+    [selected?.photos]
+  );
+
+  async function handleWeightPhoto(file: File | null) {
+    if (!selected || !file) return;
+    setUploadingPhoto(true);
+    setError("");
+    try {
+      const uploaded = await uploadOrderPhoto({
+        orderId: selected.id,
+        kind: "weight",
+        file,
+      });
+      await updateDoc(doc(getFirebaseDb(), "orders", selected.id), {
+        photos: arrayUnion({
+          url: uploaded.url,
+          kind: "weight",
+          createdAt: new Date().toISOString(),
+        }),
+        statusUpdatedAt: serverTimestamp(),
+        lastUpdatedBy: adminEmail,
+      });
+      setOkMsg("Weight photo uploaded.");
+    } catch {
+      setError("Could not upload weight photo.");
+    } finally {
+      setUploadingPhoto(false);
+    }
+  }
+
+  async function chargeAndCollect() {
+    if (!selected) return;
+    const hasLaundry = selected.services.laundry;
+    let lbs = 0;
+    if (hasLaundry) {
+      lbs = Number(weightInput);
+      if (!Number.isFinite(lbs) || lbs <= 0) {
+        setError("Enter the weight in pounds before charging.");
+        return;
+      }
+      if (weightPhotos.length === 0) {
+        setError("Upload a photo of the scale before charging.");
+        return;
+      }
+    }
+
+    const laundryPortion = computeFinalTotal({
+      weightLbs: lbs,
+      tier: selected.pricing?.tier,
+      ratePerLb: selected.pricing?.laundryRatePerLb,
+      deliveryFee: selected.pricing?.deliveryFee,
+      minimumOrder: selected.pricing?.minimumOrder,
+      tip: selected.tip ?? selected.pricing?.tip ?? 0,
+      repeatDiscountPercent: selected.pricing?.repeatDiscountEligible
+        ? selected.pricing?.repeatDiscountPercent ?? 0
+        : 0,
+      hasLaundry,
+    });
+    const dryTotal = dryCleanItemsTotal(dryItems);
+    const finalTotal = Math.round((laundryPortion + dryTotal) * 100) / 100;
+
+    await patchOrder(
+      {
+        ...(hasLaundry ? { weightLbs: lbs } : {}),
+        dryCleanItems: dryItems,
+        finalTotal,
+        status: "picked_up",
+        "pricing.finalTotalPending": false,
+      },
+      `Charged · $${finalTotal.toFixed(2)} · Collected`
+    );
+  }
 
   const previewTotal = useMemo(() => {
     if (!selected) return null;
@@ -416,6 +474,23 @@ export function AdminOrdersPanel({
       Math.round((laundryPortion + dryCleanItemsTotal(dryItems)) * 100) / 100
     );
   }, [selected, weightInput, dryItems]);
+
+  const stageAction = (() => {
+    if (!selected || selected.status === "cancelled") return null;
+    if (isCollectedStage(selected.status)) {
+      return { label: "Confirm entered plant process", next: "washing" as const };
+    }
+    if (selected.status === "washing") {
+      return {
+        label: "Confirm out for delivery",
+        next: "out_for_delivery" as const,
+      };
+    }
+    if (selected.status === "out_for_delivery") {
+      return { label: "Mark delivered", next: "delivered" as const };
+    }
+    return null;
+  })();
 
   const customerMsg = selected
     ? `Hi ${selected.contact.name.split(" ")[0] || "there"}, this is FOAM about your pickup on ${selected.pickup.date} (${selected.pickup.slot}).`
@@ -501,7 +576,7 @@ export function AdminOrdersPanel({
                     "ops-status-pill",
                     row.status === "delivered" && "is-done",
                     row.status === "cancelled" && "is-cancelled",
-                    row.status === "new" && "is-new"
+                    isWaitingForPickup(row.status) && "is-new"
                   )}
                 >
                   {shortStatus(row.status)}
@@ -543,7 +618,7 @@ export function AdminOrdersPanel({
                         "ops-status-pill is-lg",
                         selected.status === "cancelled" && "is-cancelled",
                         selected.status === "delivered" && "is-done",
-                        selected.status === "new" && "is-new"
+                        isWaitingForPickup(selected.status) && "is-new"
                       )}
                     >
                       {shortStatus(selected.status)}
@@ -664,11 +739,11 @@ export function AdminOrdersPanel({
                 <PanelTitleFixed
                   icon={Truck}
                   title="Order progress"
-                  note="Move the order forward as each stage is done."
+                  note="Follow the real stop → plant → delivery flow."
                 />
                 <div className="ops-stepper" aria-label="Order stages">
-                  {PIPELINE_STEPS.map((step, index) => {
-                    const current = pipelineIndex(selected.status);
+                  {ORDER_PIPELINE_STEPS.map((step, index) => {
+                    const current = orderPipelineIndex(selected.status);
                     const done = current > index;
                     const active = current === index;
                     return (
@@ -697,7 +772,7 @@ export function AdminOrdersPanel({
                         >
                           {step.label}
                         </span>
-                        {index < PIPELINE_STEPS.length - 1 ? (
+                        {index < ORDER_PIPELINE_STEPS.length - 1 ? (
                           <span
                             className={cn(
                               "ops-step-bar",
@@ -710,38 +785,27 @@ export function AdminOrdersPanel({
                   })}
                 </div>
                 <p className="ops-muted ops-step-help">
-                  {selected.status === "cancelled"
-                    ? "This order is cancelled."
-                    : selected.status === "delivered"
-                      ? "Delivery is complete."
-                      : ORDER_STATUS_HELP[selected.status]}
+                  {ORDER_STATUS_HELP[selected.status]}
                 </p>
-                <div className="ops-action-row">
-                  {advanceStatus ? (
+                {stageAction ? (
+                  <div className="ops-action-row">
                     <Button
                       type="button"
                       className="ops-btn-lg"
                       disabled={saving}
-                      onClick={() => void setStatus(advanceStatus)}
+                      onClick={() => void setStatus(stageAction.next)}
                     >
                       <PackageCheck size={16} />
-                      {ADVANCE_LABEL[selected.status] ??
-                        `→ ${shortStatus(advanceStatus)}`}
+                      {stageAction.label}
                     </Button>
-                  ) : null}
-                  {canCancel ? (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="ops-btn-lg ops-btn-danger"
-                      disabled={saving}
-                      onClick={() => void setStatus("cancelled")}
-                    >
-                      <X size={16} />
-                      Cancel order
-                    </Button>
-                  ) : null}
-                </div>
+                  </div>
+                ) : null}
+                {isWaitingForPickup(selected.status) ? (
+                  <p className="ops-muted ops-step-help">
+                    Use weigh-in, weight photo, and Charge below to mark this
+                    order Collected.
+                  </p>
+                ) : null}
               </section>
 
               {selected.services.laundry ? (
@@ -749,7 +813,7 @@ export function AdminOrdersPanel({
                   <PanelTitleFixed
                     icon={Weight}
                     title="Weigh-in"
-                    note="Required when laundry service is included."
+                    note="At pickup: enter pounds and photo the scale."
                   />
                   <label className="ops-weight-field">
                     Weight in pounds
@@ -766,6 +830,48 @@ export function AdminOrdersPanel({
                       <span>lb</span>
                     </span>
                   </label>
+                  <div className="ops-photo-block">
+                    <label className="ops-photo-upload">
+                      <Camera size={16} aria-hidden />
+                      <span>
+                        {uploadingPhoto
+                          ? "Uploading…"
+                          : weightPhotos.length
+                            ? "Add another scale photo"
+                            : "Upload scale photo"}
+                      </span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        capture="environment"
+                        disabled={uploadingPhoto || saving}
+                        onChange={(e) => {
+                          const file = e.target.files?.[0] ?? null;
+                          void handleWeightPhoto(file);
+                          e.target.value = "";
+                        }}
+                      />
+                    </label>
+                    {weightPhotos.length ? (
+                      <div className="ops-photo-thumbs">
+                        {weightPhotos.map((photo) => (
+                          <a
+                            key={photo.url}
+                            href={photo.url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="ops-photo-thumb"
+                          >
+                            <img src={photo.url} alt="Weight scale photo" />
+                          </a>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="ops-muted ops-step-help">
+                        Required before charge when laundry is on the order.
+                      </p>
+                    )}
+                  </div>
                 </section>
               ) : null}
 
@@ -858,10 +964,12 @@ export function AdminOrdersPanel({
                 <Button
                   type="button"
                   className="ops-btn-lg ops-billing-save"
-                  disabled={saving}
+                  disabled={saving || uploadingPhoto}
                   onClick={() => void saveBilling()}
                 >
-                  Save total
+                  {isWaitingForPickup(selected.status)
+                    ? "Charge & mark collected"
+                    : "Save total"}
                 </Button>
               </section>
             </div>

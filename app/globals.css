@@ -6521,6 +6521,53 @@
   font-weight: 700;
   color: var(--ops-muted);
 }
+.ops-photo-block {
+  margin-top: 0.85rem;
+  display: grid;
+  gap: 0.65rem;
+}
+.ops-photo-upload {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: fit-content;
+  max-width: 100%;
+  height: 2.35rem;
+  padding: 0 0.85rem;
+  border: 1px solid var(--ops-border);
+  border-radius: var(--ops-radius);
+  background: var(--ops-surface);
+  color: var(--ops-ink);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.ops-photo-upload input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+.ops-photo-thumbs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.ops-photo-thumb {
+  display: block;
+  width: 4.5rem;
+  height: 4.5rem;
+  overflow: hidden;
+  border-radius: var(--ops-radius);
+  border: 1px solid var(--ops-border);
+  background: var(--ops-surface);
+}
+.ops-photo-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
 .ops-weight-input {
   position: relative;
   display: block;
