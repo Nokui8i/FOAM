@@ -494,11 +494,11 @@ export function AdminOrdersPanel({
   const stageAction = (() => {
     if (!selected || selected.status === "cancelled") return null;
     if (isCollectedStage(selected.status)) {
-      return { label: "Confirm entered plant process", next: "washing" as const };
+      return { label: "Start washing", next: "washing" as const };
     }
     if (selected.status === "washing") {
       return {
-        label: "Confirm out for delivery",
+        label: "Left for drop-off",
         next: "out_for_delivery" as const,
       };
     }
@@ -762,7 +762,7 @@ export function AdminOrdersPanel({
                   <PanelTitleFixed
                     icon={Truck}
                     title="Order progress"
-                    note="Active stage is open. Tap any other stage to see what happens there."
+                    note="Do the open stage (Now). Later stages are for the plant and drop-off."
                   />
                 </div>
 
@@ -828,36 +828,16 @@ export function AdminOrdersPanel({
                           </span>
                         </button>
 
-                        {!open ? (
-                          <p className="ops-flow-blurb">{step.preview}</p>
-                        ) : null}
+                        <p className="ops-flow-blurb">{step.preview}</p>
 
                         {open ? (
                           <div className="ops-flow-panel">
                             {active && index === 0 ? (
                               <>
-                            <ol className="ops-todo-list">
-                              <li>
-                                <strong>1.</strong> Enter the bag weight in
-                                pounds.
-                              </li>
-                              <li>
-                                <strong>2.</strong> Upload a photo of the scale.
-                              </li>
-                              <li>
-                                <strong>3.</strong> Add dry-clean items if
-                                needed.
-                              </li>
-                              <li>
-                                <strong>4.</strong> Press{" "}
-                                <strong>Charge & mark collected</strong>.
-                              </li>
-                            </ol>
-
                             {selected.services.laundry ? (
                               <>
                                 <label className="ops-weight-field">
-                                  1 · Weight in pounds
+                                  Weight in pounds
                                   <span className="ops-weight-input">
                                     <input
                                       type="number"
@@ -875,7 +855,7 @@ export function AdminOrdersPanel({
                                 </label>
                                 <div className="ops-photo-block">
                                   <p className="ops-field-label">
-                                    2 · Scale photo
+                                    Scale photo
                                   </p>
                                   <label className="ops-photo-upload is-primary">
                                     <Camera size={16} aria-hidden />
@@ -917,7 +897,7 @@ export function AdminOrdersPanel({
                                     </div>
                                   ) : (
                                     <p className="ops-muted ops-step-help">
-                                      Required before charge when laundry is on
+                                      Needed before charge when laundry is on
                                       the order.
                                     </p>
                                   )}
@@ -927,7 +907,7 @@ export function AdminOrdersPanel({
 
                             <div className="ops-flow-subsection">
                               <p className="ops-field-label">
-                                3 · Dry cleaning items
+                                Dry cleaning items
                               </p>
                               <div className="ops-catalog">
                                 <Button
@@ -1007,7 +987,7 @@ export function AdminOrdersPanel({
                             <div className="ops-billing-card">
                               <PanelTitleFixed
                                 icon={CircleDollarSign}
-                                title="4 · Billing summary"
+                                title="Billing"
                               />
                               <div className="ops-billing-total">
                                 <span>Calculated total</span>
@@ -1033,7 +1013,7 @@ export function AdminOrdersPanel({
 
                             {active && stageAction ? (
                               <>
-                                <p className="ops-muted ops-step-help">
+                                <p className="ops-step-help">
                                   {ORDER_STATUS_HELP[selected.status]}
                                 </p>
                                 <div className="ops-action-row">
@@ -1053,8 +1033,8 @@ export function AdminOrdersPanel({
                             ) : null}
 
                             {active && index === 4 ? (
-                              <p className="ops-muted ops-step-help">
-                                Delivery is complete.
+                              <p className="ops-step-help">
+                                Finished — nothing left to do.
                               </p>
                             ) : null}
 
@@ -1070,18 +1050,10 @@ export function AdminOrdersPanel({
                               </p>
                             ) : null}
 
-                            {!active && !done ? (
-                              <div className="ops-flow-preview-card">
-                                <strong>Coming up</strong>
-                                <p className="ops-flow-wait-note">
-                                  {step.preview}
-                                </p>
-                                {step.actionHint ? (
-                                  <span className="ops-flow-preview-action">
-                                    Later: {step.actionHint}
-                                  </span>
-                                ) : null}
-                              </div>
+                            {!active && !done && step.actionHint ? (
+                              <p className="ops-flow-later">
+                                Later button: {step.actionHint}
+                              </p>
                             ) : null}
                           </div>
                         ) : null}

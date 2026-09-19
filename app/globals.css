@@ -759,12 +759,12 @@
   .mn-link {
     padding: 0.55rem 0.25rem;
     border-bottom: 1px solid var(--color-border);
-    font-family: var(--font-display);
+  font-family: var(--font-display);
     font-size: 0.95rem;
-    font-weight: 700;
-    color: var(--color-foreground);
+  font-weight: 700;
+  color: var(--color-foreground);
     text-decoration: none;
-  }
+}
 
   .mn-cta {
   margin-top: auto;
@@ -2387,7 +2387,7 @@
     padding: 0.3rem;
     border: 1px solid var(--color-border);
     border-radius: 1rem;
-    background: var(--color-soft);
+  background: var(--color-soft);
   }
 
   .account-tab {
@@ -6486,11 +6486,14 @@
 }
 .ops-flow-head .ops-panel-title h3 {
   font-weight: 700;
+  font-size: 1.15rem;
 }
 .ops-flow-head .ops-panel-title p {
   font-weight: 500;
+  font-size: 0.9375rem;
+  line-height: 1.45;
   color: var(--ops-ink);
-  opacity: 0.72;
+  opacity: 0.85;
 }
 .ops-flow-step {
   display: grid;
@@ -6575,13 +6578,13 @@
 .ops-flow-title-row h3 {
   margin: 0;
   font-family: var(--ops-display);
-  font-size: 1.05rem;
+  font-size: 1.2rem;
   font-weight: 700;
   color: var(--ops-ink);
   letter-spacing: -0.01em;
 }
 .ops-flow-state {
-  font-size: 0.6875rem;
+  font-size: 0.75rem;
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -6597,13 +6600,15 @@
   color: var(--ops-muted);
 }
 .ops-flow-blurb {
-  margin: 0.35rem 0 0;
-  font-size: 0.8125rem;
-  font-weight: 500;
-  line-height: 1.45;
+  margin: 0.4rem 0 0;
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.5;
   color: var(--ops-ink);
-  opacity: 0.72;
+  opacity: 0.92;
   max-width: 26.5rem;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 .ops-flow-panel {
   display: grid;
@@ -6614,7 +6619,8 @@
 .ops-flow-panel .ops-step-help,
 .ops-flow-panel .ops-field-label,
 .ops-flow-panel .ops-weight-field {
-  font-weight: 700;
+  font-weight: 600;
+  font-size: 0.95rem;
   color: var(--ops-ink);
 }
 .ops-flow-subsection {
@@ -6622,42 +6628,26 @@
   gap: 0.5rem;
 }
 .ops-flow-done-note,
-.ops-flow-wait-note {
+.ops-flow-wait-note,
+.ops-flow-later,
+.ops-step-help {
   margin: 0;
-  font-size: 0.8125rem;
-  font-weight: 500;
+  font-size: 1rem;
+  font-weight: 600;
   line-height: 1.5;
   color: var(--ops-ink);
-  opacity: 0.85;
+  opacity: 0.92;
 }
-.ops-flow-preview-card {
-  display: grid;
-  gap: 0.55rem;
-  padding: 0.75rem 0.85rem;
+.ops-flow-later {
+  padding: 0.55rem 0.7rem;
   border-radius: var(--ops-radius);
-  border: 1px dashed color-mix(in srgb, var(--ops-muted) 45%, transparent);
-  background: color-mix(in srgb, var(--ops-surface) 80%, transparent);
-}
-.ops-flow-preview-card strong {
-  font-size: 0.75rem;
-  font-weight: 700;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  color: var(--ops-muted);
-}
-.ops-flow-preview-action {
-  display: inline-flex;
-  align-items: center;
-  width: fit-content;
-  max-width: 100%;
-  padding: 0.45rem 0.7rem;
-  border-radius: var(--ops-radius);
+  background: color-mix(in srgb, var(--ops-surface) 85%, transparent);
   border: 1px solid var(--ops-border);
-  background: var(--ops-card);
-  font-size: 0.75rem;
-  font-weight: 700;
+}
+.ops-muted.ops-step-help {
   color: var(--ops-ink);
-  opacity: 0.7;
+  opacity: 0.8;
+  font-size: 0.9375rem;
 }
 .ops-flow-panel .ops-billing-card {
   justify-self: stretch;
