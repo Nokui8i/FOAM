@@ -59,6 +59,9 @@
 
   .mobileBlend {
     margin-top: -12px;
+  }
+
+  .mobileBlend > img:not(.mobileTextRestore) {
     -webkit-mask-image: linear-gradient(to bottom, transparent 0, rgb(0 0 0 / 18%) 3px, rgb(0 0 0 / 62%) 7px, #000 12px);
     mask-image: linear-gradient(to bottom, transparent 0, rgb(0 0 0 / 18%) 3px, rgb(0 0 0 / 62%) 7px, #000 12px);
   }
@@ -66,7 +69,17 @@
   /* Preserve the price copy and the final call-to-action near their seams. */
   .mobileShortBlend {
     margin-top: -8px;
+  }
+
+  .mobileShortBlend > img:not(.mobileTextRestore) {
     -webkit-mask-image: linear-gradient(to bottom, transparent, #000 8px);
     mask-image: linear-gradient(to bottom, transparent, #000 8px);
+  }
+
+  .mobileTextRestore {
+    z-index: 1;
+    clip-path: inset(0 4% calc(100% - 120px) 4%);
+    -webkit-mask-image: radial-gradient(ellipse 64% 74px at 50% 43px, #000 52%, transparent 100%);
+    mask-image: radial-gradient(ellipse 64% 74px at 50% 43px, #000 52%, transparent 100%);
   }
 }

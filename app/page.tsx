@@ -52,6 +52,23 @@ export default function Home() {
                     top: `${-(start / height) * 100}%`,
                   }}
                 />
+                {index > 0 && (
+                  // Keep headings crisp when they begin immediately below a seam.
+                  // This duplicate uses the same cached asset and restores only a
+                  // softly feathered area around the centered heading.
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src="/home-mockup-mobile-v18.png"
+                    alt=""
+                    width={1440}
+                    height={MOBILE_ARTWORK_HEIGHT}
+                    className={styles.mobileTextRestore}
+                    style={{
+                      height: `${(MOBILE_ARTWORK_HEIGHT / height) * 100}%`,
+                      top: `${-(start / height) * 100}%`,
+                    }}
+                  />
+                )}
               </div>
             );
           })}
