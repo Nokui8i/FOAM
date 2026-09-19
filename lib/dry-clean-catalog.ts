@@ -3,7 +3,10 @@ export type DryCleanCatalogItem = {
   price: number;
 };
 
-/** Flat catalog from the public dry-cleaning page (deduped). */
+/**
+ * Flat catalog matching the public dry-cleaning price list.
+ * Prices are per item (or per each where noted in the name).
+ */
 export const DRY_CLEAN_CATALOG: DryCleanCatalogItem[] = [
   // Tops
   { name: "Blouse", price: 6.55 },
@@ -18,6 +21,7 @@ export const DRY_CLEAN_CATALOG: DryCleanCatalogItem[] = [
   { name: "Long Heavy Coat", price: 20.0 },
   { name: "Outer Vest", price: 10.0 },
   { name: "Polo/T-shirt", price: 6.55 },
+  { name: "Romper", price: 12.0 },
   { name: "Shirt", price: 6.55 },
   { name: "Shirt (linen)", price: 7.55 },
   { name: "Sweater", price: 6.75 },
@@ -42,7 +46,6 @@ export const DRY_CLEAN_CATALOG: DryCleanCatalogItem[] = [
   { name: "Dress (long)", price: 17.0 },
   { name: "Gown", price: 25.0 },
   { name: "Jumpsuit", price: 16.0 },
-  { name: "Romper", price: 12.0 },
   // Accessories
   { name: "Belt", price: 1.5 },
   { name: "Hanky", price: 1.5 },

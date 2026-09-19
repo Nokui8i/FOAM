@@ -315,12 +315,10 @@ export function AdminOrdersPanel({
 
   const dryMatches = useMemo(() => {
     const q = dryQuery.trim().toLowerCase();
-    const source = q
-      ? DRY_CLEAN_CATALOG.filter((item) =>
-          item.name.toLowerCase().includes(q)
-        )
-      : DRY_CLEAN_CATALOG;
-    return source.slice(0, 8);
+    if (!q) return DRY_CLEAN_CATALOG;
+    return DRY_CLEAN_CATALOG.filter((item) =>
+      item.name.toLowerCase().includes(q)
+    );
   }, [dryQuery]);
 
   function addDryItem(item: DryCleanCatalogItem) {
@@ -783,17 +781,21 @@ export function AdminOrdersPanel({
                         />
                       </label>
                       <div className="ops-catalog-list">
-                        {dryMatches.map((item) => (
-                          <button
-                            key={item.name}
-                            type="button"
-                            className="ops-catalog-item"
-                            onClick={() => addDryItem(item)}
-                          >
-                            <span>{item.name}</span>
-                            <strong>${item.price.toFixed(2)}</strong>
-                          </button>
-                        ))}
+                        {dryMatches.length === 0 ? (
+                          <p className="ops-catalog-empty">No catalog matches</p>
+                        ) : (
+                          dryMatches.map((item) => (
+                            <button
+                              key={item.name}
+                              type="button"
+                              className="ops-catalog-item"
+                              onClick={() => addDryItem(item)}
+                            >
+                              <span>{item.name}</span>
+                              <strong>${item.price.toFixed(2)}</strong>
+                            </button>
+                          ))
+                        )}
                       </div>
                     </div>
                   ) : null}
