@@ -50,6 +50,8 @@ import {
   isWaitingForPickup,
   normalizeOrderStatus,
   orderPipelineIndex,
+  orderStageBackLabel,
+  orderStatusPrevious,
   servicesSummary,
   type DryCleanItem,
   type FoamOrder,
@@ -382,7 +384,20 @@ export function AdminOrdersPanel({
     await patchOrder({ status }, `Status → ${shortStatus(status)}`);
     if (status === "delivered") setFilter("done");
     else if (status === "cancelled") setFilter("cancelled");
+    else if (isWaitingForPickup(status)) setFilter("waiting");
     else if (isInProgressOrder(status)) setFilter("progress");
+  }
+
+  async function goBackStage() {
+    if (!selected) return;
+    const prev = orderStatusPrevious(selected.status);
+    const label = orderStageBackLabel(selected.status);
+    if (!prev || !label) return;
+    const ok = window.confirm(
+      `${label}? Customer tracking will move back to this step.`
+    );
+    if (!ok) return;
+    await setStatus(prev);
   }
 
   async function markLeftForPickup(order: FoamOrder) {
@@ -521,6 +536,13 @@ export function AdminOrdersPanel({
       }
     }
 
+    if (selected.services.dryCleaning && dryItems.length === 0) {
+      const ok = window.confirm(
+        "This order includes dry cleaning, but no dry-cleaning items were added.\n\nContinue without dry-cleaning items?"
+      );
+      if (!ok) return;
+    }
+
     const laundryPortion = computeFinalTotal({
       weightLbs: lbs,
       tier: selected.pricing?.tier,
@@ -594,6 +616,10 @@ export function AdminOrdersPanel({
     }
     return null;
   })();
+
+  const stageBackLabel = selected
+    ? orderStageBackLabel(selected.status)
+    : null;
 
   const customerMsg = selected
     ? `Hi ${selected.contact.name.split(" ")[0] || "there"}, this is FOAM about your pickup on ${selected.pickup.date} (${selected.pickup.slot}).`
@@ -1053,7 +1079,16 @@ export function AdminOrdersPanel({
                         <div className="ops-flow-subsection">
                           <p className="ops-field-label">
                             Dry cleaning items
+                            {selected.services.dryCleaning ? (
+                              <span className="ops-required-tag"> · ordered</span>
+                            ) : null}
                           </p>
+                          {selected.services.dryCleaning && dryItems.length === 0 ? (
+                            <p className="ops-dry-warn" role="status">
+                              Customer ordered dry cleaning — add items, or you&rsquo;ll
+                              be asked to confirm before charging.
+                            </p>
+                          ) : null}
                           <div className="ops-catalog">
                             <Button
                               type="button"
@@ -1145,6 +1180,18 @@ export function AdminOrdersPanel({
                           >
                             Charge & mark collected
                           </Button>
+                          {stageBackLabel ? (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              className="ops-stage-back"
+                              disabled={saving || uploadingPhoto}
+                              onClick={() => void goBackStage()}
+                            >
+                              <ArrowLeft size={14} />
+                              {stageBackLabel}
+                            </Button>
+                          ) : null}
                         </div>
                       </>
                       )
@@ -1185,6 +1232,18 @@ export function AdminOrdersPanel({
                               <PackageCheck size={16} />
                               {stageAction.label}
                             </Button>
+                            {stageBackLabel ? (
+                              <Button
+                                type="button"
+                                variant="outline"
+                                className="ops-stage-back"
+                                disabled={saving || uploadingPhoto}
+                                onClick={() => void goBackStage()}
+                              >
+                                <ArrowLeft size={14} />
+                                {stageBackLabel}
+                              </Button>
+                            ) : null}
                           </div>
                         ) : null}
                       </>
@@ -1255,6 +1314,18 @@ export function AdminOrdersPanel({
                               <PackageCheck size={16} />
                               {stageAction.label}
                             </Button>
+                            {stageBackLabel ? (
+                              <Button
+                                type="button"
+                                variant="outline"
+                                className="ops-stage-back"
+                                disabled={saving || uploadingPhoto}
+                                onClick={() => void goBackStage()}
+                              >
+                                <ArrowLeft size={14} />
+                                {stageBackLabel}
+                              </Button>
+                            ) : null}
                           </div>
                         ) : null}
                       </>
@@ -1278,6 +1349,20 @@ export function AdminOrdersPanel({
                             ? " · Delivered with photo"
                             : ""}
                         </p>
+                        {stageBackLabel ? (
+                          <div className="ops-action-row">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              className="ops-stage-back"
+                              disabled={saving || uploadingPhoto}
+                              onClick={() => void goBackStage()}
+                            >
+                              <ArrowLeft size={14} />
+                              {stageBackLabel}
+                            </Button>
+                          </div>
+                        ) : null}
                       </>
                     ) : null}
                   </div>

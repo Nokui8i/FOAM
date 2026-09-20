@@ -7202,6 +7202,30 @@
   gap: 0.5rem;
   margin-top: 0.5rem;
 }
+.ops-stage-back {
+  width: 100% !important;
+  height: 2.5rem !important;
+  border-radius: 0.75rem !important;
+  font-weight: 600 !important;
+}
+.ops-billing-card .ops-stage-back {
+  margin-top: 0.35rem;
+}
+.ops-required-tag {
+  font-weight: 700;
+  color: var(--ops-danger);
+  text-transform: none;
+}
+.ops-dry-warn {
+  margin: 0 0 0.65rem;
+  padding: 0.65rem 0.75rem;
+  border-radius: 0.65rem;
+  background: color-mix(in srgb, #f59e0b 12%, transparent);
+  color: color-mix(in srgb, #92400e 80%, var(--ops-ink));
+  font-size: 0.8125rem;
+  font-weight: 600;
+  line-height: 1.35;
+}
 .ops-btn-lg {
   height: 2.85rem !important;
   border-radius: 0.75rem !important;

@@ -103,7 +103,7 @@ export const CANCEL_REASONS = [
 
 /** Next status moves for ops (no cancel in the main progress UI). */
 export const ORDER_STATUS_NEXT: Partial<Record<OrderStatus, OrderStatus[]>> = {
-  new: ["washing"],
+  new: ["confirmed"],
   confirmed: ["washing"],
   picked_up: ["out_for_delivery"],
   weighed: ["out_for_delivery"],
@@ -112,6 +112,37 @@ export const ORDER_STATUS_NEXT: Partial<Record<OrderStatus, OrderStatus[]>> = {
   delivered: [],
   cancelled: [],
 };
+
+/** Undo / step back for driver mistakes (keeps weight, photos, totals). */
+export const ORDER_STATUS_PREV: Partial<Record<OrderStatus, OrderStatus>> = {
+  confirmed: "new",
+  picked_up: "confirmed",
+  weighed: "confirmed",
+  washing: "confirmed",
+  out_for_delivery: "washing",
+  delivered: "out_for_delivery",
+};
+
+export function orderStatusPrevious(status: OrderStatus): OrderStatus | null {
+  return ORDER_STATUS_PREV[status] ?? null;
+}
+
+export function orderStageBackLabel(status: OrderStatus): string | null {
+  switch (status) {
+    case "confirmed":
+      return "Undo Left for pickup";
+    case "picked_up":
+    case "weighed":
+    case "washing":
+      return "Back to At stop";
+    case "out_for_delivery":
+      return "Back to Washing";
+    case "delivered":
+      return "Back to Out for delivery";
+    default:
+      return null;
+  }
+}
 
 /** Visual pipeline (ops + customer). At-plant merged into Washing. */
 export const ORDER_PIPELINE_STEPS = [
