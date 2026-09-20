@@ -1150,12 +1150,15 @@ export function AdminOrdersPanel({
               </Button>
 
               <div className="ops-detail-head-row">
-                <div>
+                <div className="ops-detail-head-main">
                   <p className="ops-breadcrumb">
                     Orders <span aria-hidden>&gt;</span>{" "}
                     {orderDisplayId(selected.id)}
                   </p>
                   <div className="ops-detail-name-row">
+                    <span className="ops-customer-avatar" aria-hidden>
+                      {initials(selected.contact.name)}
+                    </span>
                     <h2>{selected.contact.name}</h2>
                     <span
                       className={cn(
@@ -1166,6 +1169,10 @@ export function AdminOrdersPanel({
                       {shortStatus(selected.status)}
                     </span>
                   </div>
+                  <p className="ops-customer-address">
+                    <MapPin size={14} aria-hidden />
+                    {formatOrderAddress(selected)}
+                  </p>
                   <div className="ops-meta-row">
                     <span>
                       <CalendarDays size={14} aria-hidden />
@@ -1177,6 +1184,42 @@ export function AdminOrdersPanel({
                     </span>
                     <span>Ordered {formatCreatedAt(selected.createdAt)}</span>
                   </div>
+                  <div className="ops-fields ops-fields-inline">
+                    <div>
+                      <p className="ops-field-label">Phone</p>
+                      <p>
+                        <a href={`tel:${selected.contact.phone}`}>
+                          {selected.contact.phone || "—"}
+                        </a>
+                      </p>
+                    </div>
+                    <div>
+                      <p className="ops-field-label">Email</p>
+                      <p>
+                        <a href={`mailto:${selected.contact.email}`}>
+                          {selected.contact.email || "—"}
+                        </a>
+                      </p>
+                    </div>
+                    <div>
+                      <p className="ops-field-label">Services</p>
+                      <p>{servicesSummary(selected)}</p>
+                    </div>
+                  </div>
+                  {selected.pickup.notes ? (
+                    <div className="ops-access-note">
+                      <p className="ops-field-label">Access notes</p>
+                      <p>{selected.pickup.notes}</p>
+                    </div>
+                  ) : null}
+                  <a
+                    className="ops-link"
+                    href={mapsUrl(selected)}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    View on Maps <ExternalLink size={14} />
+                  </a>
                 </div>
                 <div className="ops-icon-row">
                   <a
@@ -1218,57 +1261,6 @@ export function AdminOrdersPanel({
             )}
 
             <div className="ops-detail-stack">
-              <section className="ops-card ops-customer-card">
-                <div className="ops-customer-head">
-                  <span className="ops-customer-avatar" aria-hidden>
-                    {initials(selected.contact.name)}
-                  </span>
-                  <div>
-                    <h3>{selected.contact.name}</h3>
-                    <p className="ops-customer-address">
-                      <MapPin size={14} aria-hidden />
-                      {formatOrderAddress(selected)}
-                    </p>
-                  </div>
-                </div>
-                <div className="ops-fields">
-                  <div>
-                    <p className="ops-field-label">Phone</p>
-                    <p>
-                      <a href={`tel:${selected.contact.phone}`}>
-                        {selected.contact.phone || "—"}
-                      </a>
-                    </p>
-                  </div>
-                  <div>
-                    <p className="ops-field-label">Email</p>
-                    <p>
-                      <a href={`mailto:${selected.contact.email}`}>
-                        {selected.contact.email || "—"}
-                      </a>
-                    </p>
-                  </div>
-                  {selected.pickup.notes ? (
-                    <div className="ops-field-wide">
-                      <p className="ops-field-label">Access notes</p>
-                      <p>{selected.pickup.notes}</p>
-                    </div>
-                  ) : null}
-                  <div className="ops-field-wide">
-                    <p className="ops-field-label">Services</p>
-                    <p>{servicesSummary(selected)}</p>
-                  </div>
-                </div>
-                <a
-                  className="ops-link"
-                  href={mapsUrl(selected)}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  View on Maps <ExternalLink size={14} />
-                </a>
-              </section>
-
               <section className="ops-card ops-workflow-card">
                 <div className="ops-timeline" role="list">
                   {ORDER_PIPELINE_STEPS.map((step, index) => {
