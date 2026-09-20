@@ -1173,16 +1173,27 @@ export function AdminOrdersPanel({
                     <MapPin size={14} aria-hidden />
                     {formatOrderAddress(selected)}
                   </p>
-                  <div className="ops-meta-row">
-                    <span>
-                      <CalendarDays size={14} aria-hidden />
-                      {formatPickupDate(selected.pickup.date)}
-                    </span>
-                    <span>
-                      <Clock3 size={14} aria-hidden />
-                      {formatSlotShort(selected.pickup.slot)}
-                    </span>
-                    <span>Ordered {formatCreatedAt(selected.createdAt)}</span>
+                  <div className="ops-schedule" aria-label="Pickup schedule">
+                    <div className="ops-schedule-item">
+                      <p className="ops-field-label">Pickup date</p>
+                      <p className="ops-schedule-value">
+                        <CalendarDays size={16} aria-hidden />
+                        {formatPickupDate(selected.pickup.date)}
+                      </p>
+                    </div>
+                    <div className="ops-schedule-item">
+                      <p className="ops-field-label">Time window</p>
+                      <p className="ops-schedule-value is-emphasis">
+                        <Clock3 size={16} aria-hidden />
+                        {formatSlotShort(selected.pickup.slot)}
+                      </p>
+                    </div>
+                    <div className="ops-schedule-item">
+                      <p className="ops-field-label">Ordered</p>
+                      <p className="ops-schedule-value is-muted">
+                        {formatCreatedAt(selected.createdAt)}
+                      </p>
+                    </div>
                   </div>
                   <div className="ops-fields ops-fields-inline">
                     <div>
