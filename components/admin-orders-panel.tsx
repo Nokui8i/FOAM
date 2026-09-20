@@ -12,12 +12,10 @@ import {
   updateDoc,
 } from "firebase/firestore";
 import {
-  AlertTriangle,
   ArrowLeft,
   CalendarDays,
   Camera,
   Check,
-  ChevronDown,
   Clock3,
   ExternalLink,
   MapPin,
@@ -38,12 +36,8 @@ import {
 import { getFirebaseDb } from "@/lib/firebase";
 import { uploadOrderPhoto } from "@/lib/order-photos";
 import {
-  CANCEL_REASONS,
-  ORDER_ISSUE_OPTIONS,
   ORDER_PIPELINE_STEPS,
   ORDER_STATUS_LABELS,
-  REFUND_STATUSES,
-  REFUND_STATUS_LABELS,
   computeFinalTotal,
   dryCleanItemsTotal,
   formatOrderAddress,
@@ -63,7 +57,6 @@ import {
   type OrderPhoto,
   type OrderPhotoKind,
   type OrderStatus,
-  type RefundStatus,
 } from "@/lib/orders";
 import { firstNameFromContact } from "@/lib/order-tracking";
 import { BUSINESS_WHATSAPP } from "@/lib/site-config";
@@ -250,9 +243,6 @@ export function AdminOrdersPanel({
   const [openCatalog, setOpenCatalog] = useState(false);
   const [saving, setSaving] = useState(false);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
-  const [showCancelForm, setShowCancelForm] = useState(false);
-  const [cancelReasonDraft, setCancelReasonDraft] = useState("");
-  const [notesDraft, setNotesDraft] = useState("");
   const catalogRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -352,9 +342,6 @@ export function AdminOrdersPanel({
     setOpenCatalog(false);
     setOkMsg("");
     setError("");
-    setShowCancelForm(false);
-    setCancelReasonDraft("");
-    setNotesDraft(selected.opsNotes || selected.orderNotes || "");
   }, [selected?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function patchOrderDoc(
@@ -416,38 +403,6 @@ export function AdminOrdersPanel({
     );
     if (!ok) return;
     await setStatus(prev);
-  }
-
-  async function cancelOrder() {
-    if (!selected) return;
-    await patchOrder(
-      {
-        status: "cancelled",
-        cancelReason: cancelReasonDraft || "",
-      },
-      "Order cancelled"
-    );
-    setShowCancelForm(false);
-    setCancelReasonDraft("");
-    setFilter("all");
-  }
-
-  async function updateOpsIssue(value: string) {
-    if (!selected) return;
-    await patchOrder({ opsIssue: value }, value ? "Issue flagged" : "Issue cleared");
-  }
-
-  async function updateRefundStatus(value: RefundStatus) {
-    if (!selected) return;
-    await patchOrder(
-      { refundStatus: value },
-      `Refund status → ${REFUND_STATUS_LABELS[value]}`
-    );
-  }
-
-  async function saveNotes() {
-    if (!selected) return;
-    await patchOrder({ opsNotes: notesDraft }, "Note saved");
   }
 
   async function markLeftForPickup(order: FoamOrder) {
@@ -1379,144 +1334,6 @@ export function AdminOrdersPanel({
                   {renderWorkspaceBody()}
                 </div>
               </section>
-
-              <section className="ops-card">
-                <h3 className="ops-notes-title">Order notes</h3>
-                <label className="ops-notes-field">
-                  <textarea
-                    value={notesDraft}
-                    onChange={(e) => setNotesDraft(e.target.value)}
-                    rows={3}
-                    placeholder="Internal notes for this order…"
-                    aria-label="Order notes"
-                  />
-                </label>
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="ops-notes-save"
-                  disabled={saving}
-                  onClick={() => void saveNotes()}
-                >
-                  Save note
-                </Button>
-              </section>
-
-              <details className="ops-card ops-accordion">
-                <summary className="ops-accordion-summary">
-                  <AlertTriangle size={16} aria-hidden />
-                  Issue &amp; Refund
-                  <ChevronDown size={16} className="ops-accordion-chevron" />
-                </summary>
-                <div className="ops-accordion-body">
-                  <div className="ops-issue-grid">
-                    <label className="ops-select-field">
-                      <span className="ops-field-label">Issue type</span>
-                      <span className="ops-select-wrap">
-                        <select
-                          value={selected.opsIssue ?? ""}
-                          disabled={saving}
-                          onChange={(e) => void updateOpsIssue(e.target.value)}
-                        >
-                          {ORDER_ISSUE_OPTIONS.map((opt) => (
-                            <option key={opt.id} value={opt.id}>
-                              {opt.label}
-                            </option>
-                          ))}
-                        </select>
-                        <ChevronDown size={14} aria-hidden />
-                      </span>
-                    </label>
-                    <label className="ops-select-field">
-                      <span className="ops-field-label">Refund status</span>
-                      <span className="ops-select-wrap">
-                        <select
-                          value={
-                            (selected.refundStatus as RefundStatus) ?? "none"
-                          }
-                          disabled={saving}
-                          onChange={(e) =>
-                            void updateRefundStatus(
-                              e.target.value as RefundStatus
-                            )
-                          }
-                        >
-                          {REFUND_STATUSES.map((status) => (
-                            <option key={status} value={status}>
-                              {REFUND_STATUS_LABELS[status]}
-                            </option>
-                          ))}
-                        </select>
-                        <ChevronDown size={14} aria-hidden />
-                      </span>
-                    </label>
-                  </div>
-
-                  {selected.status !== "cancelled" &&
-                  selected.status !== "delivered" ? (
-                    <div className="ops-cancel-row">
-                      {!showCancelForm ? (
-                        <Button
-                          type="button"
-                          variant="outline"
-                          className="ops-btn-danger"
-                          disabled={saving}
-                          onClick={() => setShowCancelForm(true)}
-                        >
-                          <X size={14} />
-                          Cancel order
-                        </Button>
-                      ) : (
-                        <div className="ops-cancel-form">
-                          <label className="ops-select-field">
-                            <span className="ops-field-label">
-                              Cancellation reason
-                            </span>
-                            <span className="ops-select-wrap">
-                              <select
-                                value={cancelReasonDraft}
-                                onChange={(e) =>
-                                  setCancelReasonDraft(e.target.value)
-                                }
-                              >
-                                {CANCEL_REASONS.map((reason) => (
-                                  <option key={reason} value={reason}>
-                                    {reason || "Select a reason…"}
-                                  </option>
-                                ))}
-                              </select>
-                              <ChevronDown size={14} aria-hidden />
-                            </span>
-                          </label>
-                          <div className="ops-cancel-actions">
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              disabled={saving}
-                              onClick={() => {
-                                setShowCancelForm(false);
-                                setCancelReasonDraft("");
-                              }}
-                            >
-                              Keep order
-                            </Button>
-                            <Button
-                              type="button"
-                              className="ops-btn-danger"
-                              size="sm"
-                              disabled={saving}
-                              onClick={() => void cancelOrder()}
-                            >
-                              Confirm cancel
-                            </Button>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  ) : null}
-                </div>
-              </details>
             </div>
           </article>
         )}
