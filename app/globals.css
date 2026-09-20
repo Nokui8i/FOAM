@@ -5642,8 +5642,20 @@
   --ops-nav-fg: #f5f8fa;
   --ops-nav-muted: #9aa7b0;
   --ops-nav-active: #2a333c;
-  --ops-shadow: none;
-  --ops-radius: 0.9rem;
+  --ops-shadow:
+    0 12px 28px color-mix(in oklab, var(--ops-ink) 6%, transparent),
+    inset 0 1px var(--ops-card);
+  --ops-shadow-panel:
+    0 18px 45px color-mix(in oklab, var(--ops-ink) 10%, transparent),
+    inset 0 1px var(--ops-card);
+  --ops-shadow-pickup:
+    0 14px 30px color-mix(in oklab, var(--ops-primary) 13%, transparent),
+    inset 0 1px var(--ops-card);
+  --ops-shadow-billing:
+    0 16px 34px color-mix(in oklab, var(--ops-nav) 28%, transparent),
+    inset 0 1px color-mix(in oklab, var(--ops-nav-fg) 16%, transparent);
+  --ops-shadow-sm: 0 1px 2px color-mix(in oklab, var(--ops-ink) 6%, transparent);
+  --ops-radius: 0.5rem;
   --ops-font: var(--font-sans);
   --ops-display: var(--font-display);
   min-height: 100dvh;
@@ -5932,7 +5944,7 @@
   max-height: 100dvh;
   max-width: 100vw;
   overflow: hidden;
-  background: transparent;
+  background: var(--ops-surface);
 }
 @media (min-width: 768px) {
   .ops-shell { flex-direction: row; }
@@ -6093,8 +6105,10 @@
   justify-content: space-between;
   height: 3.25rem;
   padding: 0 1rem;
-  background: var(--ops-card);
+  background: color-mix(in oklab, var(--ops-card) 90%, transparent);
   border-bottom: 1px solid var(--ops-border);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
 }
 @media (min-width: 768px) {
   .ops-topbar { padding: 0 1.25rem; }
@@ -6145,6 +6159,7 @@
   font-family: var(--ops-display);
   font-size: 0.75rem;
   font-weight: 800;
+  box-shadow: var(--ops-shadow-sm);
 }
 @media (min-width: 768px) {
   .ops-avatar { display: grid; }
@@ -6174,7 +6189,7 @@
     grid-template-columns: minmax(0, 30%) minmax(0, 1fr);
     border: 1px solid var(--ops-border);
     border-radius: var(--ops-radius);
-    box-shadow: none;
+    box-shadow: var(--ops-shadow-panel);
     overflow: hidden;
   }
 }
@@ -6189,7 +6204,7 @@
   min-height: 0;
   overflow: hidden;
   border-right: 1px solid var(--ops-border);
-  background: var(--ops-card);
+  background: color-mix(in oklab, var(--ops-surface) 35%, var(--ops-card));
 }
 .ops-detail-pane {
   display: flex;
@@ -6197,7 +6212,7 @@
   min-width: 0;
   min-height: 0;
   overflow: hidden;
-  background: #fff;
+  background: color-mix(in oklab, var(--ops-surface) 55%, var(--ops-card));
 }
 .ops-detail-pane > .ops-detail,
 .ops-detail-pane > .ops-empty {
@@ -6227,13 +6242,15 @@
   text-transform: capitalize;
 }
 .ops-count-chip {
-  border-radius: var(--ops-radius);
-  background: var(--ops-surface);
-  padding: 0.3rem 0.55rem;
+  border-radius: 999px;
+  border: 1px solid var(--ops-border);
+  background: var(--ops-card);
+  padding: 0.3rem 0.7rem;
   font-family: var(--ops-display);
-  font-size: 0.875rem;
+  font-size: 0.75rem;
   font-weight: 700;
   color: var(--ops-muted);
+  box-shadow: var(--ops-shadow-sm);
 }
 .ops-search {
   position: relative;
@@ -6254,10 +6271,11 @@
   border: 1px solid color-mix(in oklch, var(--ops-border) 80%, transparent);
   border-radius: 0.65rem;
   padding: 0 0.75rem 0 2.25rem;
-  background: #fff;
+  background: var(--ops-card);
   font: inherit;
   font-size: 0.9375rem;
   outline: none;
+  box-shadow: inset 0 1px 2px color-mix(in oklab, var(--ops-ink) 5%, transparent);
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 .ops-search input:focus {
@@ -6560,6 +6578,7 @@
   background: var(--ops-card);
   color: var(--ops-ink);
   text-decoration: none;
+  box-shadow: var(--ops-shadow-sm);
 }
 .ops-flash {
   margin: 0;
@@ -6660,10 +6679,10 @@
   position: relative;
   overflow: hidden;
   border-radius: var(--ops-radius);
-  border: 1px solid var(--ops-border);
-  background: #fff;
+  border: 1px solid color-mix(in oklab, var(--ops-primary) 25%, var(--ops-border));
+  background: color-mix(in oklab, var(--ops-accent) 55%, var(--ops-card));
   padding: 1rem;
-  box-shadow: none;
+  box-shadow: var(--ops-shadow-pickup);
 }
 .ops-pickup-card::before {
   display: none;
@@ -6751,9 +6770,10 @@
 .ops-card {
   border-radius: var(--ops-radius);
   border: 1px solid var(--ops-border);
-  background: #fff;
+  background: var(--ops-card);
   padding: 1rem;
   align-self: start;
+  box-shadow: var(--ops-shadow);
 }
 .ops-workflow-card {
   min-width: 0;
@@ -6764,8 +6784,9 @@
   gap: 0;
   border: 1px solid var(--ops-border);
   border-radius: var(--ops-radius);
-  background: #fff;
+  background: var(--ops-card);
   overflow: visible;
+  box-shadow: var(--ops-shadow);
 }
 .ops-flow-head {
   padding: 0.85rem 1rem 0.65rem;
@@ -7272,9 +7293,11 @@
   line-height: 1.35;
 }
 .ops-btn-lg {
+  width: 100% !important;
   height: 2.85rem !important;
   border-radius: 0.75rem !important;
   font-weight: 700 !important;
+  box-shadow: var(--ops-shadow-sm) !important;
 }
 .ops-btn-danger {
   border-color: color-mix(in srgb, var(--ops-danger) 40%, transparent) !important;
@@ -7283,6 +7306,74 @@
 }
 .ops-btn-danger:hover {
   background: color-mix(in srgb, var(--ops-danger) 5%, transparent) !important;
+}
+
+.ops-issue-card {
+  display: grid;
+  gap: 0.85rem;
+}
+.ops-issue-grid {
+  display: grid;
+  gap: 0.75rem;
+}
+@media (min-width: 480px) {
+  .ops-issue-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+.ops-select-field {
+  display: grid;
+  gap: 0.4rem;
+  font-size: 0.78rem;
+  font-weight: 650;
+  color: color-mix(in oklch, var(--ops-ink) 88%, transparent);
+}
+.ops-select-wrap {
+  position: relative;
+  display: block;
+}
+.ops-select-wrap select {
+  width: 100%;
+  height: 2.65rem;
+  border: 1px solid color-mix(in oklch, var(--ops-border) 80%, transparent);
+  border-radius: 0.65rem;
+  padding: 0 2.25rem 0 0.85rem;
+  font-family: var(--ops-display);
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--ops-ink);
+  background: #fff;
+  outline: none;
+  appearance: none;
+  cursor: pointer;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.ops-select-wrap select:focus {
+  border-color: var(--ops-primary);
+  box-shadow: 0 0 0 3px color-mix(in oklch, var(--ops-primary) 20%, transparent);
+}
+.ops-select-wrap svg {
+  position: absolute;
+  right: 0.85rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--ops-muted);
+  pointer-events: none;
+}
+.ops-cancel-row {
+  display: grid;
+  gap: 0.6rem;
+  padding-top: 0.6rem;
+  border-top: 1px solid var(--ops-border);
+}
+.ops-cancel-form {
+  display: grid;
+  gap: 0.65rem;
+}
+.ops-cancel-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
 }
 
 .ops-weight-field {
@@ -7503,47 +7594,47 @@
   display: grid;
   grid-template-columns: 1fr;
   gap: 0.85rem;
-  margin-top: 0.35rem;
-  padding: 0.85rem 0 0;
-  border: 0;
-  border-top: 1px solid var(--ops-border);
-  border-radius: 0;
-  background: transparent;
-  box-shadow: none;
-  color: var(--ops-ink);
+  margin-top: 0.5rem;
+  padding: 1rem;
+  border: 1px solid var(--ops-nav-active);
+  border-radius: var(--ops-radius);
+  background: var(--ops-nav);
+  box-shadow: var(--ops-shadow-billing);
+  color: var(--ops-nav-fg);
 }
 .ops-billing-total {
   display: flex;
   flex-direction: row;
   align-items: baseline;
-  justify-content: flex-start;
+  justify-content: space-between;
   gap: 0.5rem;
-  padding: 0;
+  padding: 0 0 0.85rem;
   border: 0;
+  border-bottom: 1px solid var(--ops-nav-active);
   border-radius: 0;
   background: transparent;
   text-align: left;
-  width: fit-content;
+  width: 100%;
   max-width: 100%;
 }
 .ops-billing-total span {
-  font-size: 0.78rem;
-  color: var(--ops-muted);
+  font-size: 0.8125rem;
+  color: var(--ops-nav-muted);
   text-transform: none;
   letter-spacing: 0;
   font-weight: 650;
 }
 .ops-billing-total strong {
   font-family: var(--ops-display);
-  font-size: 1.15rem;
-  font-weight: 750;
+  font-size: 1.85rem;
+  font-weight: 800;
   letter-spacing: -0.02em;
   line-height: 1;
-  color: var(--ops-ink);
+  color: var(--ops-nav-fg);
   min-height: 0;
 }
 .ops-billing-save {
-  margin-top: 0.35rem;
+  margin-top: 0.15rem;
   width: 100% !important;
   min-width: 0;
   max-width: 100%;
@@ -7554,10 +7645,18 @@
   background: var(--ops-primary) !important;
   color: #fff !important;
   border-radius: 0.75rem !important;
-  box-shadow: none !important;
+  box-shadow: var(--ops-shadow-sm) !important;
 }
 .ops-billing-save:hover {
   background: var(--ops-primary-hover) !important;
+}
+.ops-billing-card .ops-stage-back {
+  border-color: color-mix(in oklab, var(--ops-nav-fg) 18%, transparent) !important;
+  background: var(--ops-nav-active) !important;
+  color: var(--ops-nav-fg) !important;
+}
+.ops-billing-card .ops-stage-back:hover:not(:disabled) {
+  background: color-mix(in oklab, var(--ops-nav-active) 80%, white) !important;
 }
 
 .ops-inquiry { padding: 1rem; }
@@ -7579,6 +7678,7 @@
   white-space: pre-wrap;
   line-height: 1.6;
   font-size: 0.9375rem;
+  box-shadow: inset 0 1px 2px color-mix(in oklab, var(--ops-ink) 5%, transparent);
 }
 .ops-inquiry .ops-btn-lg { margin-top: 1.5rem; }
 
