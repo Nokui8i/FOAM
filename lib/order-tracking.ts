@@ -14,12 +14,12 @@ export const CUSTOMER_PIPELINE_LABELS: Record<
     hint: "Scheduled — we’ll collect your bags in the pickup window.",
   },
   progress: {
-    label: "In progress",
-    hint: "Your bags are at the plant and being cleaned.",
+    label: "At the laundry",
+    hint: "Collected and being cleaned.",
   },
   delivery: {
-    label: "Out for delivery",
-    hint: "On the way back to you.",
+    label: "On delivery",
+    hint: "Your order is on the way back to you today.",
   },
   done: {
     label: "Delivered",
@@ -70,7 +70,7 @@ export function customerPipelineSteps(status: OrderStatus) {
     let hint = copy.hint;
     if (step.id === "waiting" && status === "confirmed") {
       label = "Driver on the way";
-      hint = "Your courier left to pick up your bags.";
+      hint = "Your courier is heading to pick up your bags.";
     }
     let state: "done" | "active" | "upcoming" | "cancelled" = "upcoming";
     if (cancelled) {

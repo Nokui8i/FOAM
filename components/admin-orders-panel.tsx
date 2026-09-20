@@ -68,8 +68,8 @@ type MobileView = "list" | "detail";
 const FILTERS: { id: Filter; label: string }[] = [
   { id: "all", label: "All" },
   { id: "waiting", label: "Waiting" },
-  { id: "progress", label: "In Progress" },
-  { id: "ready", label: "Ready" },
+  { id: "progress", label: "At laundry" },
+  { id: "ready", label: "On delivery" },
 ];
 
 function formatCreatedAt(
@@ -403,7 +403,7 @@ export function AdminOrdersPanel({
     await patchOrderDoc(
       order,
       { status: "confirmed" },
-      "Driver left for pickup — customer tracking updated"
+      "Driver on the way — customer tracking updated"
     );
     const first = firstNameFromContact(order.contact.name) || "there";
     const body = `Hi ${first}, this is FOAM — your courier is on the way to pick up your bags (${order.pickup.date} · ${order.pickup.slot}).`;
@@ -560,7 +560,7 @@ export function AdminOrdersPanel({
         status: "washing",
         "pricing.finalTotalPending": false,
       },
-      `Charged · $${finalTotal.toFixed(2)} · Washing`
+      `Charged · $${finalTotal.toFixed(2)} · At laundry`
     );
     setFilter("progress");
   }
@@ -603,23 +603,23 @@ export function AdminOrdersPanel({
       } — no further action needed.`;
     }
     if (selected.status === "new") {
-      return "Mark Left for pickup when you leave for this stop. Tracking updates and WhatsApp opens so you can notify the customer.";
+      return "When you head to this stop, tap I’m on the way. Tracking updates and WhatsApp opens so you can notify the customer.";
     }
     if (isEnRouteToPickup(selected.status)) {
-      return "At the stop: enter weight and scale photo, add dry-clean items if needed, then charge to move into Washing.";
+      return "At the stop: enter weight + scale photo, add dry-clean items if needed, then charge. That marks the order collected and moves it to At laundry.";
     }
     if (stage === 1) {
-      return "Order is washing at the plant. Tap Out for delivery when bags are ready to go.";
+      return "Order is at the laundry. When it’s ready to return today, tap On delivery.";
     }
     if (stage === 2) {
-      return "Upload a return photo, then Mark delivered when the customer has their bags.";
+      return "Upload a photo at the door (or with the customer), then confirm delivered to close the order.";
     }
     if (stage === 3) {
       return selected.finalTotal != null
-        ? `Delivery complete · Charged $${selected.finalTotal.toFixed(2)}${
+        ? `Delivered · Charged $${selected.finalTotal.toFixed(2)}${
             selected.weightLbs ? ` · ${selected.weightLbs} lb` : ""
           }`
-        : "Delivery is complete.";
+        : "Order closed.";
     }
     return "Complete the current step, then move this order forward.";
   })();
@@ -664,7 +664,7 @@ export function AdminOrdersPanel({
               onClick={() => void markLeftForPickup(selected)}
             >
               <Truck size={16} />
-              Left for pickup
+              I’m on the way
             </Button>
           </div>
         </>
@@ -848,7 +848,7 @@ export function AdminOrdersPanel({
                 onClick={() => void chargeAndCollect()}
               >
                 <PackageCheck size={16} />
-                Next step → Mark as Washing
+                Charge · send to laundry
               </Button>
             ) : null}
           </div>
@@ -902,7 +902,7 @@ export function AdminOrdersPanel({
               onClick={() => void setStatus("out_for_delivery")}
             >
               <Truck size={16} />
-              Out for delivery
+              On delivery today
             </Button>
           </div>
         </>
@@ -920,8 +920,8 @@ export function AdminOrdersPanel({
                 {uploadingPhoto
                   ? "Uploading…"
                   : deliveryPhotos.length
-                    ? "Add another return photo"
-                    : "Add return photo"}
+                    ? "Add another delivery photo"
+                    : "Photo at the door"}
               </span>
               <input
                 type="file"
@@ -974,7 +974,7 @@ export function AdminOrdersPanel({
               onClick={() => void markDelivered()}
             >
               <PackageCheck size={16} />
-              Mark delivered
+              Confirm delivered
             </Button>
           </div>
         </>
@@ -1110,7 +1110,7 @@ export function AdminOrdersPanel({
                       onClick={() => void markLeftForPickup(row)}
                     >
                       <Truck size={14} aria-hidden />
-                      Left for pickup
+                      I’m on the way
                     </button>
                   ) : null}
                 </div>

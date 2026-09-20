@@ -21,23 +21,25 @@ export type OrderStatus = (typeof ORDER_STATUSES)[number];
 
 export const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
   new: "Waiting for pickup",
-  confirmed: "Driver left for pickup",
-  picked_up: "Washing",
-  weighed: "Washing",
-  washing: "Washing",
-  out_for_delivery: "Out for delivery",
+  confirmed: "Driver on the way",
+  picked_up: "At laundry",
+  weighed: "At laundry",
+  washing: "At laundry",
+  out_for_delivery: "On delivery",
   delivered: "Delivered",
   cancelled: "Cancelled",
 };
 
 export const ORDER_STATUS_HELP: Record<OrderStatus, string> = {
-  new: "Tap Left for pickup when the driver leaves for the customer.",
-  confirmed: "Driver is on the way — at the stop, weigh, photo, then charge.",
-  picked_up: "At the plant / being washed. Tap when it leaves for the customer.",
-  weighed: "At the plant / being washed. Tap when it leaves for the customer.",
-  washing: "Being washed. Tap when it leaves for the customer.",
-  out_for_delivery: "With the driver. Tap when the customer has the bags.",
-  delivered: "Finished.",
+  new: "When you leave for this stop, tap I’m on the way.",
+  confirmed:
+    "At the stop: weigh, scale photo, dry-clean items if needed, then charge.",
+  picked_up: "Collected and at the laundry. Tap when ready to deliver today.",
+  weighed: "Collected and at the laundry. Tap when ready to deliver today.",
+  washing: "Collected and at the laundry. Tap when ready to deliver today.",
+  out_for_delivery:
+    "Out for delivery today. Upload a door photo, then confirm delivered.",
+  delivered: "Order closed.",
   cancelled: "Cancelled.",
 };
 
@@ -130,50 +132,50 @@ export function orderStatusPrevious(status: OrderStatus): OrderStatus | null {
 export function orderStageBackLabel(status: OrderStatus): string | null {
   switch (status) {
     case "confirmed":
-      return "Undo Left for pickup";
+      return "Undo I’m on the way";
     case "picked_up":
     case "weighed":
     case "washing":
-      return "Back to At stop";
+      return "Back to pickup stop";
     case "out_for_delivery":
-      return "Back to Washing";
+      return "Back to At laundry";
     case "delivered":
-      return "Back to Out for delivery";
+      return "Back to On delivery";
     default:
       return null;
   }
 }
 
-/** Visual pipeline (ops + customer). At-plant merged into Washing. */
+/** Visual pipeline (ops + customer). */
 export const ORDER_PIPELINE_STEPS = [
   {
     id: "waiting",
-    label: "At stop",
+    label: "Pickup",
     statuses: ["new", "confirmed"],
     preview:
-      "First: Left for pickup. At the stop: weigh, photo, dry-clean, then charge.",
-    actionHint: "Weigh & take photos",
+      "I’m on the way → at the stop: weigh, photo, dry-clean, then charge.",
+    actionHint: "Weigh · photo · charge",
   },
   {
     id: "progress",
-    label: "Washing",
+    label: "At laundry",
     statuses: ["picked_up", "weighed", "washing"],
-    preview: "At the plant and being washed.",
-    actionHint: "Update status",
+    preview: "Collected and being cleaned at the plant.",
+    actionHint: "Ready for delivery",
   },
   {
     id: "delivery",
-    label: "Out for delivery",
+    label: "On delivery",
     statuses: ["out_for_delivery"],
-    preview: "With the driver. Tap when the customer has the bags.",
-    actionHint: "On the way",
+    preview: "Delivering today. Photo at the door, then confirm.",
+    actionHint: "Photo · confirm",
   },
   {
     id: "done",
     label: "Complete",
     statuses: ["delivered"],
-    preview: "Finished — nothing left to do.",
-    actionHint: "Confirm & close",
+    preview: "Order closed.",
+    actionHint: "Closed",
   },
 ] as const;
 
@@ -196,13 +198,13 @@ export function orderListBadge(status: OrderStatus): string {
     case "new":
       return "Waiting for pickup";
     case "confirmed":
-      return "Driver left";
+      return "Driver on the way";
     case "picked_up":
     case "weighed":
     case "washing":
-      return "Washing";
+      return "At laundry";
     case "out_for_delivery":
-      return "Out for delivery";
+      return "On delivery";
     case "delivered":
       return "Delivered";
     case "cancelled":
