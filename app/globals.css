@@ -6511,7 +6511,7 @@ button.ops-row {
 .ops-row-main { min-width: 0; flex: 1; }
 .ops-row-name {
   display: block;
-  font-size: clamp(0.95rem, 1.5vw, 1.1rem);
+  font-size: clamp(1rem, 1.7vw, 1.18rem);
   font-weight: 750;
   letter-spacing: -0.02em;
   line-height: 1.25;
@@ -6521,7 +6521,7 @@ button.ops-row {
   align-items: flex-start;
   gap: 0.3rem;
   margin-top: 0.28rem;
-  font-size: clamp(0.78rem, 1.25vw, 0.9rem);
+  font-size: clamp(0.85rem, 1.4vw, 0.98rem);
   font-weight: 550;
   line-height: 1.35;
   color: var(--ops-muted);
@@ -6534,7 +6534,7 @@ button.ops-row {
 .ops-row-sub {
   display: block;
   margin-top: 0.28rem;
-  font-size: clamp(0.8rem, 1.3vw, 0.92rem);
+  font-size: clamp(0.88rem, 1.5vw, 1rem);
   font-weight: 650;
   color: var(--ops-ink);
 }
@@ -6968,6 +6968,43 @@ button.ops-row {
   max-width: 40rem;
   margin-inline: auto;
 }
+.ops-workflow-customer {
+  display: grid;
+  gap: 0.35rem;
+  margin: 0 0 1rem;
+  padding: 0 0.15rem 0.95rem;
+  border-bottom: 1px solid var(--ops-border);
+}
+.ops-workflow-customer-name {
+  margin: 0;
+  font-family: var(--ops-display);
+  font-size: clamp(1.15rem, 2.6vw, 1.45rem);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+  color: var(--ops-ink);
+}
+.ops-workflow-customer-address,
+.ops-workflow-customer-when {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.35rem;
+  margin: 0;
+  font-size: clamp(0.9rem, 1.7vw, 1.05rem);
+  font-weight: 550;
+  line-height: 1.35;
+  color: var(--ops-muted);
+}
+.ops-workflow-customer-when {
+  font-weight: 700;
+  color: var(--ops-ink);
+}
+.ops-workflow-customer-address svg,
+.ops-workflow-customer-when svg {
+  margin-top: 0.15rem;
+  flex-shrink: 0;
+  color: var(--ops-primary);
+}
 .ops-workflow-card .ops-timeline {
   margin: 0;
   padding: 0.35rem 0.25rem 1.1rem;
@@ -7062,9 +7099,10 @@ button.ops-row {
 .ops-timeline-step:not(:last-child)::before {
   content: "";
   position: absolute;
-  top: 0.85rem;
-  left: calc(50% + 0.95rem);
-  width: calc(100% - 1.9rem);
+  top: clamp(0.85rem, 1.55vw, 0.97rem);
+  left: calc(50% + 1.05rem);
+  right: calc(-50% + 1.05rem);
+  width: auto;
   height: 3px;
   border-radius: 999px;
   background: color-mix(in oklch, var(--ops-border) 55%, var(--ops-muted) 45%);
@@ -7085,14 +7123,14 @@ button.ops-row {
 .ops-timeline-dot {
   display: grid;
   place-items: center;
-  width: 1.7rem;
-  height: 1.7rem;
+  width: clamp(1.7rem, 3.2vw, 1.95rem);
+  height: clamp(1.7rem, 3.2vw, 1.95rem);
   flex-shrink: 0;
   border-radius: 999px;
   background: #fff;
   border: 2px solid color-mix(in oklch, var(--ops-border) 65%, var(--ops-muted) 35%);
   color: var(--ops-muted);
-  font-size: clamp(0.68rem, 1.2vw, 0.78rem);
+  font-size: clamp(0.75rem, 1.4vw, 0.88rem);
   font-weight: 750;
 }
 .ops-timeline-step.is-done .ops-timeline-dot,
@@ -7108,7 +7146,7 @@ button.ops-row {
   display: none;
 }
 .ops-timeline-label {
-  font-size: clamp(0.72rem, 1.45vw, 0.92rem);
+  font-size: clamp(0.82rem, 1.7vw, 1.02rem);
   font-weight: 750;
   color: color-mix(in oklch, var(--ops-muted) 75%, var(--ops-ink) 25%);
   text-align: center;
@@ -8156,7 +8194,7 @@ button.ops-row {
 .ops-timeline-hint {
   display: block;
   margin-top: -0.1rem;
-  font-size: clamp(0.62rem, 1.2vw, 0.78rem);
+  font-size: clamp(0.72rem, 1.4vw, 0.88rem);
   font-weight: 650;
   line-height: 1.25;
   color: var(--ops-muted);
@@ -8171,15 +8209,15 @@ button.ops-row {
 }
 .ops-step-help,
 .ops-muted.ops-step-help {
-  font-size: clamp(0.88rem, 1.7vw, 1.05rem);
+  font-size: clamp(0.95rem, 1.9vw, 1.12rem);
   line-height: 1.45;
 }
 .ops-btn-lg {
-  font-size: clamp(0.95rem, 1.8vw, 1.1rem) !important;
-  min-height: 2.85rem;
+  font-size: clamp(1rem, 2vw, 1.15rem) !important;
+  min-height: 3rem;
 }
 .ops-stage-badge {
-  font-size: clamp(0.65rem, 1.15vw, 0.78rem);
+  font-size: clamp(0.72rem, 1.3vw, 0.85rem);
 }
 
 .ops-notes-title {

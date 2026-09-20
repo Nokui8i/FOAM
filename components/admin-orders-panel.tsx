@@ -1267,6 +1267,20 @@ export function AdminOrdersPanel({
 
             <div className="ops-detail-stack">
               <section className="ops-card ops-workflow-card">
+                <div className="ops-workflow-customer">
+                  <p className="ops-workflow-customer-name">
+                    {selected.contact.name}
+                  </p>
+                  <p className="ops-workflow-customer-address">
+                    <MapPin size={15} aria-hidden />
+                    {formatOrderAddress(selected)}
+                  </p>
+                  <p className="ops-workflow-customer-when">
+                    <CalendarDays size={15} aria-hidden />
+                    {formatPickupDate(selected.pickup.date)} ·{" "}
+                    {formatSlotShort(selected.pickup.slot)}
+                  </p>
+                </div>
                 <div className="ops-timeline" role="list">
                   {ORDER_PIPELINE_STEPS.map((step, index) => {
                     const cancelled = selected.status === "cancelled";
