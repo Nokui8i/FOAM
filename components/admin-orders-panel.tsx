@@ -403,7 +403,7 @@ export function AdminOrdersPanel({
     await patchOrderDoc(
       order,
       { status: "confirmed" },
-      "On the way to pickup — customer tracking updated"
+      "Driver left for pickup — customer tracking updated"
     );
     const first = firstNameFromContact(order.contact.name) || "there";
     const body = `Hi ${first}, this is FOAM — your courier is on the way to pick up your bags (${order.pickup.date} · ${order.pickup.slot}).`;

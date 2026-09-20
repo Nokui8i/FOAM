@@ -21,7 +21,7 @@ export type OrderStatus = (typeof ORDER_STATUSES)[number];
 
 export const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
   new: "Waiting for pickup",
-  confirmed: "On the way to pickup",
+  confirmed: "Driver left for pickup",
   picked_up: "Washing",
   weighed: "Washing",
   washing: "Washing",
@@ -196,7 +196,7 @@ export function orderListBadge(status: OrderStatus): string {
     case "new":
       return "Waiting for pickup";
     case "confirmed":
-      return "On the way";
+      return "Driver left";
     case "picked_up":
     case "weighed":
     case "washing":
