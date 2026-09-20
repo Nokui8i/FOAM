@@ -13,7 +13,6 @@ import {
 import {
   ArrowLeft,
   Check,
-  Inbox,
   Mail,
   MessageCircle,
   Phone,
@@ -180,64 +179,71 @@ export function AdminContactsPanel({
             />
           </label>
 
-          <div
-            className="ops-filter-row"
-            role="tablist"
-            aria-label="Filter inquiries"
-          >
-            {FILTERS.map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                role="tab"
-                aria-selected={filter === item.id}
-                className={cn(
-                  "ops-filter-chip",
-                  filter === item.id && "is-active"
-                )}
-                onClick={() => setFilter(item.id)}
-              >
-                {item.label}
-              </button>
-            ))}
-          </div>
+          <fieldset className="ops-radio-filters">
+            <legend>Status</legend>
+            <div className="ops-radio-filters-row">
+              {FILTERS.map((item) => (
+                <label
+                  key={item.id}
+                  className={cn(
+                    "ops-radio-label",
+                    filter === item.id && "is-active"
+                  )}
+                >
+                  <input
+                    type="radio"
+                    name="inquiries-status"
+                    value={item.id}
+                    checked={filter === item.id}
+                    onChange={() => setFilter(item.id)}
+                  />
+                  <span>
+                    {item.label}
+                    <span className="ops-radio-count">{counts[item.id]}</span>
+                  </span>
+                </label>
+              ))}
+            </div>
+          </fieldset>
         </div>
 
         {error ? <p className="ops-error ops-pad">{error}</p> : null}
 
-        <div className="ops-list-body">
-          {filtered.length === 0 ? (
-            <p className="ops-empty">Live messages will appear here.</p>
-          ) : (
-            filtered.map((row) => (
-              <button
-                key={row.id}
-                type="button"
-                className={cn(
-                  "ops-row",
-                  selectedId === row.id && "is-active",
-                  !row.read && "is-unread"
-                )}
-                onClick={() => void selectRow(row)}
-              >
-                <span className="ops-row-icon">
-                  <Mail size={16} />
-                </span>
-                <span className="ops-row-main">
-                  <span className="ops-row-name">{row.name}</span>
-                  <span className="ops-row-meta">{row.topic}</span>
-                </span>
-                <span
+        <div className="ops-list-scroll">
+          <div className="ops-list-card">
+            {filtered.length === 0 ? (
+              <p className="ops-empty">Live messages will appear here.</p>
+            ) : (
+              filtered.map((row) => (
+                <button
+                  key={row.id}
+                  type="button"
                   className={cn(
-                    "ops-status-pill",
-                    row.status === "done" ? "is-done" : "is-open"
+                    "ops-row",
+                    selectedId === row.id && "is-active",
+                    !row.read && "is-unread"
                   )}
+                  onClick={() => void selectRow(row)}
                 >
-                  {row.status === "done" ? "Done" : "Open"}
-                </span>
-              </button>
-            ))
-          )}
+                  <span className="ops-row-icon">
+                    <Mail size={16} />
+                  </span>
+                  <span className="ops-row-main">
+                    <span className="ops-row-name">{row.name}</span>
+                    <span className="ops-row-meta">{row.topic}</span>
+                  </span>
+                  <span
+                    className={cn(
+                      "ops-status-pill",
+                      row.status === "done" ? "is-done" : "is-open"
+                    )}
+                  >
+                    {row.status === "done" ? "Done" : "Open"}
+                  </span>
+                </button>
+              ))
+            )}
+          </div>
         </div>
       </section>
 
@@ -255,7 +261,7 @@ export function AdminContactsPanel({
               type="button"
               variant="ghost"
               size="sm"
-              className="ops-back"
+              className="ops-back ops-back-labeled"
               onClick={() => onMobileViewChange("list")}
             >
               <ArrowLeft size={16} />
@@ -265,6 +271,7 @@ export function AdminContactsPanel({
             <div className="ops-inquiry-inner">
               <div className="ops-inquiry-head">
                 <div>
+                  <p className="ops-eyebrow">Selected inquiry</p>
                   <span
                     className={cn(
                       "ops-status-pill is-lg",
@@ -281,38 +288,38 @@ export function AdminContactsPanel({
                 <div className="ops-icon-row">
                   {selected.phone ? (
                     <a
-                      className="ops-icon-btn"
+                      className="ops-text-btn"
                       href={`tel:${selected.phone}`}
-                      aria-label="Call"
                     >
-                      <Phone size={18} />
+                      <Phone size={16} aria-hidden />
+                      Call
                     </a>
                   ) : null}
                   {selected.phone ? (
                     <a
-                      className="ops-icon-btn"
+                      className="ops-text-btn"
                       href={waUrl(selected.phone, replyBody)}
                       target="_blank"
                       rel="noreferrer"
-                      aria-label="WhatsApp"
                     >
-                      <MessageCircle size={18} />
+                      <MessageCircle size={16} aria-hidden />
+                      WhatsApp
                     </a>
                   ) : null}
                   <a
-                    className="ops-icon-btn"
+                    className="ops-text-btn"
                     href={`mailto:${selected.email}?subject=${encodeURIComponent(`Re: FOAM — ${selected.topic}`)}`}
-                    aria-label="Email"
                   >
-                    <Mail size={18} />
+                    <Mail size={16} aria-hidden />
+                    Email
                   </a>
                 </div>
               </div>
 
               <section className="ops-card">
-                <div className="ops-panel-title">
-                  <span className="ops-panel-title-icon">
-                    <Inbox className="size-4" />
+                <div className="ops-panel-title is-numbered">
+                  <span className="ops-panel-title-number" aria-hidden>
+                    01
                   </span>
                   <div>
                     <h3>Message</h3>

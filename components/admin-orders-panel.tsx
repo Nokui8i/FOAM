@@ -12,6 +12,7 @@ import {
   updateDoc,
 } from "firebase/firestore";
 import {
+  AlertTriangle,
   ArrowLeft,
   Camera,
   Check,
@@ -24,9 +25,7 @@ import {
   Phone,
   Repeat2,
   Search,
-  Shirt,
   Truck,
-  Weight,
   X,
   type LucideIcon,
 } from "lucide-react";
@@ -39,8 +38,12 @@ import {
 import { getFirebaseDb } from "@/lib/firebase";
 import { uploadOrderPhoto } from "@/lib/order-photos";
 import {
+  CANCEL_REASONS,
+  ORDER_ISSUE_OPTIONS,
   ORDER_PIPELINE_STEPS,
   ORDER_STATUS_LABELS,
+  REFUND_STATUSES,
+  REFUND_STATUS_LABELS,
   computeFinalTotal,
   dryCleanItemsTotal,
   formatOrderAddress,
@@ -58,6 +61,7 @@ import {
   type OrderPhoto,
   type OrderPhotoKind,
   type OrderStatus,
+  type RefundStatus,
 } from "@/lib/orders";
 import { firstNameFromContact } from "@/lib/order-tracking";
 import { BUSINESS_WHATSAPP } from "@/lib/site-config";
@@ -82,8 +86,6 @@ const FILTERS: { id: Filter; label: string }[] = [
   { id: "done", label: "Done" },
   { id: "all", label: "All" },
 ];
-const PRIMARY_FILTERS = FILTERS.slice(0, 3);
-const MORE_FILTERS = FILTERS.slice(3);
 
 function todayIso() {
   const d = new Date();
@@ -101,7 +103,7 @@ function formatCreatedAt(
   }
   try {
     const date = value.toDate();
-    return date.toLocaleString(undefined, {
+    return date.toLocaleString("en-US", {
       month: "short",
       day: "numeric",
       hour: "numeric",
@@ -188,23 +190,38 @@ function mapOrder(id: string, data: Record<string, unknown>): FoamOrder {
     createdAt: (data.createdAt as FoamOrder["createdAt"]) ?? null,
     statusUpdatedAt:
       (data.statusUpdatedAt as FoamOrder["statusUpdatedAt"]) ?? null,
+    opsIssue: typeof data.opsIssue === "string" ? data.opsIssue : "",
+    refundStatus:
+      typeof data.refundStatus === "string" ? data.refundStatus : "none",
+    refundAmount:
+      typeof data.refundAmount === "number" ? data.refundAmount : null,
+    cancelReason:
+      typeof data.cancelReason === "string" ? data.cancelReason : "",
   };
 }
 
 function PanelTitleFixed({
   icon: Icon,
+  number,
   title,
   note,
 }: {
-  icon: LucideIcon;
+  icon?: LucideIcon;
+  number?: string;
   title: string;
   note?: string;
 }) {
   return (
-    <div className="ops-panel-title">
-      <span className="ops-panel-title-icon">
-        <Icon className="size-4" />
-      </span>
+    <div className={cn("ops-panel-title", number && "is-numbered")}>
+      {number ? (
+        <span className="ops-panel-title-number" aria-hidden>
+          {number}
+        </span>
+      ) : Icon ? (
+        <span className="ops-panel-title-icon">
+          <Icon className="size-4" />
+        </span>
+      ) : null}
       <div>
         <h3>{title}</h3>
         {note ? <p>{note}</p> : null}
@@ -234,7 +251,8 @@ export function AdminOrdersPanel({
   const [openCatalog, setOpenCatalog] = useState(false);
   const [saving, setSaving] = useState(false);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
-  const [showMoreFilters, setShowMoreFilters] = useState(false);
+  const [showCancelForm, setShowCancelForm] = useState(false);
+  const [cancelReasonDraft, setCancelReasonDraft] = useState("");
 
   useEffect(() => {
     const db = getFirebaseDb();
@@ -336,6 +354,8 @@ export function AdminOrdersPanel({
     setOpenCatalog(false);
     setOkMsg("");
     setError("");
+    setShowCancelForm(false);
+    setCancelReasonDraft("");
   }, [selected?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function patchOrderDoc(
@@ -400,6 +420,33 @@ export function AdminOrdersPanel({
     await setStatus(prev);
   }
 
+  async function cancelOrder() {
+    if (!selected) return;
+    await patchOrder(
+      {
+        status: "cancelled",
+        cancelReason: cancelReasonDraft || "",
+      },
+      "Order cancelled"
+    );
+    setShowCancelForm(false);
+    setCancelReasonDraft("");
+    setFilter("cancelled");
+  }
+
+  async function updateOpsIssue(value: string) {
+    if (!selected) return;
+    await patchOrder({ opsIssue: value }, value ? "Issue flagged" : "Issue cleared");
+  }
+
+  async function updateRefundStatus(value: RefundStatus) {
+    if (!selected) return;
+    await patchOrder(
+      { refundStatus: value },
+      `Refund status → ${REFUND_STATUS_LABELS[value]}`
+    );
+  }
+
   async function markLeftForPickup(order: FoamOrder) {
     setSelectedId(order.id);
     await patchOrderDoc(
@@ -434,7 +481,7 @@ export function AdminOrdersPanel({
 
   async function saveBilling() {
     if (!selected) return;
-    if (isWaitingForPickup(selected.status)) {
+    if (isWaitingForPickup(selected.status) && selected.status !== "new") {
       await chargeAndCollect();
       return;
     }
@@ -621,11 +668,48 @@ export function AdminOrdersPanel({
     ? orderStageBackLabel(selected.status)
     : null;
 
+  const stage = selected ? orderPipelineIndex(selected.status) : 0;
+
+  const workflowHelp = (() => {
+    if (!selected) return "";
+    if (selected.status === "cancelled") {
+      return `This order was cancelled${
+        selected.cancelReason ? ` · ${selected.cancelReason}` : ""
+      } — no further action needed.`;
+    }
+    if (selected.status === "new") {
+      return "Mark Left for pickup when you leave for this stop. Tracking updates and WhatsApp opens so you can notify the customer.";
+    }
+    if (isEnRouteToPickup(selected.status)) {
+      return "At the stop: enter weight and scale photo, add dry-clean items if needed, then Charge & mark collected in Billing.";
+    }
+    if (stage === 1) {
+      return "Order is washing at the plant. Tap Out for delivery when bags are ready to go.";
+    }
+    if (stage === 2) {
+      return "Upload a return photo, then Mark delivered when the customer has their bags.";
+    }
+    if (stage === 3) {
+      return selected.finalTotal != null
+        ? `Delivery complete · Charged $${selected.finalTotal.toFixed(2)}${
+            selected.weightLbs ? ` · ${selected.weightLbs} lb` : ""
+          }`
+        : "Delivery is complete.";
+    }
+    return "Complete the current step, then move this order forward.";
+  })();
+
+  const canCharge =
+    !!selected &&
+    isWaitingForPickup(selected.status) &&
+    selected.status !== "new";
+  const billingButtonLabel = canCharge
+    ? "Charge & mark collected"
+    : "Save total";
+
   const customerMsg = selected
     ? `Hi ${selected.contact.name.split(" ")[0] || "there"}, this is FOAM about your pickup on ${selected.pickup.date} (${selected.pickup.slot}).`
     : "";
-
-  const stage = selected ? orderPipelineIndex(selected.status) : 0;
 
   function selectOrder(id: string) {
     setSelectedId(id);
@@ -658,122 +742,90 @@ export function AdminOrdersPanel({
             />
           </label>
 
-          <div className="ops-filter-row" role="tablist" aria-label="Order tabs">
-            {PRIMARY_FILTERS.map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                role="tab"
-                aria-selected={filter === item.id}
-                className={cn(
-                  "ops-filter-chip",
-                  filter === item.id && "is-active"
-                )}
-                onClick={() => setFilter(item.id)}
-              >
-                {item.label}
-                <span className="ops-filter-count">{counts[item.id]}</span>
-              </button>
-            ))}
-            <button
-              type="button"
-              className={cn(
-                "ops-filter-chip ops-filter-more",
-                showMoreFilters && "is-open"
-              )}
-              aria-expanded={showMoreFilters}
-              onClick={() => setShowMoreFilters((v) => !v)}
-            >
-              More
-              <ChevronDown
-                size={14}
-                className={cn("ops-flow-chevron", showMoreFilters && "is-open")}
-                aria-hidden
-              />
-            </button>
-          </div>
-
-          {showMoreFilters ||
-          MORE_FILTERS.some((item) => item.id === filter) ? (
-            <div
-              className="ops-filter-row ops-filter-row-more"
-              role="tablist"
-              aria-label="More order tabs"
-            >
-              {MORE_FILTERS.map((item) => (
-                <button
+          <fieldset className="ops-radio-filters">
+            <legend>Status</legend>
+            <div className="ops-radio-filters-row">
+              {FILTERS.map((item) => (
+                <label
                   key={item.id}
-                  type="button"
-                  role="tab"
-                  aria-selected={filter === item.id}
                   className={cn(
-                    "ops-filter-chip",
+                    "ops-radio-label",
                     filter === item.id && "is-active"
                   )}
-                  onClick={() => setFilter(item.id)}
                 >
-                  {item.label}
-                  <span className="ops-filter-count">{counts[item.id]}</span>
-                </button>
+                  <input
+                    type="radio"
+                    name="orders-status"
+                    value={item.id}
+                    checked={filter === item.id}
+                    onChange={() => setFilter(item.id)}
+                  />
+                  <span>
+                    {item.label}
+                    <span className="ops-radio-count">{counts[item.id]}</span>
+                  </span>
+                </label>
               ))}
             </div>
-          ) : null}
+          </fieldset>
         </div>
 
         {error && !selected ? <p className="ops-error ops-pad">{error}</p> : null}
 
-        <div className="ops-list-body">
-          {filtered.length === 0 ? (
-            <p className="ops-empty">Live orders will appear here.</p>
-          ) : (
-            filtered.map((row) => (
-              <div
-                key={row.id}
-                className={cn(
-                  "ops-row",
-                  selectedId === row.id && "is-active"
-                )}
-              >
-                <button
-                  type="button"
-                  className="ops-row-select"
-                  onClick={() => selectOrder(row.id)}
+        <div className="ops-list-scroll">
+          <div className="ops-list-card">
+            {filtered.length === 0 ? (
+              <p className="ops-empty">Live orders will appear here.</p>
+            ) : (
+              filtered.map((row) => (
+                <div
+                  key={row.id}
+                  className={cn(
+                    "ops-row",
+                    selectedId === row.id && "is-active"
+                  )}
                 >
-                  <span className="ops-row-main">
-                    <span className="ops-row-name">{row.contact.name}</span>
-                    <span className="ops-row-sub">
-                      {row.pickup.date} · {row.pickup.slot}
-                    </span>
-                    <span className="ops-row-meta">
-                      Ordered {formatCreatedAt(row.createdAt)}
-                    </span>
-                  </span>
-                  <span
-                    className={cn(
-                      "ops-status-pill",
-                      row.status === "delivered" && "is-done",
-                      row.status === "cancelled" && "is-cancelled",
-                      row.status === "new" && "is-new",
-                      isEnRouteToPickup(row.status) && "is-en-route"
-                    )}
-                  >
-                    {shortStatus(row.status)}
-                  </span>
-                </button>
-                {row.status === "new" ? (
                   <button
                     type="button"
-                    className="ops-row-action"
-                    disabled={saving}
-                    onClick={() => void markLeftForPickup(row)}
+                    className="ops-row-select"
+                    onClick={() => selectOrder(row.id)}
                   >
-                    <Truck size={14} aria-hidden />
-                    Left for pickup
+                    <span className="ops-row-main">
+                      <span className="ops-row-name">{row.contact.name}</span>
+                      <span className="ops-row-sub">
+                        {row.pickup.date} · {row.pickup.slot}
+                      </span>
+                      <span className="ops-row-meta">
+                        Ordered {formatCreatedAt(row.createdAt)}
+                      </span>
+                    </span>
+                    <span
+                      className={cn(
+                        "ops-status-pill",
+                        row.status === "delivered" && "is-done",
+                        row.status === "cancelled" && "is-cancelled",
+                        row.status === "new" && "is-new",
+                        isEnRouteToPickup(row.status) && "is-en-route"
+                      )}
+                    >
+                      {shortStatus(row.status)}
+                    </span>
                   </button>
-                ) : null}
-              </div>
-            ))
-          )}
+                  {row.status === "new" ? (
+                    <button
+                      type="button"
+                      className="ops-row-action"
+                      disabled={saving}
+                      onClick={() => void markLeftForPickup(row)}
+                    >
+                      <Truck size={14} aria-hidden />
+                      Left for pickup
+                    </button>
+                  ) : null}
+                </div>
+              ))
+            )}
+          </div>
         </div>
       </section>
 
@@ -792,7 +844,7 @@ export function AdminOrdersPanel({
                 type="button"
                 variant="ghost"
                 size="sm"
-                className="ops-back"
+                className="ops-back ops-back-labeled"
                 onClick={() => onMobileViewChange("list")}
               >
                 <ArrowLeft size={16} />
@@ -801,6 +853,7 @@ export function AdminOrdersPanel({
 
               <div className="ops-detail-head-row">
                 <div>
+                  <p className="ops-eyebrow">Selected order</p>
                   <div className="ops-detail-name-row">
                     <h2>{selected.contact.name}</h2>
                     <span
@@ -823,29 +876,29 @@ export function AdminOrdersPanel({
                 </div>
                 <div className="ops-icon-row">
                   <a
-                    className="ops-icon-btn"
+                    className="ops-text-btn"
                     href={`tel:${selected.contact.phone}`}
-                    aria-label="Call"
                   >
-                    <Phone size={18} />
+                    <Phone size={16} aria-hidden />
+                    Call
                   </a>
                   <a
-                    className="ops-icon-btn"
+                    className="ops-text-btn"
                     href={waUrl(selected.contact.phone, customerMsg)}
                     target="_blank"
                     rel="noreferrer"
-                    aria-label="WhatsApp"
                   >
-                    <MessageCircle size={18} />
+                    <MessageCircle size={16} aria-hidden />
+                    WhatsApp
                   </a>
                   <a
-                    className="ops-icon-btn"
+                    className="ops-text-btn"
                     href={mapsUrl(selected)}
                     target="_blank"
                     rel="noreferrer"
-                    aria-label="Maps"
                   >
-                    <MapPin size={18} />
+                    <MapPin size={16} aria-hidden />
+                    Maps
                   </a>
                 </div>
               </div>
@@ -857,88 +910,135 @@ export function AdminOrdersPanel({
               </p>
             )}
 
-            <div className="ops-detail-body">
-              <aside className="ops-detail-aside" aria-label="Stop details">
-                <section className="ops-pickup-card">
-                  <p className="ops-pickup-label">Scheduled pickup</p>
-                  <div className="ops-pickup-grid">
-                    <div>
-                      <p className="ops-field-label">Date</p>
-                      <p className="ops-pickup-value">
-                        {selected.pickup.date || "—"}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="ops-field-label">Time window</p>
-                      <p className="ops-pickup-time">
-                        <Clock3 size={18} />
-                        {selected.pickup.slot || "—"}
-                      </p>
-                    </div>
-                    <div className="ops-pickup-pills">
-                      {isToday(selected.pickup.date) ? (
-                        <span className="ops-today-pill">Today</span>
-                      ) : null}
-                      {selected.pickup.repeat ||
-                      selected.pickup.repeatRequested ? (
-                        <span className="ops-repeat-pill">
-                          <Repeat2 size={12} />
-                          Weekly repeat
-                        </span>
-                      ) : null}
-                    </div>
+            <div className="ops-detail-grid">
+              <section className="ops-pickup-card ops-grid-span-2">
+                <p className="ops-pickup-label">Scheduled pickup</p>
+                <div className="ops-pickup-grid">
+                  <div>
+                    <p className="ops-field-label">Date</p>
+                    <p className="ops-pickup-value">
+                      {selected.pickup.date || "—"}
+                    </p>
                   </div>
-                </section>
-
-                <section className="ops-card ops-aside-card">
-                  <PanelTitleFixed icon={MapPin} title="Customer & stop" />
-                  <div className="ops-fields ops-fields-stack">
-                    <div>
-                      <p className="ops-field-label">Phone</p>
-                      <p>
-                        <a href={`tel:${selected.contact.phone}`}>
-                          {selected.contact.phone || "—"}
-                        </a>
-                      </p>
-                    </div>
-                    <div>
-                      <p className="ops-field-label">Email</p>
-                      <p>
-                        <a href={`mailto:${selected.contact.email}`}>
-                          {selected.contact.email || "—"}
-                        </a>
-                      </p>
-                    </div>
-                    <div className="ops-field-wide">
-                      <p className="ops-field-label">Full address · Las Vegas</p>
-                      <p>{formatOrderAddress(selected)}</p>
-                    </div>
-                    <div className="ops-field-wide">
-                      <p className="ops-field-label">Access notes</p>
-                      <p>{selected.pickup.notes || "—"}</p>
-                    </div>
-                    <div className="ops-field-wide">
-                      <p className="ops-field-label">Services summary</p>
-                      <p>{servicesSummary(selected)}</p>
-                    </div>
+                  <div>
+                    <p className="ops-field-label">Time window</p>
+                    <p className="ops-pickup-time">
+                      <Clock3 size={18} />
+                      {selected.pickup.slot || "—"}
+                    </p>
                   </div>
-                  <a
-                    className="ops-link"
-                    href={mapsUrl(selected)}
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    Open address in Maps <ExternalLink size={14} />
-                  </a>
-                </section>
-              </aside>
-
-              <div className="ops-detail-main">
-              <section className="ops-flow" aria-label="Order stages">
-                <div className="ops-flow-head">
-                  <PanelTitleFixed icon={Truck} title="Order progress" />
+                  <div className="ops-pickup-pills">
+                    {isToday(selected.pickup.date) ? (
+                      <span className="ops-today-pill">Today</span>
+                    ) : null}
+                    {selected.pickup.repeat ||
+                    selected.pickup.repeatRequested ? (
+                      <span className="ops-repeat-pill">
+                        <Repeat2 size={12} />
+                        Weekly repeat
+                      </span>
+                    ) : null}
+                  </div>
                 </div>
+              </section>
 
+              <section className="ops-card">
+                <PanelTitleFixed number="01" title="Customer & stop" />
+                <div className="ops-fields">
+                  <div>
+                    <p className="ops-field-label">Phone</p>
+                    <p>
+                      <a href={`tel:${selected.contact.phone}`}>
+                        {selected.contact.phone || "—"}
+                      </a>
+                    </p>
+                  </div>
+                  <div>
+                    <p className="ops-field-label">Email</p>
+                    <p>
+                      <a href={`mailto:${selected.contact.email}`}>
+                        {selected.contact.email || "—"}
+                      </a>
+                    </p>
+                  </div>
+                  <div className="ops-field-wide">
+                    <p className="ops-field-label">Full address · Las Vegas</p>
+                    <p>{formatOrderAddress(selected)}</p>
+                  </div>
+                  <div className="ops-field-wide">
+                    <p className="ops-field-label">Access notes</p>
+                    <p>{selected.pickup.notes || "—"}</p>
+                  </div>
+                  <div className="ops-field-wide">
+                    <p className="ops-field-label">Services summary</p>
+                    <p>{servicesSummary(selected)}</p>
+                  </div>
+                </div>
+                <a
+                  className="ops-link"
+                  href={mapsUrl(selected)}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  Open address in Maps <ExternalLink size={14} />
+                </a>
+
+                <div className="ops-issue-inline">
+                  <PanelTitleFixed
+                    icon={AlertTriangle}
+                    title="Issue & refund"
+                  />
+                  <div className="ops-issue-grid">
+                    <label className="ops-select-field">
+                      <span className="ops-field-label">Issue type</span>
+                      <span className="ops-select-wrap">
+                        <select
+                          value={selected.opsIssue ?? ""}
+                          disabled={saving}
+                          onChange={(e) => void updateOpsIssue(e.target.value)}
+                        >
+                          {ORDER_ISSUE_OPTIONS.map((opt) => (
+                            <option key={opt.id} value={opt.id}>
+                              {opt.label}
+                            </option>
+                          ))}
+                        </select>
+                        <ChevronDown size={14} aria-hidden />
+                      </span>
+                    </label>
+                    <label className="ops-select-field">
+                      <span className="ops-field-label">Refund status</span>
+                      <span className="ops-select-wrap">
+                        <select
+                          value={
+                            (selected.refundStatus as RefundStatus) ?? "none"
+                          }
+                          disabled={saving}
+                          onChange={(e) =>
+                            void updateRefundStatus(
+                              e.target.value as RefundStatus
+                            )
+                          }
+                        >
+                          {REFUND_STATUSES.map((status) => (
+                            <option key={status} value={status}>
+                              {REFUND_STATUS_LABELS[status]}
+                            </option>
+                          ))}
+                        </select>
+                        <ChevronDown size={14} aria-hidden />
+                      </span>
+                    </label>
+                  </div>
+                </div>
+              </section>
+
+              <section className="ops-card ops-workflow-card">
+                <PanelTitleFixed
+                  number="02"
+                  title="Workflow"
+                  note="Status advances only when the current handoff is complete."
+                />
                 <div className="ops-timeline">
                   {ORDER_PIPELINE_STEPS.map((step, index) => {
                     const cancelled = selected.status === "cancelled";
@@ -961,9 +1061,7 @@ export function AdminOrdersPanel({
                         )}
                         disabled={!canJumpBack || saving || uploadingPhoto}
                         title={
-                          canJumpBack
-                            ? stageBackLabel ?? undefined
-                            : undefined
+                          canJumpBack ? stageBackLabel ?? undefined : undefined
                         }
                         onClick={() => {
                           if (!canJumpBack) return;
@@ -984,408 +1082,361 @@ export function AdminOrdersPanel({
                   })}
                 </div>
 
-                {selected.status === "cancelled" ? (
-                  <div className="ops-cancelled-note">
-                    <p className="ops-flow-done-note">
-                      This order was cancelled — no further action needed.
-                    </p>
+                <p className="ops-flow-done-note ops-workflow-help">
+                  {workflowHelp}
+                </p>
+
+                {selected.status !== "cancelled" ? (
+                  <div className="ops-action-row">
+                    {stageBackLabel ? (
+                      <button
+                        type="button"
+                        className="ops-stage-back"
+                        disabled={saving || uploadingPhoto}
+                        onClick={() => void goBackStage()}
+                      >
+                        <ArrowLeft size={14} aria-hidden />
+                        {stageBackLabel}
+                      </button>
+                    ) : null}
+                    {selected.status === "new" ? (
+                      <Button
+                        type="button"
+                        className="ops-btn-lg"
+                        disabled={saving || uploadingPhoto}
+                        onClick={() => void markLeftForPickup(selected)}
+                      >
+                        <Truck size={16} />
+                        Left for pickup
+                      </Button>
+                    ) : null}
+                    {stageAction &&
+                    selected.status !== "new" &&
+                    stageAction.next !== "confirmed" ? (
+                      <Button
+                        type="button"
+                        className="ops-btn-lg"
+                        disabled={saving || uploadingPhoto}
+                        onClick={() => {
+                          if (stageAction.next === "delivered") {
+                            void markDelivered();
+                            return;
+                          }
+                          void setStatus(stageAction.next);
+                        }}
+                      >
+                        <PackageCheck size={16} />
+                        {stageAction.label}
+                      </Button>
+                    ) : null}
                   </div>
-                ) : (
-                  <div className="ops-stage-card">
-                    {stage === 0 ? (
-                      selected.status === "new" ? (
-                      <>
-                        <div className="ops-stage-card-head">
-                          <Truck size={16} aria-hidden />
-                          <h3>Start pickup run</h3>
-                          <span className="ops-stage-badge">Action needed</span>
-                        </div>
-                        <p className="ops-flow-done-note">
-                          Mark Left for pickup when you leave for this stop.
-                          The customer&rsquo;s tracking page updates, and WhatsApp
-                          opens so you can notify them you&rsquo;re on the way.
-                        </p>
-                        <div className="ops-action-row">
-                          <Button
-                            type="button"
-                            className="ops-btn-lg"
-                            disabled={saving || uploadingPhoto}
-                            onClick={() => void markLeftForPickup(selected)}
-                          >
-                            <Truck size={16} />
-                            Left for pickup
-                          </Button>
-                        </div>
-                      </>
-                      ) : (
-                      <>
-                        <div className="ops-stage-card-head">
-                          <Shirt size={16} aria-hidden />
-                          <h3>At the customer&rsquo;s stop</h3>
-                          <span className="ops-stage-badge">
-                            {isEnRouteToPickup(selected.status)
-                              ? "En route · collect"
-                              : "Action needed"}
+                ) : null}
+
+                {selected.status !== "cancelled" &&
+                selected.status !== "delivered" ? (
+                  <div className="ops-cancel-row">
+                    {!showCancelForm ? (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="ops-btn-danger"
+                        disabled={saving}
+                        onClick={() => setShowCancelForm(true)}
+                      >
+                        <X size={14} />
+                        Cancel order
+                      </Button>
+                    ) : (
+                      <div className="ops-cancel-form">
+                        <label className="ops-select-field">
+                          <span className="ops-field-label">
+                            Cancellation reason
                           </span>
-                        </div>
-
-                        {selected.services.laundry ? (
-                          <>
-                            <label className="ops-weight-field">
-                              Weight in pounds
-                              <span className="ops-weight-input">
-                                <input
-                                  type="number"
-                                  inputMode="decimal"
-                                  min={0}
-                                  step={0.1}
-                                  value={weightInput}
-                                  onChange={(e) =>
-                                    setWeightInput(e.target.value)
-                                  }
-                                  placeholder="0.0"
-                                />
-                                <span>lb</span>
-                              </span>
-                            </label>
-                            <div className="ops-photo-block">
-                              <p className="ops-field-label">Scale photo</p>
-                              <label className="ops-photo-upload is-primary">
-                                <Camera size={16} aria-hidden />
-                                <span>
-                                  {uploadingPhoto
-                                    ? "Uploading…"
-                                    : weightPhotos.length
-                                      ? "Add another scale photo"
-                                      : "Upload scale photo"}
-                                </span>
-                                <input
-                                  type="file"
-                                  accept="image/*"
-                                  capture="environment"
-                                  disabled={uploadingPhoto || saving}
-                                  onChange={(e) => {
-                                    const file = e.target.files?.[0] ?? null;
-                                    void handleOrderPhoto(file, "weight");
-                                    e.target.value = "";
-                                  }}
-                                />
-                              </label>
-                              {weightPhotos.length ? (
-                                <div className="ops-photo-thumbs">
-                                  {weightPhotos.map((photo) => (
-                                    <a
-                                      key={photo.url}
-                                      href={photo.url}
-                                      target="_blank"
-                                      rel="noreferrer"
-                                      className="ops-photo-thumb"
-                                    >
-                                      <img
-                                        src={photo.url}
-                                        alt="Weight scale photo"
-                                      />
-                                    </a>
-                                  ))}
-                                </div>
-                              ) : null}
-                            </div>
-                          </>
-                        ) : null}
-
-                        <div className="ops-flow-subsection">
-                          <p className="ops-field-label">
-                            Dry cleaning items
-                            {selected.services.dryCleaning ? (
-                              <span className="ops-required-tag"> · ordered</span>
-                            ) : null}
-                          </p>
-                          {selected.services.dryCleaning && dryItems.length === 0 ? (
-                            <p className="ops-dry-warn" role="status">
-                              Customer ordered dry cleaning — add items, or you&rsquo;ll
-                              be asked to confirm before charging.
-                            </p>
-                          ) : null}
-                          <div className="ops-catalog">
-                            <Button
-                              type="button"
-                              variant="outline"
-                              className="ops-catalog-toggle"
-                              onClick={() => setOpenCatalog((v) => !v)}
+                          <span className="ops-select-wrap">
+                            <select
+                              value={cancelReasonDraft}
+                              onChange={(e) =>
+                                setCancelReasonDraft(e.target.value)
+                              }
                             >
-                              Choose catalog items
-                              <ChevronDown size={16} />
-                            </Button>
-                            {openCatalog ? (
-                              <div className="ops-catalog-menu">
-                                <label className="ops-search is-compact">
-                                  <Search size={14} aria-hidden />
-                                  <input
-                                    autoFocus
-                                    value={dryQuery}
-                                    onChange={(e) =>
-                                      setDryQuery(e.target.value)
-                                    }
-                                    placeholder="Search catalog"
-                                  />
-                                </label>
-                                <div className="ops-catalog-list">
-                                  {dryMatches.length === 0 ? (
-                                    <p className="ops-catalog-empty">
-                                      No catalog matches
-                                    </p>
-                                  ) : (
-                                    dryMatches.map((item) => (
-                                      <button
-                                        key={item.name}
-                                        type="button"
-                                        className="ops-catalog-item"
-                                        onClick={() => addDryItem(item)}
-                                      >
-                                        <span>{item.name}</span>
-                                        <strong>
-                                          ${item.price.toFixed(2)}
-                                        </strong>
-                                      </button>
-                                    ))
-                                  )}
-                                </div>
-                              </div>
-                            ) : null}
-                          </div>
-                          <div className="ops-chips">
-                            {dryItems.length ? (
-                              dryItems.map((item, itemIndex) => (
-                                <span
-                                  key={`${item.name}-${itemIndex}`}
-                                  className="ops-chip"
-                                >
-                                  {item.name} <b>${item.price.toFixed(2)}</b>
-                                  <button
-                                    type="button"
-                                    aria-label={`Remove ${item.name}`}
-                                    onClick={() => removeDryItem(itemIndex)}
-                                  >
-                                    <X size={12} />
-                                  </button>
-                                </span>
-                              ))
-                            ) : (
-                              <span className="ops-chips-empty">
-                                No items selected
-                              </span>
-                            )}
-                          </div>
-                        </div>
-
-                        <div className="ops-billing-card">
-                          <div className="ops-billing-total">
-                            <span>Total</span>
-                            <strong>
-                              {previewTotal != null
-                                ? `$${previewTotal.toFixed(2)}`
-                                : selected.finalTotal != null
-                                  ? `$${selected.finalTotal.toFixed(2)}`
-                                  : "—"}
-                            </strong>
-                          </div>
-                          {stageBackLabel ? (
-                            <button
-                              type="button"
-                              className="ops-stage-back"
-                              disabled={saving || uploadingPhoto}
-                              onClick={() => void goBackStage()}
-                            >
-                              <ArrowLeft size={14} aria-hidden />
-                              {stageBackLabel}
-                            </button>
-                          ) : null}
+                              {CANCEL_REASONS.map((reason) => (
+                                <option key={reason} value={reason}>
+                                  {reason || "Select a reason…"}
+                                </option>
+                              ))}
+                            </select>
+                            <ChevronDown size={14} aria-hidden />
+                          </span>
+                        </label>
+                        <div className="ops-cancel-actions">
                           <Button
                             type="button"
-                            className="ops-billing-save"
-                            disabled={saving || uploadingPhoto}
-                            onClick={() => void saveBilling()}
+                            variant="ghost"
+                            size="sm"
+                            disabled={saving}
+                            onClick={() => {
+                              setShowCancelForm(false);
+                              setCancelReasonDraft("");
+                            }}
                           >
-                            Charge & mark collected
+                            Keep order
+                          </Button>
+                          <Button
+                            type="button"
+                            className="ops-btn-danger"
+                            size="sm"
+                            disabled={saving}
+                            onClick={() => void cancelOrder()}
+                          >
+                            Confirm cancel
                           </Button>
                         </div>
-                      </>
-                      )
-                    ) : null}
-
-                    {stage === 1 ? (
-                      <>
-                        <div className="ops-stage-card-head">
-                          <Weight size={16} aria-hidden />
-                          <h3>Washing — nothing to do right now</h3>
-                        </div>
-                        <div className="ops-stage-stats">
-                          <div>
-                            <p className="ops-field-label">Weighed</p>
-                            <p className="ops-stage-stat-value">
-                              {selected.weightLbs
-                                ? `${selected.weightLbs} lb`
-                                : "—"}
-                            </p>
-                          </div>
-                          <div>
-                            <p className="ops-field-label">Charged</p>
-                            <p className="ops-stage-stat-value">
-                              {selected.finalTotal != null
-                                ? `$${selected.finalTotal.toFixed(2)}`
-                                : "—"}
-                            </p>
-                          </div>
-                        </div>
-                        {stageAction || stageBackLabel ? (
-                          <div className="ops-action-row">
-                            {stageBackLabel ? (
-                              <button
-                                type="button"
-                                className="ops-stage-back"
-                                disabled={saving || uploadingPhoto}
-                                onClick={() => void goBackStage()}
-                              >
-                                <ArrowLeft size={14} aria-hidden />
-                                {stageBackLabel}
-                              </button>
-                            ) : null}
-                            {stageAction ? (
-                              <Button
-                                type="button"
-                                className="ops-btn-lg"
-                                disabled={saving || uploadingPhoto}
-                                onClick={() => void setStatus(stageAction.next)}
-                              >
-                                <PackageCheck size={16} />
-                                {stageAction.label}
-                              </Button>
-                            ) : null}
-                          </div>
-                        ) : null}
-                      </>
-                    ) : null}
-
-                    {stage === 2 ? (
-                      <>
-                        <div className="ops-stage-card-head">
-                          <Truck size={16} aria-hidden />
-                          <h3>With the driver</h3>
-                        </div>
-                        <div className="ops-photo-block">
-                          <p className="ops-field-label">Delivery photo</p>
-                          <label className="ops-photo-upload is-primary">
-                            <Camera size={16} aria-hidden />
-                            <span>
-                              {uploadingPhoto
-                                ? "Uploading…"
-                                : deliveryPhotos.length
-                                  ? "Add another delivery photo"
-                                  : "Upload delivery photo"}
-                            </span>
-                            <input
-                              type="file"
-                              accept="image/*"
-                              capture="environment"
-                              disabled={uploadingPhoto || saving}
-                              onChange={(e) => {
-                                const file = e.target.files?.[0] ?? null;
-                                void handleOrderPhoto(file, "return");
-                                e.target.value = "";
-                              }}
-                            />
-                          </label>
-                          {deliveryPhotos.length ? (
-                            <div className="ops-photo-thumbs">
-                              {deliveryPhotos.map((photo) => (
-                                <a
-                                  key={photo.url}
-                                  href={photo.url}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  className="ops-photo-thumb"
-                                >
-                                  <img
-                                    src={photo.url}
-                                    alt="Delivery proof photo"
-                                  />
-                                </a>
-                              ))}
-                            </div>
-                          ) : null}
-                        </div>
-                        {stageAction || stageBackLabel ? (
-                          <div className="ops-action-row">
-                            {stageBackLabel ? (
-                              <button
-                                type="button"
-                                className="ops-stage-back"
-                                disabled={saving || uploadingPhoto}
-                                onClick={() => void goBackStage()}
-                              >
-                                <ArrowLeft size={14} aria-hidden />
-                                {stageBackLabel}
-                              </button>
-                            ) : null}
-                            {stageAction ? (
-                              <Button
-                                type="button"
-                                className="ops-btn-lg"
-                                disabled={saving || uploadingPhoto}
-                                onClick={() => {
-                                  if (stageAction.next === "delivered") {
-                                    void markDelivered();
-                                    return;
-                                  }
-                                  void setStatus(stageAction.next);
-                                }}
-                              >
-                                <PackageCheck size={16} />
-                                {stageAction.label}
-                              </Button>
-                            ) : null}
-                          </div>
-                        ) : null}
-                      </>
-                    ) : null}
-
-                    {stage === 3 ? (
-                      <>
-                        <div className="ops-stage-card-head">
-                          <Check size={16} aria-hidden />
-                          <h3>Delivered — order complete</h3>
-                        </div>
-                        <p className="ops-flow-done-note">
-                          {selected.finalTotal != null
-                            ? `Charged $${selected.finalTotal.toFixed(2)}${
-                                selected.weightLbs
-                                  ? ` · ${selected.weightLbs} lb`
-                                  : ""
-                              }`
-                            : "Completed"}
-                          {deliveryPhotos.length
-                            ? " · Delivered with photo"
-                            : ""}
-                        </p>
-                        {stageBackLabel ? (
-                          <div className="ops-action-row">
-                            <button
-                              type="button"
-                              className="ops-stage-back"
-                              disabled={saving || uploadingPhoto}
-                              onClick={() => void goBackStage()}
-                            >
-                              <ArrowLeft size={14} aria-hidden />
-                              {stageBackLabel}
-                            </button>
-                          </div>
-                        ) : null}
-                      </>
-                    ) : null}
+                      </div>
+                    )}
                   </div>
-                )}
+                ) : null}
               </section>
-              </div>
+
+              <section className="ops-card">
+                <PanelTitleFixed
+                  number="03"
+                  title="Weigh-in"
+                  note={
+                    selected.services.laundry
+                      ? "Required when laundry service is included."
+                      : "No laundry on this order — optional if bags arrive with laundry."
+                  }
+                />
+                <label className="ops-weight-field">
+                  Weight in pounds
+                  <span className="ops-weight-input">
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      min={0}
+                      step={0.1}
+                      value={weightInput}
+                      onChange={(e) => setWeightInput(e.target.value)}
+                      placeholder="0.0"
+                    />
+                    <span>lb</span>
+                  </span>
+                </label>
+                <div className="ops-photo-block">
+                  <label className="ops-photo-upload is-primary">
+                    <Camera size={16} aria-hidden />
+                    <span>
+                      {uploadingPhoto
+                        ? "Uploading…"
+                        : weightPhotos.length
+                          ? "Add another scale photo"
+                          : "Add weight photo"}
+                    </span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      capture="environment"
+                      disabled={uploadingPhoto || saving}
+                      onChange={(e) => {
+                        const file = e.target.files?.[0] ?? null;
+                        void handleOrderPhoto(file, "weight");
+                        e.target.value = "";
+                      }}
+                    />
+                  </label>
+                  <div className="ops-photo-thumbs ops-photo-area">
+                    {weightPhotos.length ? (
+                      weightPhotos.map((photo) => (
+                        <a
+                          key={photo.url}
+                          href={photo.url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="ops-photo-thumb"
+                        >
+                          <img src={photo.url} alt="Weight scale photo" />
+                        </a>
+                      ))
+                    ) : (
+                      <span className="ops-chips-empty">
+                        Photos appear here after upload
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </section>
+
+              <section className="ops-card">
+                <PanelTitleFixed
+                  number="04"
+                  title="Dry cleaning items"
+                  note="Add one or more catalog items to this order."
+                />
+                {selected.services.dryCleaning && dryItems.length === 0 ? (
+                  <p className="ops-dry-warn" role="status">
+                    Customer ordered dry cleaning — add items, or you&rsquo;ll
+                    be asked to confirm before charging.
+                  </p>
+                ) : null}
+                <div className="ops-catalog">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="ops-catalog-toggle"
+                    onClick={() => setOpenCatalog((v) => !v)}
+                  >
+                    Choose catalog items
+                    <span className="ops-catalog-toggle-hint">
+                      {openCatalog ? "Close" : "Open"}
+                    </span>
+                  </Button>
+                  {openCatalog ? (
+                    <div className="ops-catalog-menu">
+                      <label className="ops-search is-compact">
+                        <Search size={14} aria-hidden />
+                        <input
+                          autoFocus
+                          value={dryQuery}
+                          onChange={(e) => setDryQuery(e.target.value)}
+                          placeholder="Search catalog"
+                        />
+                      </label>
+                      <div className="ops-catalog-list">
+                        {dryMatches.length === 0 ? (
+                          <p className="ops-catalog-empty">No catalog matches</p>
+                        ) : (
+                          dryMatches.map((item) => (
+                            <button
+                              key={item.name}
+                              type="button"
+                              className="ops-catalog-item"
+                              onClick={() => addDryItem(item)}
+                            >
+                              <span>{item.name}</span>
+                              <strong>${item.price.toFixed(2)}</strong>
+                            </button>
+                          ))
+                        )}
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+                <div className="ops-chips">
+                  {dryItems.length ? (
+                    dryItems.map((item, itemIndex) => (
+                      <span
+                        key={`${item.name}-${itemIndex}`}
+                        className="ops-chip"
+                      >
+                        {item.name} <b>${item.price.toFixed(2)}</b>
+                        <button
+                          type="button"
+                          aria-label={`Remove ${item.name}`}
+                          onClick={() => removeDryItem(itemIndex)}
+                        >
+                          <X size={12} />
+                        </button>
+                      </span>
+                    ))
+                  ) : (
+                    <span className="ops-chips-empty">No items selected</span>
+                  )}
+                </div>
+              </section>
+
+              <section className="ops-card">
+                <PanelTitleFixed
+                  number="05"
+                  title="Return proof"
+                  note="A return photo is required before marking delivered."
+                />
+                <div className="ops-photo-block">
+                  <label className="ops-photo-upload is-primary">
+                    <Camera size={16} aria-hidden />
+                    <span>
+                      {uploadingPhoto
+                        ? "Uploading…"
+                        : deliveryPhotos.length
+                          ? "Add another return photo"
+                          : "Add return photo"}
+                    </span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      capture="environment"
+                      disabled={uploadingPhoto || saving}
+                      onChange={(e) => {
+                        const file = e.target.files?.[0] ?? null;
+                        void handleOrderPhoto(file, "return");
+                        e.target.value = "";
+                      }}
+                    />
+                  </label>
+                  <div className="ops-photo-thumbs ops-photo-area">
+                    {deliveryPhotos.length ? (
+                      deliveryPhotos.map((photo) => (
+                        <a
+                          key={photo.url}
+                          href={photo.url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="ops-photo-thumb"
+                        >
+                          <img src={photo.url} alt="Delivery proof photo" />
+                        </a>
+                      ))
+                    ) : (
+                      <span className="ops-chips-empty">
+                        Photos appear here after upload
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </section>
+
+              <section className="ops-card ops-billing-summary">
+                <div className="ops-billing-summary-head">
+                  <p className="ops-panel-title-number">06</p>
+                  <h3>Billing summary</h3>
+                  <p>
+                    Laundry weight, dry-cleaning items, fees, and tip.
+                  </p>
+                </div>
+                <div className="ops-billing-summary-total">
+                  <span>Calculated total</span>
+                  <strong>
+                    {previewTotal != null
+                      ? `$${previewTotal.toFixed(2)}`
+                      : selected.finalTotal != null
+                        ? `$${selected.finalTotal.toFixed(2)}`
+                        : "—"}
+                  </strong>
+                </div>
+                {selected.status === "new" ? (
+                  <p className="ops-billing-summary-note">
+                    Mark Left for pickup first, then charge after weigh-in at
+                    the stop.
+                  </p>
+                ) : (
+                  <Button
+                    type="button"
+                    className="ops-billing-save"
+                    disabled={
+                      saving ||
+                      uploadingPhoto ||
+                      selected.status === "cancelled"
+                    }
+                    onClick={() => void saveBilling()}
+                  >
+                    {billingButtonLabel}
+                  </Button>
+                )}
+                {!canCharge && selected.status !== "new" ? (
+                  <p className="ops-billing-summary-note">
+                    Saves the total only. Card charging will be added later.
+                  </p>
+                ) : null}
+              </section>
             </div>
           </article>
         )}
