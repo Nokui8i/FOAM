@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   arrayUnion,
   collection,
@@ -253,6 +253,30 @@ export function AdminOrdersPanel({
   const [showCancelForm, setShowCancelForm] = useState(false);
   const [cancelReasonDraft, setCancelReasonDraft] = useState("");
   const [notesDraft, setNotesDraft] = useState("");
+  const catalogRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!openCatalog) return;
+
+    function handlePointerDown(event: PointerEvent) {
+      const root = catalogRef.current;
+      if (!root) return;
+      const target = event.target;
+      if (target instanceof Node && root.contains(target)) return;
+      setOpenCatalog(false);
+    }
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") setOpenCatalog(false);
+    }
+
+    document.addEventListener("pointerdown", handlePointerDown, true);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown, true);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [openCatalog]);
 
   useEffect(() => {
     const db = getFirebaseDb();
@@ -764,7 +788,7 @@ export function AdminOrdersPanel({
         </div>
 
         <div className="ops-flow-subsection">
-          <div className="ops-catalog">
+          <div className="ops-catalog" ref={catalogRef}>
             <Button
               type="button"
               variant="outline"
@@ -777,7 +801,7 @@ export function AdminOrdersPanel({
               </span>
             </Button>
             {openCatalog ? (
-              <div className="ops-catalog-menu">
+              <div className="ops-catalog-menu" role="listbox" aria-label="Dry cleaning catalog">
                 <label className="ops-search is-compact">
                   <Search size={14} aria-hidden />
                   <input
