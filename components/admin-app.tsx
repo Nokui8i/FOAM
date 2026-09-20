@@ -45,6 +45,16 @@ function FoamMark({ compact = false }: { compact?: boolean }) {
   );
 }
 
+function initialsFromEmail(email: string | null | undefined) {
+  if (!email) return "FO";
+  const local = email.split("@")[0] ?? "";
+  const parts = local.split(/[._-]+/).filter(Boolean);
+  if (parts.length >= 2) {
+    return `${parts[0][0] ?? ""}${parts[1][0] ?? ""}`.toUpperCase();
+  }
+  return local.slice(0, 2).toUpperCase() || "FO";
+}
+
 export function AdminApp() {
   const [user, setUser] = useState<User | null>(null);
   const [authReady, setAuthReady] = useState(false);
@@ -53,6 +63,7 @@ export function AdminApp() {
   const [tab, setTab] = useState<AdminTab>("orders");
   const [mobileView, setMobileView] = useState<MobileView>("list");
   const [openInquiriesCount, setOpenInquiriesCount] = useState(0);
+  const [ordersCount, setOrdersCount] = useState(0);
 
   const allowed = isAdminEmail(user?.email);
 
@@ -79,10 +90,19 @@ export function AdminApp() {
   useEffect(() => {
     if (!allowed) return;
     const db = getFirebaseDb();
-    return onSnapshot(collection(db, "contactMessages"), (snap) => {
+    const unsubContacts = onSnapshot(collection(db, "contactMessages"), (snap) => {
       const open = snap.docs.filter((d) => d.data().status !== "done").length;
       setOpenInquiriesCount(open);
     });
+    const unsubOrders = onSnapshot(collection(db, "orders"), (snap) => {
+      setOrdersCount(
+        snap.docs.filter((d) => d.data().status !== "cancelled").length
+      );
+    });
+    return () => {
+      unsubContacts();
+      unsubOrders();
+    };
   }, [allowed]);
 
   useEffect(() => {
@@ -265,13 +285,14 @@ export function AdminApp() {
     );
   }
 
-  const sectionLabel = tab === "orders" ? "Orders" : "Inquiries";
+  const avatar = initialsFromEmail(user.email);
 
   return (
     <div className="ops-shell">
       <aside className="ops-nav" aria-label="Ops sections">
         <div className="ops-nav-brand">
           <FoamMark compact />
+          <p className="ops-nav-subtitle">Operations Console</p>
         </div>
 
         <nav className="ops-nav-links">
@@ -282,7 +303,9 @@ export function AdminApp() {
           >
             <Truck size={18} aria-hidden />
             Orders
-            {tab === "orders" ? <span className="ops-nav-rail" /> : null}
+            {ordersCount > 0 ? (
+              <span className="ops-nav-badge">{ordersCount}</span>
+            ) : null}
           </button>
           <button
             type="button"
@@ -294,22 +317,26 @@ export function AdminApp() {
             {openInquiriesCount > 0 ? (
               <span className="ops-nav-badge">{openInquiriesCount}</span>
             ) : null}
-            {tab === "contacts" ? <span className="ops-nav-rail" /> : null}
           </button>
         </nav>
 
         <div className="ops-nav-foot">
-          <p className="ops-nav-email">{user.email}</p>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="ops-nav-signout"
-            onClick={() => void signOut(getFirebaseAuth())}
-          >
-            <LogOut size={16} />
-            Sign out
-          </Button>
+          <div className="ops-nav-user">
+            <span className="ops-nav-avatar" aria-hidden>
+              {avatar}
+            </span>
+            <div className="ops-nav-user-meta">
+              <p className="ops-nav-email">{user.email}</p>
+              <button
+                type="button"
+                className="ops-nav-signout-link"
+                onClick={() => void signOut(getFirebaseAuth())}
+              >
+                <LogOut size={14} aria-hidden />
+                Sign out
+              </button>
+            </div>
+          </div>
         </div>
       </aside>
 
@@ -318,12 +345,7 @@ export function AdminApp() {
           <div className="ops-topbar-mobile-brand">
             <FoamMark compact />
           </div>
-          <div className="ops-topbar-copy">
-            <p className="ops-topbar-title">{sectionLabel} management</p>
-            <p className="ops-topbar-sub">FOAM staff operations</p>
-          </div>
           <div className="ops-topbar-end">
-            <span className="ops-topbar-email">{user.email}</span>
             <Button
               type="button"
               variant="ghost"
@@ -334,7 +356,7 @@ export function AdminApp() {
               <LogOut size={16} />
             </Button>
             <span className="ops-avatar" aria-hidden>
-              FO
+              {avatar}
             </span>
           </div>
         </header>

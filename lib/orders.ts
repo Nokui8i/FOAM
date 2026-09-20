@@ -152,30 +152,70 @@ export const ORDER_PIPELINE_STEPS = [
     statuses: ["new", "confirmed"],
     preview:
       "First: Left for pickup. At the stop: weigh, photo, dry-clean, then charge.",
-    actionHint: "Left for pickup → Charge & collect",
+    actionHint: "Weigh & take photos",
   },
   {
     id: "progress",
     label: "Washing",
     statuses: ["picked_up", "weighed", "washing"],
     preview: "At the plant and being washed.",
-    actionHint: "Out for delivery",
+    actionHint: "Update status",
   },
   {
     id: "delivery",
     label: "Out for delivery",
     statuses: ["out_for_delivery"],
     preview: "With the driver. Tap when the customer has the bags.",
-    actionHint: "Mark delivered",
+    actionHint: "On the way",
   },
   {
     id: "done",
     label: "Complete",
     statuses: ["delivered"],
     preview: "Finished — nothing left to do.",
-    actionHint: null,
+    actionHint: "Confirm & close",
   },
 ] as const;
+
+/** Plant wash only — excludes out_for_delivery (use Ready filter). */
+export function isWashingOrder(status: OrderStatus) {
+  return (
+    status === "picked_up" ||
+    status === "weighed" ||
+    status === "washing"
+  );
+}
+
+export function isReadyForDelivery(status: OrderStatus) {
+  return status === "out_for_delivery";
+}
+
+/** Compact badge label for ops list cards. */
+export function orderListBadge(status: OrderStatus): string {
+  switch (status) {
+    case "new":
+      return "Waiting";
+    case "confirmed":
+      return "En route";
+    case "picked_up":
+    case "weighed":
+    case "washing":
+      return "In progress";
+    case "out_for_delivery":
+      return "Out for delivery";
+    case "delivered":
+      return "Delivered";
+    case "cancelled":
+      return "Cancelled";
+    default:
+      return ORDER_STATUS_LABELS[status];
+  }
+}
+
+export function orderDisplayId(id: string) {
+  const short = id.replace(/[^a-zA-Z0-9]/g, "").slice(0, 4).toUpperCase();
+  return `#FOAM-${short || id.slice(0, 4).toUpperCase()}`;
+}
 
 export function orderPipelineIndex(status: OrderStatus): number {
   if (status === "cancelled") return -1;
