@@ -111,13 +111,6 @@ function formatSlotShort(slot: string) {
     .replace(/\bpm\b/gi, "pm");
 }
 
-function initials(name: string) {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (!parts.length) return "?";
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-  return `${parts[0][0] ?? ""}${parts[parts.length - 1][0] ?? ""}`.toUpperCase();
-}
-
 function listBadgeClass(status: OrderStatus) {
   switch (status) {
     case "new":
@@ -410,7 +403,7 @@ export function AdminOrdersPanel({
     await patchOrderDoc(
       order,
       { status: "confirmed" },
-      "En route to pickup — customer tracking updated"
+      "On the way to pickup — customer tracking updated"
     );
     const first = firstNameFromContact(order.contact.name) || "there";
     const body = `Hi ${first}, this is FOAM — your courier is on the way to pick up your bags (${order.pickup.date} · ${order.pickup.slot}).`;
@@ -1156,9 +1149,6 @@ export function AdminOrdersPanel({
                     {orderDisplayId(selected.id)}
                   </p>
                   <div className="ops-detail-name-row">
-                    <span className="ops-customer-avatar" aria-hidden>
-                      {initials(selected.contact.name)}
-                    </span>
                     <h2>{selected.contact.name}</h2>
                     <span
                       className={cn(

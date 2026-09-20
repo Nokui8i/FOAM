@@ -21,7 +21,7 @@ export type OrderStatus = (typeof ORDER_STATUSES)[number];
 
 export const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
   new: "Waiting for pickup",
-  confirmed: "En route to pickup",
+  confirmed: "On the way to pickup",
   picked_up: "Washing",
   weighed: "Washing",
   washing: "Washing",
@@ -194,13 +194,13 @@ export function isReadyForDelivery(status: OrderStatus) {
 export function orderListBadge(status: OrderStatus): string {
   switch (status) {
     case "new":
-      return "Waiting";
+      return "Waiting for pickup";
     case "confirmed":
-      return "En route";
+      return "On the way";
     case "picked_up":
     case "weighed":
     case "washing":
-      return "In progress";
+      return "Washing";
     case "out_for_delivery":
       return "Out for delivery";
     case "delivered":

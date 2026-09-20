@@ -6561,23 +6561,25 @@ button.ops-row {
 }
 .ops-status-pill {
   flex-shrink: 0;
-  max-width: 11rem;
+  max-width: 14rem;
   border-radius: 999px;
   border: 1px solid transparent;
   background: var(--ops-card);
-  padding: 0.35rem 0.65rem;
-  font-size: 0.75rem;
-  font-weight: 700;
-  text-transform: none;
+  padding: 0.35rem 0.7rem;
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
   color: var(--ops-muted);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 .ops-status-pill.is-lg {
-  font-size: 0.8125rem;
-  padding: 0.35rem 0.8rem;
+  font-size: 0.72rem;
+  padding: 0.4rem 0.85rem;
   max-width: none;
+  letter-spacing: 0.05em;
 }
 .ops-status-pill.is-new,
 .ops-status-pill.is-open,
@@ -6585,25 +6587,21 @@ button.ops-row {
   background: #eef2f6;
   border-color: transparent;
   color: #64748b;
-  text-transform: none;
 }
 .ops-status-pill.is-en-route {
   background: #e0f2fe;
   border-color: transparent;
   color: #0369a1;
-  text-transform: none;
 }
 .ops-status-pill.is-progress {
   background: #dbeafe;
   border-color: transparent;
   color: #1d4ed8;
-  text-transform: none;
 }
 .ops-status-pill.is-ready {
   background: #dcfce7;
   border-color: transparent;
   color: #15803d;
-  text-transform: none;
 }
 .ops-status-pill.is-done {
   background: color-mix(in srgb, var(--ops-success) 12%, transparent);
