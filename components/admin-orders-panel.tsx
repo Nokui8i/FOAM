@@ -1081,6 +1081,10 @@ export function AdminOrdersPanel({
                   >
                     <span className="ops-row-main">
                       <span className="ops-row-name">{row.contact.name}</span>
+                      <span className="ops-row-address">
+                        <MapPin size={13} aria-hidden />
+                        {formatOrderAddress(row)}
+                      </span>
                       <span className="ops-row-sub">
                         {formatPickupDate(row.pickup.date)} ·{" "}
                         {formatSlotShort(row.pickup.slot)}
@@ -1297,9 +1301,6 @@ export function AdminOrdersPanel({
                           <span className="ops-timeline-dot">
                             {done ? <Check size={12} /> : index + 1}
                           </span>
-                          {index < ORDER_PIPELINE_STEPS.length - 1 ? (
-                            <span className="ops-timeline-line" />
-                          ) : null}
                         </div>
                         <span className="ops-timeline-label">{step.label}</span>
                         <span className="ops-timeline-hint">

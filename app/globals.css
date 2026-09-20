@@ -6511,29 +6511,39 @@ button.ops-row {
 .ops-row-main { min-width: 0; flex: 1; }
 .ops-row-name {
   display: block;
-  font-size: 1rem;
-  font-weight: 700;
-  color: var(--ops-ink);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  font-size: clamp(0.95rem, 1.5vw, 1.1rem);
+  font-weight: 750;
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+}
+.ops-row-address {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.3rem;
+  margin-top: 0.28rem;
+  font-size: clamp(0.78rem, 1.25vw, 0.9rem);
+  font-weight: 550;
+  line-height: 1.35;
+  color: var(--ops-muted);
+}
+.ops-row-address svg {
+  margin-top: 0.12rem;
+  flex-shrink: 0;
+  color: var(--ops-primary);
 }
 .ops-row-sub {
   display: block;
-  margin-top: 0.1rem;
-  font-size: 0.75rem;
-  font-weight: 500;
-  color: var(--ops-muted);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  margin-top: 0.28rem;
+  font-size: clamp(0.8rem, 1.3vw, 0.92rem);
+  font-weight: 650;
+  color: var(--ops-ink);
 }
 .ops-row-meta {
   display: block;
-  margin-top: 0.15rem;
-  font-size: 0.7rem;
+  margin-top: 0.2rem;
+  font-size: clamp(0.7rem, 1.1vw, 0.8rem);
   font-weight: 600;
-  color: color-mix(in srgb, var(--ops-muted) 85%, var(--ops-ink));
+  color: var(--ops-muted);
 }
 .ops-row-action {
   display: inline-flex;
@@ -6548,7 +6558,7 @@ button.ops-row {
   background: color-mix(in srgb, var(--ops-accent, #0ea5e9) 10%, transparent);
   color: var(--ops-ink);
   font: inherit;
-  font-size: 0.8125rem;
+  font-size: clamp(0.8rem, 1.3vw, 0.9rem);
   font-weight: 700;
   cursor: pointer;
 }
@@ -6954,10 +6964,13 @@ button.ops-row {
 }
 .ops-workflow-card {
   min-width: 0;
+  width: 100%;
+  max-width: 40rem;
+  margin-inline: auto;
 }
 .ops-workflow-card .ops-timeline {
-  margin: 0 -0.15rem 0;
-  padding: 0.25rem 0 1rem;
+  margin: 0;
+  padding: 0.35rem 0.25rem 1.1rem;
   border-bottom: 0;
 }
 .ops-workflow-help {
@@ -7007,21 +7020,22 @@ button.ops-row {
   opacity: 1;
 }
 
-/* Compact horizontal stage timeline + single current-stage card
-   (replaces the old always-expanded, per-step accordion below). */
+/* Compact horizontal stage timeline + single current-stage card */
 .ops-timeline {
   display: flex;
   align-items: flex-start;
   gap: 0;
-  padding: 1rem 1rem 0.85rem;
+  width: 100%;
+  padding: 0.75rem 0.35rem 0.5rem;
   border-bottom: 1px solid var(--ops-border);
 }
 .ops-timeline-step {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 0.4rem;
-  flex: 1;
+  flex: 1 1 0;
   min-width: 0;
   margin: 0;
   padding: 0;
@@ -7044,9 +7058,28 @@ button.ops-row {
 .ops-timeline-step.is-backable:hover .ops-timeline-label {
   color: var(--ops-primary);
 }
+/* Connector from this step's center to the next — keeps step 4 aligned */
+.ops-timeline-step:not(:last-child)::before {
+  content: "";
+  position: absolute;
+  top: 0.85rem;
+  left: calc(50% + 0.95rem);
+  width: calc(100% - 1.9rem);
+  height: 3px;
+  border-radius: 999px;
+  background: color-mix(in oklch, var(--ops-border) 55%, var(--ops-muted) 45%);
+  pointer-events: none;
+  z-index: 0;
+}
+.ops-timeline-step.is-done:not(:last-child)::before {
+  background: var(--ops-primary);
+}
 .ops-timeline-node-row {
+  position: relative;
+  z-index: 1;
   display: flex;
   align-items: center;
+  justify-content: center;
   width: 100%;
 }
 .ops-timeline-dot {
@@ -7055,12 +7088,11 @@ button.ops-row {
   width: 1.7rem;
   height: 1.7rem;
   flex-shrink: 0;
-  margin: 0 auto;
   border-radius: 999px;
   background: #fff;
   border: 2px solid color-mix(in oklch, var(--ops-border) 65%, var(--ops-muted) 35%);
   color: var(--ops-muted);
-  font-size: 0.72rem;
+  font-size: clamp(0.68rem, 1.2vw, 0.78rem);
   font-weight: 750;
 }
 .ops-timeline-step.is-done .ops-timeline-dot,
@@ -7073,22 +7105,15 @@ button.ops-row {
   box-shadow: 0 0 0 4px color-mix(in oklch, var(--ops-primary) 22%, transparent);
 }
 .ops-timeline-line {
-  flex: 1;
-  height: 3px;
-  min-width: 0.5rem;
-  margin: 0 0.25rem;
-  background: color-mix(in oklch, var(--ops-border) 55%, var(--ops-muted) 45%);
-  border-radius: 999px;
-}
-.ops-timeline-step.is-done .ops-timeline-line {
-  background: var(--ops-primary);
+  display: none;
 }
 .ops-timeline-label {
-  font-size: 0.72rem;
-  font-weight: 700;
+  font-size: clamp(0.72rem, 1.45vw, 0.92rem);
+  font-weight: 750;
   color: color-mix(in oklch, var(--ops-muted) 75%, var(--ops-ink) 25%);
   text-align: center;
-  white-space: nowrap;
+  line-height: 1.2;
+  max-width: 100%;
 }
 .ops-timeline-step.is-active .ops-timeline-label {
   color: var(--ops-ink);
@@ -7101,7 +7126,7 @@ button.ops-row {
 .ops-stage-card {
   display: grid;
   gap: 0.85rem;
-  padding: 1rem;
+  padding: 0.35rem 0.15rem 0.15rem;
 }
 .ops-stage-card-head {
   display: flex;
@@ -7111,13 +7136,15 @@ button.ops-row {
 .ops-stage-card-head svg {
   color: var(--ops-primary);
   flex-shrink: 0;
+  width: clamp(1rem, 2vw, 1.2rem);
+  height: clamp(1rem, 2vw, 1.2rem);
 }
 .ops-stage-card-head h3 {
   margin: 0;
   flex: 1;
   min-width: 0;
   font-family: var(--ops-display);
-  font-size: 1rem;
+  font-size: clamp(1.05rem, 2.2vw, 1.3rem);
   font-weight: 750;
   letter-spacing: -0.01em;
 }
@@ -7972,8 +7999,8 @@ button.ops-row {
   grid-template-columns: 1fr;
   gap: 1rem;
   width: 100%;
-  max-width: 46rem;
-  margin-inline: 0;
+  max-width: 42rem;
+  margin-inline: auto;
   padding: 1rem;
   flex: 1;
   min-height: 0;
@@ -7988,7 +8015,7 @@ button.ops-row {
   .ops-detail-stack { padding: 1rem 1.5rem 1.75rem; gap: 1rem; }
 }
 @media (min-width: 1280px) {
-  .ops-detail-stack { max-width: 52rem; }
+  .ops-detail-stack { max-width: 44rem; }
 }
 
 .ops-detail-head-main {
@@ -8128,9 +8155,9 @@ button.ops-row {
 
 .ops-timeline-hint {
   display: block;
-  margin-top: -0.15rem;
-  font-size: 0.62rem;
-  font-weight: 600;
+  margin-top: -0.1rem;
+  font-size: clamp(0.62rem, 1.2vw, 0.78rem);
+  font-weight: 650;
   line-height: 1.25;
   color: var(--ops-muted);
   text-align: center;
@@ -8141,6 +8168,18 @@ button.ops-row {
 }
 .ops-timeline-step.is-active .ops-timeline-hint {
   color: color-mix(in oklch, var(--ops-primary) 70%, var(--ops-muted));
+}
+.ops-step-help,
+.ops-muted.ops-step-help {
+  font-size: clamp(0.88rem, 1.7vw, 1.05rem);
+  line-height: 1.45;
+}
+.ops-btn-lg {
+  font-size: clamp(0.95rem, 1.8vw, 1.1rem) !important;
+  min-height: 2.85rem;
+}
+.ops-stage-badge {
+  font-size: clamp(0.65rem, 1.15vw, 0.78rem);
 }
 
 .ops-notes-title {
