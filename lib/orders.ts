@@ -196,9 +196,9 @@ export function isReadyForDelivery(status: OrderStatus) {
 export function orderListBadge(status: OrderStatus): string {
   switch (status) {
     case "new":
-      return "Waiting for pickup";
+      return "Waiting";
     case "confirmed":
-      return "Driver on the way";
+      return "On the way";
     case "picked_up":
     case "weighed":
     case "washing":

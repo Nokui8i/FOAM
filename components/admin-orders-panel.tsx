@@ -68,8 +68,8 @@ type MobileView = "list" | "detail";
 const FILTERS: { id: Filter; label: string }[] = [
   { id: "all", label: "All" },
   { id: "waiting", label: "Waiting" },
-  { id: "progress", label: "At laundry" },
-  { id: "ready", label: "On delivery" },
+  { id: "progress", label: "Laundry" },
+  { id: "ready", label: "Delivery" },
 ];
 
 function formatCreatedAt(
@@ -1080,7 +1080,17 @@ export function AdminOrdersPanel({
                     onClick={() => selectOrder(row.id)}
                   >
                     <span className="ops-row-main">
-                      <span className="ops-row-name">{row.contact.name}</span>
+                      <span className="ops-row-top">
+                        <span className="ops-row-name">{row.contact.name}</span>
+                        <span
+                          className={cn(
+                            "ops-status-pill",
+                            listBadgeClass(row.status)
+                          )}
+                        >
+                          {orderListBadge(row.status)}
+                        </span>
+                      </span>
                       <span className="ops-row-address">
                         <MapPin size={13} aria-hidden />
                         {formatOrderAddress(row)}
@@ -1096,14 +1106,6 @@ export function AdminOrdersPanel({
                           ? `$${row.finalTotal.toFixed(2)}`
                           : "—"}
                       </span>
-                    </span>
-                    <span
-                      className={cn(
-                        "ops-status-pill",
-                        listBadgeClass(row.status)
-                      )}
-                    >
-                      {orderListBadge(row.status)}
                     </span>
                   </button>
                   {row.status === "new" ? (

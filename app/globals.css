@@ -6256,7 +6256,11 @@
 
 .ops-list-head {
   flex-shrink: 0;
-  padding: 0.75rem 1rem;
+  z-index: 5;
+  padding: 0.75rem 1rem 0;
+  background: color-mix(in oklab, var(--ops-card) 92%, var(--ops-surface));
+  border-bottom: 1px solid var(--ops-border);
+  box-shadow: 0 1px 0 color-mix(in oklab, var(--ops-ink) 3%, transparent);
 }
 .ops-list-head-row {
   display: flex;
@@ -6267,7 +6271,7 @@
 .ops-list-title {
   margin: 0.15rem 0 0;
   font-family: var(--ops-display);
-  font-size: 1.25rem;
+  font-size: clamp(1.15rem, 2.4vw, 1.35rem);
   font-weight: 800;
   text-transform: capitalize;
 }
@@ -6368,49 +6372,55 @@
 }
 
 .ops-filter-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.45rem;
-  margin-top: 0.85rem;
-  padding-bottom: 0.75rem;
-  border-bottom: 1px solid var(--ops-border);
-  overflow: visible;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.25rem;
+  margin: 0.85rem 0 0;
+  padding: 0.3rem;
+  border: 1px solid var(--ops-border);
+  border-radius: 0.85rem 0.85rem 0 0;
+  border-bottom: 0;
+  background: color-mix(in oklab, var(--ops-surface) 70%, #fff);
+  overflow: hidden;
 }
 .ops-filter-chip {
-  flex: 0 1 auto;
   display: inline-flex;
   align-items: center;
-  gap: 0.4rem;
-  min-height: 2.35rem;
-  border: 1px solid var(--ops-border);
-  border-radius: 0.75rem;
-  padding: 0.4rem 0.85rem;
-  background: #fff;
-  color: var(--ops-ink);
+  justify-content: center;
+  gap: 0.28rem;
+  min-width: 0;
+  min-height: 2.45rem;
+  border: 0;
+  border-radius: 0.65rem;
+  padding: 0.35rem 0.35rem;
+  background: transparent;
+  color: var(--ops-muted);
   font: inherit;
-  font-size: 0.875rem;
-  font-weight: 700;
+  font-size: clamp(0.68rem, 2.1vw, 0.82rem);
+  font-weight: 750;
+  line-height: 1.15;
   cursor: pointer;
   white-space: nowrap;
-  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  transition: background 0.15s ease, color 0.15s ease;
 }
 .ops-filter-chip:hover {
-  border-color: color-mix(in oklch, var(--ops-primary) 45%, var(--ops-border));
+  color: var(--ops-ink);
+  background: color-mix(in oklab, var(--ops-card) 80%, transparent);
 }
 .ops-filter-chip.is-active {
   background: var(--ops-primary);
-  border-color: var(--ops-primary);
   color: #fff;
+  box-shadow: 0 1px 2px color-mix(in oklab, var(--ops-ink) 12%, transparent);
 }
 .ops-filter-count {
   display: inline-grid;
   place-items: center;
-  min-width: 1.25rem;
-  height: 1.25rem;
-  padding: 0 0.3rem;
+  min-width: 1.1rem;
+  height: 1.1rem;
+  padding: 0 0.25rem;
   border-radius: 999px;
   background: color-mix(in srgb, currentColor 14%, transparent);
-  font-size: 0.75rem;
+  font-size: 0.68rem;
   font-weight: 700;
   line-height: 1;
 }
@@ -6435,7 +6445,7 @@
   min-height: 0;
   overflow-x: hidden;
   overflow-y: auto;
-  padding: 0 1rem 1rem;
+  padding: 0.85rem 1rem 1rem;
   scrollbar-width: none;
   -ms-overflow-style: none;
 }
@@ -6494,10 +6504,7 @@ button.ops-row {
   cursor: pointer;
 }
 .ops-row-select {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 0.65rem;
+  display: block;
   width: 100%;
   margin: 0;
   padding: 0;
@@ -6508,22 +6515,39 @@ button.ops-row {
   font: inherit;
   color: inherit;
 }
-.ops-row-main { min-width: 0; flex: 1; }
+.ops-row-main {
+  display: grid;
+  gap: 0.32rem;
+  min-width: 0;
+  width: 100%;
+}
+.ops-row-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.55rem;
+  min-width: 0;
+}
 .ops-row-name {
   display: block;
+  min-width: 0;
+  flex: 1;
   font-size: clamp(1rem, 1.7vw, 1.18rem);
   font-weight: 750;
   letter-spacing: -0.02em;
   line-height: 1.25;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .ops-row-address {
   display: flex;
   align-items: flex-start;
   gap: 0.3rem;
-  margin-top: 0.28rem;
+  margin-top: 0;
   font-size: clamp(0.85rem, 1.4vw, 0.98rem);
   font-weight: 550;
-  line-height: 1.35;
+  line-height: 1.4;
   color: var(--ops-muted);
 }
 .ops-row-address svg {
@@ -6533,14 +6557,14 @@ button.ops-row {
 }
 .ops-row-sub {
   display: block;
-  margin-top: 0.28rem;
+  margin-top: 0;
   font-size: clamp(0.88rem, 1.5vw, 1rem);
   font-weight: 650;
   color: var(--ops-ink);
 }
 .ops-row-meta {
   display: block;
-  margin-top: 0.2rem;
+  margin-top: 0;
   font-size: clamp(0.7rem, 1.1vw, 0.8rem);
   font-weight: 600;
   color: var(--ops-muted);
@@ -6571,19 +6595,22 @@ button.ops-row {
 }
 .ops-status-pill {
   flex-shrink: 0;
-  max-width: 14rem;
+  max-width: 9.5rem;
   border-radius: 999px;
   border: 1px solid transparent;
   background: var(--ops-card);
-  padding: 0.35rem 0.7rem;
-  font-size: 0.7rem;
+  padding: 0.28rem 0.55rem;
+  font-size: clamp(0.62rem, 1.3vw, 0.7rem);
   font-weight: 800;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.03em;
   text-transform: uppercase;
   color: var(--ops-muted);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+.ops-row-top .ops-status-pill {
+  max-width: 42%;
 }
 .ops-status-pill.is-lg {
   font-size: 0.72rem;
