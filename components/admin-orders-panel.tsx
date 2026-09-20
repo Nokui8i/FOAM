@@ -944,14 +944,31 @@ export function AdminOrdersPanel({
                     const cancelled = selected.status === "cancelled";
                     const done = !cancelled && stage > index;
                     const active = !cancelled && stage === index;
+                    const canJumpBack =
+                      !cancelled &&
+                      done &&
+                      Boolean(stageBackLabel) &&
+                      index === stage - 1;
                     return (
-                      <div
+                      <button
                         key={step.id}
+                        type="button"
                         className={cn(
                           "ops-timeline-step",
                           done && "is-done",
-                          active && "is-active"
+                          active && "is-active",
+                          canJumpBack && "is-backable"
                         )}
+                        disabled={!canJumpBack || saving || uploadingPhoto}
+                        title={
+                          canJumpBack
+                            ? stageBackLabel ?? undefined
+                            : undefined
+                        }
+                        onClick={() => {
+                          if (!canJumpBack) return;
+                          void goBackStage();
+                        }}
                       >
                         <div className="ops-timeline-node-row">
                           <span className="ops-timeline-dot">
@@ -962,7 +979,7 @@ export function AdminOrdersPanel({
                           ) : null}
                         </div>
                         <span className="ops-timeline-label">{step.label}</span>
-                      </div>
+                      </button>
                     );
                   })}
                 </div>
@@ -1172,6 +1189,17 @@ export function AdminOrdersPanel({
                                   : "—"}
                             </strong>
                           </div>
+                          {stageBackLabel ? (
+                            <button
+                              type="button"
+                              className="ops-stage-back"
+                              disabled={saving || uploadingPhoto}
+                              onClick={() => void goBackStage()}
+                            >
+                              <ArrowLeft size={14} aria-hidden />
+                              {stageBackLabel}
+                            </button>
+                          ) : null}
                           <Button
                             type="button"
                             className="ops-billing-save"
@@ -1180,18 +1208,6 @@ export function AdminOrdersPanel({
                           >
                             Charge & mark collected
                           </Button>
-                          {stageBackLabel ? (
-                            <Button
-                              type="button"
-                              variant="outline"
-                              className="ops-stage-back"
-                              disabled={saving || uploadingPhoto}
-                              onClick={() => void goBackStage()}
-                            >
-                              <ArrowLeft size={14} />
-                              {stageBackLabel}
-                            </Button>
-                          ) : null}
                         </div>
                       </>
                       )
@@ -1221,27 +1237,28 @@ export function AdminOrdersPanel({
                             </p>
                           </div>
                         </div>
-                        {stageAction ? (
+                        {stageAction || stageBackLabel ? (
                           <div className="ops-action-row">
-                            <Button
-                              type="button"
-                              className="ops-btn-lg"
-                              disabled={saving || uploadingPhoto}
-                              onClick={() => void setStatus(stageAction.next)}
-                            >
-                              <PackageCheck size={16} />
-                              {stageAction.label}
-                            </Button>
                             {stageBackLabel ? (
-                              <Button
+                              <button
                                 type="button"
-                                variant="outline"
                                 className="ops-stage-back"
                                 disabled={saving || uploadingPhoto}
                                 onClick={() => void goBackStage()}
                               >
-                                <ArrowLeft size={14} />
+                                <ArrowLeft size={14} aria-hidden />
                                 {stageBackLabel}
+                              </button>
+                            ) : null}
+                            {stageAction ? (
+                              <Button
+                                type="button"
+                                className="ops-btn-lg"
+                                disabled={saving || uploadingPhoto}
+                                onClick={() => void setStatus(stageAction.next)}
+                              >
+                                <PackageCheck size={16} />
+                                {stageAction.label}
                               </Button>
                             ) : null}
                           </div>
@@ -1297,33 +1314,34 @@ export function AdminOrdersPanel({
                             </div>
                           ) : null}
                         </div>
-                        {stageAction ? (
+                        {stageAction || stageBackLabel ? (
                           <div className="ops-action-row">
-                            <Button
-                              type="button"
-                              className="ops-btn-lg"
-                              disabled={saving || uploadingPhoto}
-                              onClick={() => {
-                                if (stageAction.next === "delivered") {
-                                  void markDelivered();
-                                  return;
-                                }
-                                void setStatus(stageAction.next);
-                              }}
-                            >
-                              <PackageCheck size={16} />
-                              {stageAction.label}
-                            </Button>
                             {stageBackLabel ? (
-                              <Button
+                              <button
                                 type="button"
-                                variant="outline"
                                 className="ops-stage-back"
                                 disabled={saving || uploadingPhoto}
                                 onClick={() => void goBackStage()}
                               >
-                                <ArrowLeft size={14} />
+                                <ArrowLeft size={14} aria-hidden />
                                 {stageBackLabel}
+                              </button>
+                            ) : null}
+                            {stageAction ? (
+                              <Button
+                                type="button"
+                                className="ops-btn-lg"
+                                disabled={saving || uploadingPhoto}
+                                onClick={() => {
+                                  if (stageAction.next === "delivered") {
+                                    void markDelivered();
+                                    return;
+                                  }
+                                  void setStatus(stageAction.next);
+                                }}
+                              >
+                                <PackageCheck size={16} />
+                                {stageAction.label}
                               </Button>
                             ) : null}
                           </div>
@@ -1351,16 +1369,15 @@ export function AdminOrdersPanel({
                         </p>
                         {stageBackLabel ? (
                           <div className="ops-action-row">
-                            <Button
+                            <button
                               type="button"
-                              variant="outline"
                               className="ops-stage-back"
                               disabled={saving || uploadingPhoto}
                               onClick={() => void goBackStage()}
                             >
-                              <ArrowLeft size={14} />
+                              <ArrowLeft size={14} aria-hidden />
                               {stageBackLabel}
-                            </Button>
+                            </button>
                           </div>
                         ) : null}
                       </>
