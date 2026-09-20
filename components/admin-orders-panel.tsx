@@ -1026,20 +1026,16 @@ export function AdminOrdersPanel({
       >
         <div className="ops-list-head">
           <div className="ops-list-head-row">
-            <div>
-              <h1 className="ops-list-title">Orders</h1>
-            </div>
-            <span className="ops-count-chip">{counts[filter]}</span>
+            <h1 className="ops-list-title">Orders</h1>
+            <label className="ops-search ops-search-inline">
+              <Search size={15} aria-hidden />
+              <input
+                value={queryText}
+                onChange={(e) => setQueryText(e.target.value)}
+                placeholder="Search name, phone..."
+              />
+            </label>
           </div>
-
-          <label className="ops-search">
-            <Search size={16} aria-hidden />
-            <input
-              value={queryText}
-              onChange={(e) => setQueryText(e.target.value)}
-              placeholder="Search orders, name, phone..."
-            />
-          </label>
 
           <div className="ops-filter-row" role="group" aria-label="Order filters">
             {FILTERS.map((item) => (
@@ -1092,19 +1088,12 @@ export function AdminOrdersPanel({
                         </span>
                       </span>
                       <span className="ops-row-address">
-                        <MapPin size={13} aria-hidden />
+                        <MapPin size={12} aria-hidden />
                         {formatOrderAddress(row)}
                       </span>
                       <span className="ops-row-sub">
                         {formatPickupDate(row.pickup.date)} ·{" "}
                         {formatSlotShort(row.pickup.slot)}
-                      </span>
-                      <span className="ops-row-meta">
-                        {orderDisplayId(row.id)}
-                        {" · "}
-                        {row.finalTotal != null
-                          ? `$${row.finalTotal.toFixed(2)}`
-                          : "—"}
                       </span>
                     </span>
                   </button>

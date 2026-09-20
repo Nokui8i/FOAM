@@ -6257,23 +6257,26 @@
 .ops-list-head {
   flex-shrink: 0;
   z-index: 5;
-  padding: 0.75rem 1rem 0;
+  padding: 0.65rem 1rem 0;
   background: color-mix(in oklab, var(--ops-card) 92%, var(--ops-surface));
   border-bottom: 1px solid var(--ops-border);
   box-shadow: 0 1px 0 color-mix(in oklab, var(--ops-ink) 3%, transparent);
 }
 .ops-list-head-row {
   display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 0.75rem;
+  align-items: center;
+  gap: 0.65rem;
+  min-width: 0;
 }
 .ops-list-title {
-  margin: 0.15rem 0 0;
+  margin: 0;
+  flex-shrink: 0;
   font-family: var(--ops-display);
-  font-size: clamp(1.15rem, 2.4vw, 1.35rem);
+  font-size: clamp(1.05rem, 2.2vw, 1.25rem);
   font-weight: 800;
+  letter-spacing: -0.02em;
   text-transform: capitalize;
+  line-height: 1;
 }
 .ops-count-chip {
   border-radius: 999px;
@@ -6291,9 +6294,14 @@
   display: block;
   margin-top: 0.75rem;
 }
+.ops-search.ops-search-inline {
+  flex: 1;
+  min-width: 0;
+  margin-top: 0;
+}
 .ops-search svg {
   position: absolute;
-  left: 0.75rem;
+  left: 0.65rem;
   top: 50%;
   transform: translateY(-50%);
   color: var(--ops-muted);
@@ -6311,6 +6319,17 @@
   outline: none;
   box-shadow: inset 0 1px 2px color-mix(in oklab, var(--ops-ink) 5%, transparent);
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.ops-search.ops-search-inline input {
+  height: 2.35rem;
+  font-size: clamp(0.78rem, 1.5vw, 0.88rem);
+  padding: 0 0.65rem 0 2rem;
+  border-radius: 0.6rem;
+}
+.ops-search.ops-search-inline svg {
+  left: 0.55rem;
+  width: 0.9rem;
+  height: 0.9rem;
 }
 .ops-search input:focus {
   border-color: var(--ops-primary);
@@ -6374,11 +6393,11 @@
 .ops-filter-row {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 0.25rem;
-  margin: 0.85rem 0 0;
-  padding: 0.3rem;
+  gap: 0.2rem;
+  margin: 0.55rem 0 0;
+  padding: 0.25rem;
   border: 1px solid var(--ops-border);
-  border-radius: 0.85rem 0.85rem 0 0;
+  border-radius: 0.75rem 0.75rem 0 0;
   border-bottom: 0;
   background: color-mix(in oklab, var(--ops-surface) 70%, #fff);
   overflow: hidden;
@@ -6387,18 +6406,18 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 0.28rem;
+  gap: 0.22rem;
   min-width: 0;
-  min-height: 2.45rem;
+  min-height: 2.1rem;
   border: 0;
-  border-radius: 0.65rem;
-  padding: 0.35rem 0.35rem;
+  border-radius: 0.55rem;
+  padding: 0.28rem 0.3rem;
   background: transparent;
   color: var(--ops-muted);
   font: inherit;
-  font-size: clamp(0.68rem, 2.1vw, 0.82rem);
+  font-size: clamp(0.68rem, 2.1vw, 0.8rem);
   font-weight: 750;
-  line-height: 1.15;
+  line-height: 1.1;
   cursor: pointer;
   white-space: nowrap;
   transition: background 0.15s ease, color 0.15s ease;
@@ -6445,23 +6464,23 @@
   min-height: 0;
   overflow-x: hidden;
   overflow-y: auto;
-  padding: 0.85rem 1rem 1rem;
+  padding: 0.65rem 0.85rem 0.85rem;
   scrollbar-width: none;
   -ms-overflow-style: none;
 }
 .ops-list-scroll::-webkit-scrollbar { width: 0; height: 0; }
 .ops-list-card {
   overflow: hidden;
-  border-radius: var(--ops-radius);
+  border-radius: 0.85rem;
   border: 1px solid var(--ops-border);
   background: var(--ops-card);
-  box-shadow: var(--ops-shadow);
+  box-shadow: var(--ops-shadow-sm);
 }
 .ops-list-card .ops-row:last-child {
   border-bottom: 0;
 }
 .ops-list-card .ops-empty {
-  padding: 1.25rem;
+  padding: 1rem;
 }
 .ops-list-body {
   flex: 1;
@@ -6477,10 +6496,10 @@
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  gap: 0.55rem;
+  gap: 0.4rem;
   width: 100%;
   margin: 0;
-  padding: 0.85rem 1rem;
+  padding: 0.55rem 0.75rem;
   border: 0;
   border-bottom: 1px solid var(--ops-border);
   background: transparent;
@@ -6517,7 +6536,7 @@ button.ops-row {
 }
 .ops-row-main {
   display: grid;
-  gap: 0.32rem;
+  gap: 0.15rem;
   min-width: 0;
   width: 100%;
 }
@@ -6525,17 +6544,19 @@ button.ops-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 0.55rem;
+  gap: 0.45rem;
   min-width: 0;
 }
 .ops-row-name {
   display: block;
   min-width: 0;
   flex: 1;
-  font-size: clamp(1rem, 1.7vw, 1.18rem);
+  font-family: var(--ops-display);
+  font-size: clamp(0.95rem, 1.6vw, 1.08rem);
   font-weight: 750;
   letter-spacing: -0.02em;
-  line-height: 1.25;
+  line-height: 1.2;
+  color: var(--ops-ink);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -6543,47 +6564,46 @@ button.ops-row {
 .ops-row-address {
   display: flex;
   align-items: flex-start;
-  gap: 0.3rem;
+  gap: 0.28rem;
   margin-top: 0;
-  font-size: clamp(0.85rem, 1.4vw, 0.98rem);
-  font-weight: 550;
-  line-height: 1.4;
-  color: var(--ops-muted);
+  font-size: clamp(0.78rem, 1.3vw, 0.88rem);
+  font-weight: 500;
+  line-height: 1.3;
+  color: color-mix(in oklch, var(--ops-muted) 70%, var(--ops-ink) 30%);
 }
 .ops-row-address svg {
-  margin-top: 0.12rem;
+  margin-top: 0.1rem;
   flex-shrink: 0;
   color: var(--ops-primary);
 }
 .ops-row-sub {
   display: block;
   margin-top: 0;
-  font-size: clamp(0.88rem, 1.5vw, 1rem);
+  font-size: clamp(0.8rem, 1.35vw, 0.9rem);
   font-weight: 650;
+  letter-spacing: -0.01em;
+  line-height: 1.25;
   color: var(--ops-ink);
 }
 .ops-row-meta {
-  display: block;
-  margin-top: 0;
-  font-size: clamp(0.7rem, 1.1vw, 0.8rem);
-  font-weight: 600;
-  color: var(--ops-muted);
+  display: none;
 }
 .ops-row-action {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 0.35rem;
+  gap: 0.3rem;
   width: 100%;
   margin: 0;
-  padding: 0.55rem 0.75rem;
+  padding: 0.4rem 0.65rem;
   border: 1px solid color-mix(in srgb, var(--ops-accent, #0ea5e9) 35%, var(--ops-border));
-  border-radius: 0.75rem;
+  border-radius: 0.55rem;
   background: color-mix(in srgb, var(--ops-accent, #0ea5e9) 10%, transparent);
   color: var(--ops-ink);
   font: inherit;
-  font-size: clamp(0.8rem, 1.3vw, 0.9rem);
+  font-size: clamp(0.75rem, 1.2vw, 0.84rem);
   font-weight: 700;
+  line-height: 1.2;
   cursor: pointer;
 }
 .ops-row-action:disabled {
@@ -6595,12 +6615,12 @@ button.ops-row {
 }
 .ops-status-pill {
   flex-shrink: 0;
-  max-width: 9.5rem;
+  max-width: 9rem;
   border-radius: 999px;
   border: 1px solid transparent;
   background: var(--ops-card);
-  padding: 0.28rem 0.55rem;
-  font-size: clamp(0.62rem, 1.3vw, 0.7rem);
+  padding: 0.2rem 0.45rem;
+  font-size: clamp(0.58rem, 1.15vw, 0.66rem);
   font-weight: 800;
   letter-spacing: 0.03em;
   text-transform: uppercase;
@@ -6608,9 +6628,10 @@ button.ops-row {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  line-height: 1.2;
 }
 .ops-row-top .ops-status-pill {
-  max-width: 42%;
+  max-width: 40%;
 }
 .ops-status-pill.is-lg {
   font-size: 0.72rem;
