@@ -16,8 +16,13 @@ import {
   CalendarDays,
   Camera,
   Check,
+  ChevronDown,
+  Clock,
+  ClipboardList,
+  Mail,
   MapPin,
   MessageCircle,
+  MoreHorizontal,
   PackageCheck,
   Phone,
   Search,
@@ -87,6 +92,25 @@ function formatSlotShort(slot: string) {
     .replace(/\s*-\s*/g, " – ")
     .replace(/\bam\b/gi, "am")
     .replace(/\bpm\b/gi, "pm");
+}
+
+function formatOrderedAt(createdAt: FoamOrder["createdAt"]) {
+  if (!createdAt || typeof createdAt.toDate !== "function") return null;
+  try {
+    const d = createdAt.toDate();
+    if (Number.isNaN(d.getTime())) return null;
+    const date = d.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+    });
+    const time = d.toLocaleTimeString("en-US", {
+      hour: "numeric",
+      minute: "2-digit",
+    });
+    return `Ordered ${date}, ${time}`;
+  } catch {
+    return null;
+  }
 }
 
 function listBadgeClass(status: OrderStatus) {
@@ -1151,55 +1175,73 @@ export function AdminOrdersPanel({
                 Back
               </Button>
 
-              <div className="ops-detail-head-row">
-                <div className="ops-detail-head-main">
+              <div className="ops-detail-top">
+                <div className="ops-detail-top-main">
                   <p className="ops-breadcrumb">
-                    {orderDisplayId(selected.id)}
-                    <span aria-hidden>·</span>
-                    <span
-                      className={cn(
-                        "ops-status-pill",
-                        listBadgeClass(selected.status)
-                      )}
-                    >
-                      {orderListBadge(selected.status)}
-                    </span>
+                    <span>Orders</span>
+                    <span aria-hidden>›</span>
+                    <span>{orderDisplayId(selected.id)}</span>
                   </p>
-                  {selected.pickup.notes ? (
-                    <p className="ops-access-note-inline">
-                      Access: {selected.pickup.notes}
-                    </p>
-                  ) : null}
+                  <h2 className="ops-detail-title">{selected.contact.name}</h2>
+                  <div className="ops-detail-meta">
+                    <span>
+                      <CalendarDays size={14} aria-hidden />
+                      {formatPickupDate(selected.pickup.date, true)}
+                    </span>
+                    <span>
+                      <Clock size={14} aria-hidden />
+                      {formatSlotShort(selected.pickup.slot)}
+                    </span>
+                    {(() => {
+                      const ordered = formatOrderedAt(selected.createdAt);
+                      return ordered ? (
+                        <span>
+                          <ClipboardList size={14} aria-hidden />
+                          {ordered}
+                        </span>
+                      ) : null;
+                    })()}
+                  </div>
                 </div>
+
                 <div className="ops-icon-row">
                   <a
-                    className="ops-icon-btn"
+                    className="ops-action-btn"
                     href={`tel:${selected.contact.phone}`}
-                    aria-label="Call"
-                    title="Call"
                   >
-                    <Phone size={16} />
+                    <Phone size={15} aria-hidden />
+                    Call
                   </a>
                   <a
-                    className="ops-icon-btn"
+                    className="ops-action-btn"
                     href={waUrl(selected.contact.phone, customerMsg)}
                     target="_blank"
                     rel="noreferrer"
-                    aria-label="WhatsApp"
-                    title="WhatsApp"
                   >
-                    <MessageCircle size={16} />
+                    <MessageCircle size={15} aria-hidden className="ops-wa-icon" />
+                    WhatsApp
                   </a>
                   <a
-                    className="ops-icon-btn"
+                    className="ops-action-btn"
                     href={mapsUrl(selected)}
                     target="_blank"
                     rel="noreferrer"
-                    aria-label="Maps"
-                    title="Maps"
                   >
-                    <MapPin size={16} />
+                    <MapPin size={15} aria-hidden />
+                    Maps
                   </a>
+                  <button
+                    type="button"
+                    className="ops-action-btn is-icon"
+                    aria-label="More"
+                    title={
+                      selected.pickup.notes
+                        ? `Access: ${selected.pickup.notes}`
+                        : "More"
+                    }
+                  >
+                    <MoreHorizontal size={16} aria-hidden />
+                  </button>
                 </div>
               </div>
             </div>
@@ -1211,21 +1253,56 @@ export function AdminOrdersPanel({
             )}
 
             <div className="ops-detail-stack">
-              <section className="ops-card ops-workflow-card">
-                <div className="ops-workflow-customer">
-                  <p className="ops-workflow-customer-name">
-                    {selected.contact.name}
-                  </p>
-                  <p className="ops-workflow-customer-address">
-                    <MapPin size={15} aria-hidden />
-                    {formatOrderAddress(selected)}
-                  </p>
-                  <p className="ops-workflow-customer-when">
-                    <CalendarDays size={15} aria-hidden />
-                    {formatPickupDate(selected.pickup.date)} ·{" "}
-                    {formatSlotShort(selected.pickup.slot)}
-                  </p>
+              <section className="ops-contact-card" aria-label="Customer contact">
+                <div className="ops-contact-person">
+                  <span className="ops-contact-avatar" aria-hidden>
+                    <UserRound size={18} />
+                  </span>
+                  <div className="ops-contact-person-copy">
+                    <p className="ops-contact-name">{selected.contact.name}</p>
+                    <p className="ops-contact-address">
+                      {formatOrderAddress(selected)}
+                    </p>
+                  </div>
                 </div>
+                <a
+                  className="ops-contact-item"
+                  href={`tel:${selected.contact.phone}`}
+                >
+                  <span className="ops-contact-item-icon" aria-hidden>
+                    <Phone size={14} />
+                  </span>
+                  {selected.contact.phone || "—"}
+                </a>
+                <a
+                  className="ops-contact-item"
+                  href={
+                    selected.contact.email
+                      ? `mailto:${selected.contact.email}`
+                      : undefined
+                  }
+                  onClick={(e) => {
+                    if (!selected.contact.email) e.preventDefault();
+                  }}
+                >
+                  <span className="ops-contact-item-icon" aria-hidden>
+                    <Mail size={14} />
+                  </span>
+                  {selected.contact.email || "—"}
+                </a>
+                <a
+                  className="ops-contact-maps"
+                  href={mapsUrl(selected)}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  <MapPin size={14} aria-hidden />
+                  View on Maps
+                  <ChevronDown size={14} aria-hidden />
+                </a>
+              </section>
+
+              <section className="ops-card ops-workflow-card">
                 <div className="ops-timeline" role="list">
                   {ORDER_PIPELINE_STEPS.map((step, index) => {
                     const cancelled = selected.status === "cancelled";
