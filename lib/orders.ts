@@ -194,13 +194,13 @@ export function orderListBadge(status: OrderStatus): string {
     case "new":
       return "Waiting";
     case "confirmed":
-      return "On the way";
+      return "En route";
     case "picked_up":
     case "weighed":
     case "washing":
-      return "At laundry";
+      return "In progress";
     case "out_for_delivery":
-      return "On delivery";
+      return "Out for delivery";
     case "delivered":
       return "Delivered";
     case "cancelled":

@@ -66,25 +66,25 @@ type MobileView = "list" | "detail";
 const FILTERS: { id: Filter; label: string }[] = [
   { id: "all", label: "All" },
   { id: "waiting", label: "Waiting" },
-  { id: "progress", label: "Laundry" },
-  { id: "ready", label: "Delivery" },
+  { id: "progress", label: "In Progress" },
+  { id: "ready", label: "Ready" },
 ];
 
-function formatPickupDate(date: string) {
+function formatPickupDate(date: string, withYear = false) {
   if (!date) return "—";
   const d = new Date(`${date}T12:00:00`);
   if (Number.isNaN(d.getTime())) return date;
   return d.toLocaleDateString("en-US", {
     month: "short",
     day: "numeric",
-    year: "numeric",
+    ...(withYear ? { year: "numeric" as const } : {}),
   });
 }
 
 function formatSlotShort(slot: string) {
   if (!slot) return "—";
   return slot
-    .replace(/\s*-\s*/g, "–")
+    .replace(/\s*-\s*/g, " – ")
     .replace(/\bam\b/gi, "am")
     .replace(/\bpm\b/gi, "pm");
 }
@@ -100,13 +100,13 @@ function listBadgeClass(status: OrderStatus) {
     case "washing":
       return "is-progress";
     case "out_for_delivery":
-      return "is-ready";
+      return "is-en-route";
     case "delivered":
-      return "is-done";
+      return "is-ready";
     case "cancelled":
       return "is-cancelled";
     default:
-      return "";
+      return "is-waiting";
   }
 }
 
@@ -204,7 +204,7 @@ export function AdminOrdersPanel({
 }) {
   const [rows, setRows] = useState<FoamOrder[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [filter, setFilter] = useState<Filter>("waiting");
+  const [filter, setFilter] = useState<Filter>("all");
   const [queryText, setQueryText] = useState("");
   const [error, setError] = useState("");
   const [okMsg, setOkMsg] = useState("");
@@ -1055,17 +1055,15 @@ export function AdminOrdersPanel({
         )}
       >
         <div className="ops-list-head">
-          <div className="ops-list-head-row">
-            <h1 className="ops-list-title">Orders</h1>
-            <label className="ops-search ops-search-inline">
-              <Search size={15} aria-hidden />
-              <input
-                value={queryText}
-                onChange={(e) => setQueryText(e.target.value)}
-                placeholder="Search name, phone..."
-              />
-            </label>
-          </div>
+          <h1 className="ops-list-title">Orders</h1>
+          <label className="ops-search">
+            <Search size={15} aria-hidden />
+            <input
+              value={queryText}
+              onChange={(e) => setQueryText(e.target.value)}
+              placeholder="Search name, phone, or order #"
+            />
+          </label>
 
           <div className="ops-filter-row" role="group" aria-label="Order filters">
             {FILTERS.map((item) => (
@@ -1078,8 +1076,7 @@ export function AdminOrdersPanel({
                 )}
                 onClick={() => setFilter(item.id)}
               >
-                {item.label}
-                <span className="ops-filter-count">{counts[item.id]}</span>
+                {item.label} {counts[item.id]}
               </button>
             ))}
           </div>
@@ -1093,52 +1090,39 @@ export function AdminOrdersPanel({
               <p className="ops-empty">Live orders will appear here.</p>
             ) : (
               filtered.map((row) => (
-                <div
+                <button
                   key={row.id}
+                  type="button"
                   className={cn(
                     "ops-row",
                     selectedId === row.id && "is-active"
                   )}
+                  onClick={() => selectOrder(row.id)}
                 >
-                  <button
-                    type="button"
-                    className="ops-row-select"
-                    onClick={() => selectOrder(row.id)}
-                  >
-                    <span className="ops-row-main">
-                      <span className="ops-row-top">
-                        <span className="ops-row-name">{row.contact.name}</span>
-                        <span
-                          className={cn(
-                            "ops-status-pill",
-                            listBadgeClass(row.status)
-                          )}
-                        >
-                          {orderListBadge(row.status)}
-                        </span>
-                      </span>
-                      <span className="ops-row-address">
-                        <MapPin size={12} aria-hidden />
-                        {formatOrderAddress(row)}
-                      </span>
-                      <span className="ops-row-sub">
-                        {formatPickupDate(row.pickup.date)} ·{" "}
-                        {formatSlotShort(row.pickup.slot)}
-                      </span>
-                    </span>
-                  </button>
-                  {row.status === "new" ? (
-                    <button
-                      type="button"
-                      className="ops-row-action"
-                      disabled={saving}
-                      onClick={() => void markLeftForPickup(row)}
+                  <span className="ops-row-top">
+                    <span className="ops-row-name">{row.contact.name}</span>
+                    <span
+                      className={cn(
+                        "ops-status-pill",
+                        listBadgeClass(row.status)
+                      )}
                     >
-                      <Truck size={14} aria-hidden />
-                      I’m on the way
-                    </button>
-                  ) : null}
-                </div>
+                      {orderListBadge(row.status)}
+                    </span>
+                  </span>
+                  <span className="ops-row-when">
+                    {formatPickupDate(row.pickup.date)},{" "}
+                    {formatSlotShort(row.pickup.slot)}
+                  </span>
+                  <span className="ops-row-foot">
+                    <span className="ops-row-ref">{orderDisplayId(row.id)}</span>
+                    <span className="ops-row-price">
+                      {row.finalTotal != null
+                        ? `$${row.finalTotal.toFixed(2)}`
+                        : "—"}
+                    </span>
+                  </span>
+                </button>
               ))
             )}
           </div>
