@@ -4134,14 +4134,53 @@
   }
 
   .track-order-card {
-    padding: 1rem;
+    padding: 1.35rem 1.4rem 1.5rem;
+  }
+
+  .track-order-card .account-order-head h3 {
+    font-size: clamp(1.1rem, 2.4vw, 1.3rem);
+  }
+
+  .track-order-card .account-order-head p {
+    font-size: clamp(0.88rem, 1.8vw, 0.98rem);
+    line-height: 1.4;
+  }
+
+  .track-order-card .account-order-badge {
+    padding: 0.35rem 0.7rem;
+    font-size: 0.72rem;
   }
 
   .track-greeting {
-    margin: 0 0 0.65rem;
-    font-size: 0.9rem;
+    margin: 0 0 0.85rem;
+    font-size: clamp(1rem, 2vw, 1.12rem);
     font-weight: 650;
     color: var(--color-muted-foreground);
+  }
+
+  .track-order-card .order-progress-dot {
+    width: 1.65rem;
+    height: 1.65rem;
+  }
+
+  .track-order-card .order-progress-step:not(:last-child)::before {
+    top: 0.82rem;
+    left: calc(50% + 1rem);
+    right: calc(-50% + 1rem);
+  }
+
+  .track-order-card .order-progress-label {
+    font-size: clamp(0.72rem, 2vw, 0.88rem);
+  }
+
+  .track-order-card .order-progress-status,
+  .track-order-card .order-progress-meta {
+    font-size: clamp(0.88rem, 1.8vw, 1rem);
+  }
+
+  .track-order-card .order-progress-thumb {
+    max-width: 6.5rem;
+    border-radius: 0.55rem;
   }
 
   .account-order-head h3 {

@@ -13,7 +13,7 @@ export default function TrackPage() {
     <main className="track-page flex min-h-svh flex-col bg-background text-foreground selection:bg-accent">
       <SiteHeader />
       <section className="book-section flex flex-1 flex-col">
-        <div className="site-shell flex w-full max-w-lg flex-1 flex-col px-4 pb-8 sm:px-6">
+        <div className="site-shell flex w-full max-w-2xl flex-1 flex-col px-4 pb-8 sm:px-6">
           <TrackApp />
         </div>
       </section>
