@@ -292,7 +292,6 @@ export function AdminApp() {
       <aside className="ops-nav" aria-label="Ops sections">
         <div className="ops-nav-brand">
           <FoamMark compact />
-          <p className="ops-nav-subtitle">Operations Console</p>
         </div>
 
         <nav className="ops-nav-links">
@@ -301,8 +300,8 @@ export function AdminApp() {
             className={cn("ops-nav-btn", tab === "orders" && "is-active")}
             onClick={() => setDestination("orders")}
           >
-            <Truck size={18} aria-hidden />
-            Orders
+            <Truck size={20} aria-hidden />
+            <span>Orders</span>
             {ordersCount > 0 ? (
               <span className="ops-nav-badge">{ordersCount}</span>
             ) : null}
@@ -312,8 +311,8 @@ export function AdminApp() {
             className={cn("ops-nav-btn", tab === "contacts" && "is-active")}
             onClick={() => setDestination("contacts")}
           >
-            <Inbox size={18} aria-hidden />
-            Inquiries
+            <Inbox size={20} aria-hidden />
+            <span>Inquiries</span>
             {openInquiriesCount > 0 ? (
               <span className="ops-nav-badge">{openInquiriesCount}</span>
             ) : null}
@@ -321,22 +320,15 @@ export function AdminApp() {
         </nav>
 
         <div className="ops-nav-foot">
-          <div className="ops-nav-user">
-            <span className="ops-nav-avatar" aria-hidden>
-              {avatar}
-            </span>
-            <div className="ops-nav-user-meta">
-              <p className="ops-nav-email">{user.email}</p>
-              <button
-                type="button"
-                className="ops-nav-signout-link"
-                onClick={() => void signOut(getFirebaseAuth())}
-              >
-                <LogOut size={14} aria-hidden />
-                Sign out
-              </button>
-            </div>
-          </div>
+          <button
+            type="button"
+            className="ops-nav-avatar"
+            title={`Sign out · ${user.email ?? ""}`}
+            aria-label="Sign out"
+            onClick={() => void signOut(getFirebaseAuth())}
+          >
+            {avatar}
+          </button>
         </div>
       </aside>
 
