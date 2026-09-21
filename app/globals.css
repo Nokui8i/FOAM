@@ -8625,6 +8625,161 @@ button.ops-row {
   flex-shrink: 0;
 }
 
+.ops-workflow-card .ops-timeline {
+  margin: 0;
+  padding: 0.2rem 0.15rem 0.75rem;
+  border-bottom: 0;
+}
+.ops-workflow-help {
+  min-height: 2.5rem;
+  margin-bottom: 1rem;
+}
+.ops-issue-inline {
+  margin-top: 1.25rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--ops-border);
+}
+.ops-issue-inline .ops-panel-title {
+  margin-bottom: 0.75rem;
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+.ops-cancel-row {
+  margin-top: 1rem;
+}
+
+.ops-flow {
+  display: grid;
+  gap: 0;
+  border: 1px solid var(--ops-border);
+  border-radius: var(--ops-radius);
+  background: var(--ops-card);
+  overflow: visible;
+  box-shadow: var(--ops-shadow);
+}
+.ops-flow-head {
+  padding: 0.85rem 1rem 0.65rem;
+  border-bottom: 1px solid var(--ops-border);
+}
+.ops-flow-head .ops-panel-title {
+  margin-bottom: 0;
+}
+.ops-flow-head .ops-panel-title h3 {
+  font-weight: 750;
+  font-size: 1.05rem;
+  letter-spacing: -0.02em;
+}
+.ops-flow-head .ops-panel-title p {
+  font-weight: 500;
+  font-size: 0.8rem;
+  line-height: 1.4;
+  color: var(--ops-muted);
+  opacity: 1;
+}
+
+/* Compact horizontal stage timeline + single current-stage card */
+.ops-timeline {
+  display: flex;
+  align-items: flex-start;
+  gap: 0;
+  width: 100%;
+  padding: 0.75rem 0.35rem 0.5rem;
+  border-bottom: 1px solid var(--ops-border);
+}
+.ops-timeline-step {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+  flex: 1 1 0;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  color: inherit;
+  cursor: default;
+}
+.ops-timeline-step:disabled {
+  cursor: default;
+}
+.ops-timeline-step.is-backable {
+  cursor: pointer;
+}
+.ops-timeline-step.is-backable:hover .ops-timeline-dot {
+  border-color: var(--ops-primary);
+  box-shadow: 0 0 0 3px color-mix(in oklch, var(--ops-primary) 18%, transparent);
+}
+.ops-timeline-step.is-backable:hover .ops-timeline-label {
+  color: var(--ops-primary);
+}
+/* Connector from this step's center to the next — keeps step 4 aligned */
+.ops-timeline-step:not(:last-child)::before {
+  content: "";
+  position: absolute;
+  top: clamp(0.85rem, 1.55vw, 0.97rem);
+  left: calc(50% + 1.05rem);
+  right: calc(-50% + 1.05rem);
+  width: auto;
+  height: 3px;
+  border-radius: 999px;
+  background: color-mix(in oklch, var(--ops-border) 55%, var(--ops-muted) 45%);
+  pointer-events: none;
+  z-index: 0;
+}
+.ops-timeline-step.is-done:not(:last-child)::before {
+  background: var(--ops-primary);
+}
+.ops-timeline-node-row {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+}
+.ops-timeline-dot {
+  display: grid;
+  place-items: center;
+  width: clamp(1.7rem, 3.2vw, 1.95rem);
+  height: clamp(1.7rem, 3.2vw, 1.95rem);
+  flex-shrink: 0;
+  border-radius: 999px;
+  background: #fff;
+  border: 2px solid color-mix(in oklch, var(--ops-border) 65%, var(--ops-muted) 35%);
+  color: var(--ops-muted);
+  font-size: clamp(0.75rem, 1.4vw, 0.88rem);
+  font-weight: 750;
+}
+.ops-timeline-step.is-done .ops-timeline-dot,
+.ops-timeline-step.is-active .ops-timeline-dot {
+  background: var(--ops-primary);
+  border-color: var(--ops-primary);
+  color: #fff;
+}
+.ops-timeline-step.is-active .ops-timeline-dot {
+  box-shadow: 0 0 0 4px color-mix(in oklch, var(--ops-primary) 22%, transparent);
+}
+.ops-timeline-line {
+  display: none;
+}
+.ops-timeline-label {
+  font-size: clamp(0.82rem, 1.7vw, 1.02rem);
+  font-weight: 750;
+  color: color-mix(in oklch, var(--ops-muted) 75%, var(--ops-ink) 25%);
+  text-align: center;
+  line-height: 1.2;
+  max-width: 100%;
+}
+.ops-timeline-step.is-active .ops-timeline-label {
+  color: var(--ops-ink);
+  font-weight: 800;
+}
+.ops-timeline-step.is-done .ops-timeline-label {
+  color: var(--ops-ink);
+}
 .ops-timeline-hint {
   display: block;
   margin-top: -0.1rem;
