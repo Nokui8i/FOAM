@@ -647,35 +647,6 @@ export function AdminOrdersPanel({
   const activeStep = ORDER_PIPELINE_STEPS[Math.max(0, stage)];
   const stepNumber = Math.max(1, stage + 1);
 
-  const workflowHelp = (() => {
-    if (!selected) return "";
-    if (selected.status === "cancelled") {
-      return `This order was cancelled${
-        selected.cancelReason ? ` · ${selected.cancelReason}` : ""
-      } — no further action needed.`;
-    }
-    if (selected.status === "new") {
-      return "When you head to this stop, tap I’m on the way. Tracking updates for the customer. Message them separately if you want.";
-    }
-    if (isEnRouteToPickup(selected.status)) {
-      return "At the stop: enter weight + scale photo, add dry-clean items if needed, then charge. That marks the order collected and moves it to At laundry.";
-    }
-    if (stage === 1) {
-      return "Order is at the laundry. When it’s ready to return today, tap On delivery.";
-    }
-    if (stage === 2) {
-      return "Upload a photo at the door (or with the customer), then confirm delivered to close the order.";
-    }
-    if (stage === 3) {
-      return selected.finalTotal != null
-        ? `Delivered · Charged $${selected.finalTotal.toFixed(2)}${
-            selected.weightLbs ? ` · ${selected.weightLbs} lb` : ""
-          }`
-        : "Order closed.";
-    }
-    return "Complete the current step, then move this order forward.";
-  })();
-
   const canCharge =
     !!selected &&
     isWaitingForPickup(selected.status) &&
@@ -698,7 +669,6 @@ export function AdminOrdersPanel({
     if (selected.status === "new") {
       return (
         <>
-          <p className="ops-muted ops-step-help">{workflowHelp}</p>
           <div className="ops-action-row">
             {stageBackLabel ? (
               <button
@@ -737,8 +707,6 @@ export function AdminOrdersPanel({
     // confirmed / en route — weigh, photo, dry clean, bill
     return (
       <>
-        <p className="ops-muted ops-step-help">{workflowHelp}</p>
-
         <label className="ops-weight-field">
           Weight in pounds
           <span className="ops-weight-input">
@@ -926,7 +894,10 @@ export function AdminOrdersPanel({
     if (selected.status === "cancelled") {
       return (
         <div className="ops-cancelled-note">
-          <p className="ops-flow-done-note">{workflowHelp}</p>
+          <p className="ops-flow-done-note">
+            This order was cancelled
+            {selected.cancelReason ? ` · ${selected.cancelReason}` : ""}
+          </p>
         </div>
       );
     }
@@ -938,7 +909,6 @@ export function AdminOrdersPanel({
     if (stage === 1) {
       return (
         <>
-          <p className="ops-muted ops-step-help">{workflowHelp}</p>
           <p className="ops-muted" style={{ margin: 0 }}>
             {servicesSummary(selected)}
             {selected.weightLbs != null ? ` · ${selected.weightLbs} lb` : ""}
@@ -975,7 +945,6 @@ export function AdminOrdersPanel({
     if (stage === 2) {
       return (
         <>
-          <p className="ops-muted ops-step-help">{workflowHelp}</p>
           <div className="ops-photo-block">
             <label className="ops-photo-upload is-primary">
               <Camera size={16} aria-hidden />
@@ -1047,7 +1016,6 @@ export function AdminOrdersPanel({
     // stage 3 — complete
     return (
       <>
-        <p className="ops-muted ops-step-help">{workflowHelp}</p>
         <div className="ops-stage-stats">
           <div>
             <p className="ops-field-label">Total</p>
@@ -1311,9 +1279,6 @@ export function AdminOrdersPanel({
                           </span>
                         </div>
                         <span className="ops-timeline-label">{step.label}</span>
-                        <span className="ops-timeline-hint">
-                          {step.actionHint}
-                        </span>
                       </button>
                     );
                   })}
@@ -1327,11 +1292,6 @@ export function AdminOrdersPanel({
                         ? "Order cancelled"
                         : `Step ${stepNumber} of 4: ${activeStep?.label ?? ""}`}
                     </h3>
-                    {selected.status !== "cancelled" ? (
-                      <span className="ops-stage-badge">
-                        {activeStep?.actionHint}
-                      </span>
-                    ) : null}
                   </div>
                   {renderWorkspaceBody()}
                 </div>

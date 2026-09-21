@@ -154,28 +154,24 @@ export const ORDER_PIPELINE_STEPS = [
     statuses: ["new", "confirmed"],
     preview:
       "I’m on the way → at the stop: weigh, photo, dry-clean, then charge.",
-    actionHint: "Weigh · photo · charge",
   },
   {
     id: "progress",
     label: "At laundry",
     statuses: ["picked_up", "weighed", "washing"],
     preview: "Collected and being cleaned at the plant.",
-    actionHint: "Ready for delivery",
   },
   {
     id: "delivery",
     label: "On delivery",
     statuses: ["out_for_delivery"],
     preview: "Delivering today. Photo at the door, then confirm.",
-    actionHint: "Photo · confirm",
   },
   {
     id: "done",
     label: "Complete",
     statuses: ["delivered"],
     preview: "Order closed.",
-    actionHint: "Closed",
   },
 ] as const;
 
