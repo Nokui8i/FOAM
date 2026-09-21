@@ -1,14 +1,19 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { doc, onSnapshot } from "firebase/firestore";
 
+import { useAuth } from "@/components/auth-provider";
 import { OrderProgress } from "@/components/order-progress";
 import { Button } from "@/components/ui/button";
+import { formatPickupDate } from "@/lib/booking";
 import { getFirebaseDb } from "@/lib/firebase";
 import {
+  ORDER_STATUS_LABELS,
+  isInProgressOrder,
+  isWaitingForPickup,
   normalizeOrderStatus,
   type OrderPhoto,
   type OrderStatus,
@@ -17,12 +22,20 @@ import {
   customerVisiblePhotos,
   type OrderTrackSnapshot,
 } from "@/lib/order-tracking";
-import { formatPickupDate } from "@/lib/booking";
+import { cn } from "@/lib/utils";
+
+type OrderExtras = {
+  photos: OrderPhoto[];
+  weightLbs: number | null;
+  finalTotal: number | null;
+};
 
 function TrackBody() {
   const search = useSearchParams();
   const key = (search.get("k") || "").trim();
+  const { user, ready } = useAuth();
   const [track, setTrack] = useState<OrderTrackSnapshot | null>(null);
+  const [orderExtras, setOrderExtras] = useState<OrderExtras | null>(null);
   const [missing, setMissing] = useState(false);
   const [loading, setLoading] = useState(Boolean(key));
 
@@ -75,7 +88,47 @@ function TrackBody() {
     );
   }, [key]);
 
-  if (loading) {
+  // Owner fallback: pull photos/weight from the order doc when signed in.
+  useEffect(() => {
+    if (!ready || !user || !track?.orderId) {
+      setOrderExtras(null);
+      return;
+    }
+    return onSnapshot(
+      doc(getFirebaseDb(), "orders", track.orderId),
+      (snap) => {
+        if (!snap.exists()) {
+          setOrderExtras(null);
+          return;
+        }
+        const data = snap.data() as Record<string, unknown>;
+        const photos = Array.isArray(data.photos)
+          ? (data.photos as OrderPhoto[])
+          : [];
+        setOrderExtras({
+          photos: customerVisiblePhotos(photos),
+          weightLbs:
+            typeof data.weightLbs === "number" ? data.weightLbs : null,
+          finalTotal:
+            typeof data.finalTotal === "number" ? data.finalTotal : null,
+        });
+      },
+      () => setOrderExtras(null)
+    );
+  }, [ready, user, track?.orderId]);
+
+  const photos = useMemo(() => {
+    const fromTrack = track?.photos ?? [];
+    if (fromTrack.length) return fromTrack;
+    return orderExtras?.photos ?? [];
+  }, [track?.photos, orderExtras?.photos]);
+
+  const weightLbs =
+    track?.weightLbs ?? orderExtras?.weightLbs ?? null;
+  const finalTotal =
+    track?.finalTotal ?? orderExtras?.finalTotal ?? null;
+
+  if (loading || !ready) {
     return <p className="text-sm text-muted-foreground">Loading your order…</p>;
   }
 
@@ -102,9 +155,11 @@ function TrackBody() {
   }
 
   const status = track.status as OrderStatus;
+  const active =
+    isWaitingForPickup(status) || isInProgressOrder(status);
   const services = [
     track.laundry
-      ? `Laundry${track.bagCount > 0 ? ` (${track.bagCount} bag${track.bagCount === 1 ? "" : "s"})` : ""}`
+      ? `Laundry${track.bagCount > 0 ? ` (${track.bagCount})` : ""}`
       : null,
     track.dryCleaning ? "Dry cleaning" : null,
   ]
@@ -112,48 +167,46 @@ function TrackBody() {
     .join(" · ");
 
   return (
-    <div className="track-card">
-      <p className="eyebrow">Order tracking</p>
-      <h1 className="mt-1 font-display text-xl font-bold tracking-tight">
-        {track.firstName ? `Hi ${track.firstName}` : "Your pickup"}
-      </h1>
-
-      <div className="track-meta mt-4">
-        <p>
-          Ref <strong>{track.ref}</strong>
-        </p>
-        {track.pickupDate ? (
+    <article className="account-order-card track-order-card">
+      <div className="account-order-head is-static">
+        <div>
+          <h3>Ref {track.ref}</h3>
           <p>
-            Pickup{" "}
-            <strong>
-              {formatPickupDate(track.pickupDate)}
-              {track.pickupSlot ? ` · ${track.pickupSlot}` : ""}
-            </strong>
+            {track.pickupDate
+              ? `${formatPickupDate(track.pickupDate)}${
+                  track.pickupSlot ? ` · ${track.pickupSlot}` : ""
+                }`
+              : "Pickup scheduled"}
+            {services ? ` · ${services}` : ""}
           </p>
-        ) : null}
-        {services ? (
-          <p>
-            Services <strong>{services}</strong>
-          </p>
-        ) : null}
+        </div>
+        <span
+          className={cn("account-order-badge", active && "is-active")}
+        >
+          {ORDER_STATUS_LABELS[status]}
+        </span>
       </div>
 
-      <OrderProgress
-        status={status}
-        photos={track.photos}
-        weightLbs={track.weightLbs}
-        finalTotal={track.finalTotal}
-      />
-
-      <div className="mt-5 flex flex-wrap gap-2">
-        <Button variant="outline" asChild>
-          <Link href="/">Home</Link>
-        </Button>
-        <Button variant="outline" asChild>
-          <Link href="/account">Account</Link>
-        </Button>
+      <div className="account-order-body">
+        {track.firstName ? (
+          <p className="track-greeting">Hi {track.firstName}</p>
+        ) : null}
+        <OrderProgress
+          status={status}
+          photos={photos}
+          weightLbs={weightLbs}
+          finalTotal={finalTotal}
+        />
+        <div className="mt-4 flex flex-wrap gap-2">
+          <Button variant="outline" size="sm" asChild>
+            <Link href="/">Home</Link>
+          </Button>
+          <Button variant="outline" size="sm" asChild>
+            <Link href="/account">Account</Link>
+          </Button>
+        </div>
       </div>
-    </div>
+    </article>
   );
 }
 

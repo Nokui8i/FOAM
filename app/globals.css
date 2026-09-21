@@ -4129,6 +4129,21 @@
     color: inherit;
   }
 
+  .account-order-head.is-static {
+    cursor: default;
+  }
+
+  .track-order-card {
+    padding: 1rem;
+  }
+
+  .track-greeting {
+    margin: 0 0 0.65rem;
+    font-size: 0.9rem;
+    font-weight: 650;
+    color: var(--color-muted-foreground);
+  }
+
   .account-order-head h3 {
     margin: 0;
     font-family: var(--font-display);
