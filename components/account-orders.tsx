@@ -11,7 +11,6 @@ import {
 } from "firebase/firestore";
 import { ArrowRight, ChevronDown, PackageOpen } from "lucide-react";
 
-import { OrderCustomerPhotos } from "@/components/order-customer-photos";
 import { OrderProgress } from "@/components/order-progress";
 import { Button } from "@/components/ui/button";
 import { formatPickupDate } from "@/lib/booking";
@@ -222,8 +221,8 @@ export function AccountOrders({ uid }: { uid: string }) {
 
             {open ? (
               <div className="account-order-body">
-                <OrderProgress status={order.status} />
-                <OrderCustomerPhotos
+                <OrderProgress
+                  status={order.status}
                   photos={order.photos}
                   weightLbs={order.weightLbs}
                   finalTotal={order.finalTotal}

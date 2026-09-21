@@ -5,7 +5,6 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { doc, onSnapshot } from "firebase/firestore";
 
-import { OrderCustomerPhotos } from "@/components/order-customer-photos";
 import { OrderProgress } from "@/components/order-progress";
 import { Button } from "@/components/ui/button";
 import { getFirebaseDb } from "@/lib/firebase";
@@ -139,9 +138,8 @@ function TrackBody() {
         ) : null}
       </div>
 
-      <OrderProgress status={status} />
-
-      <OrderCustomerPhotos
+      <OrderProgress
+        status={status}
         photos={track.photos}
         weightLbs={track.weightLbs}
         finalTotal={track.finalTotal}
