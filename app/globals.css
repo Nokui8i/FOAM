@@ -7573,6 +7573,27 @@ button.ops-row {
 .ops-action-row .ops-btn-lg {
   width: 100% !important;
 }
+.ops-btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  box-sizing: border-box;
+  min-height: 2.85rem;
+  padding: 0.55rem 0.85rem;
+  border: 1px solid var(--ops-border);
+  border-radius: 0.75rem;
+  background: #fff;
+  color: var(--ops-ink);
+  font: inherit;
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+}
+.ops-btn-secondary:hover {
+  background: color-mix(in srgb, var(--ops-ink) 5%, #fff);
+  border-color: color-mix(in oklch, var(--ops-primary) 40%, var(--ops-border));
+}
 .ops-stage-back {
   display: inline-flex !important;
   align-items: center;

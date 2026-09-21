@@ -405,9 +405,6 @@ export function AdminOrdersPanel({
       { status: "confirmed" },
       "Driver on the way — customer tracking updated"
     );
-    const first = firstNameFromContact(order.contact.name) || "there";
-    const body = `Hi ${first}, this is FOAM — your courier is on the way to pick up your bags (${order.pickup.date} · ${order.pickup.slot}).`;
-    window.open(waUrl(order.contact.phone, body), "_blank", "noopener,noreferrer");
     setFilter("waiting");
     onMobileViewChange("detail");
   }
@@ -603,7 +600,7 @@ export function AdminOrdersPanel({
       } — no further action needed.`;
     }
     if (selected.status === "new") {
-      return "When you head to this stop, tap I’m on the way. Tracking updates and WhatsApp opens so you can notify the customer.";
+      return "When you head to this stop, tap I’m on the way. Tracking updates for the customer. Message them separately if you want.";
     }
     if (isEnRouteToPickup(selected.status)) {
       return "At the stop: enter weight + scale photo, add dry-clean items if needed, then charge. That marks the order collected and moves it to At laundry.";
@@ -630,7 +627,9 @@ export function AdminOrdersPanel({
     selected.status !== "new";
 
   const customerMsg = selected
-    ? `Hi ${selected.contact.name.split(" ")[0] || "there"}, this is FOAM about your pickup on ${selected.pickup.date} (${selected.pickup.slot}).`
+    ? selected.status === "new" || isEnRouteToPickup(selected.status)
+      ? `Hi ${firstNameFromContact(selected.contact.name) || "there"}, this is FOAM — your courier is on the way to pick up your bags (${selected.pickup.date} · ${selected.pickup.slot}).`
+      : `Hi ${firstNameFromContact(selected.contact.name) || "there"}, this is FOAM about your pickup on ${selected.pickup.date} (${selected.pickup.slot}).`
     : "";
 
   function selectOrder(id: string) {
@@ -666,6 +665,15 @@ export function AdminOrdersPanel({
               <Truck size={16} />
               I’m on the way
             </Button>
+            <a
+              className="ops-btn-secondary ops-btn-lg"
+              href={waUrl(selected.contact.phone, customerMsg)}
+              target="_blank"
+              rel="noreferrer"
+            >
+              <MessageCircle size={16} aria-hidden />
+              Message customer
+            </a>
           </div>
         </>
       );
