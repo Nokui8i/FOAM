@@ -8,6 +8,13 @@ import "@fontsource/figtree/400.css";
 import "@fontsource/figtree/500.css";
 import "@fontsource/figtree/600.css";
 import "@fontsource/figtree/700.css";
+import "@fontsource/archivo/600.css";
+import "@fontsource/archivo/700.css";
+import "@fontsource/archivo/800.css";
+import "@fontsource/public-sans/400.css";
+import "@fontsource/public-sans/500.css";
+import "@fontsource/public-sans/600.css";
+import "@fontsource/public-sans/700.css";
 import "./globals.css";
 
 import { MobileNavDrawer } from "@/components/mobile-nav";
