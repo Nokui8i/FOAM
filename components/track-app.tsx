@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { doc, onSnapshot } from "firebase/firestore";
 
+import { OrderCustomerPhotos } from "@/components/order-customer-photos";
 import { OrderProgress } from "@/components/order-progress";
 import { Button } from "@/components/ui/button";
 import { getFirebaseDb } from "@/lib/firebase";
@@ -111,11 +112,6 @@ function TrackBody() {
     .filter(Boolean)
     .join(" · ");
 
-  const weightPhotos = (track.photos ?? []).filter((p) => p.kind === "weight");
-  const deliveryPhotos = (track.photos ?? []).filter(
-    (p) => p.kind === "return"
-  );
-
   return (
     <div className="track-card">
       <p className="eyebrow">Order tracking</p>
@@ -141,68 +137,15 @@ function TrackBody() {
             Services <strong>{services}</strong>
           </p>
         ) : null}
-        {track.weightLbs != null && track.weightLbs > 0 ? (
-          <p>
-            Weight <strong>{track.weightLbs} lb</strong>
-            {track.finalTotal != null ? (
-              <>
-                {" "}
-                · Total <strong>${track.finalTotal.toFixed(2)}</strong>
-              </>
-            ) : null}
-          </p>
-        ) : track.finalTotal != null ? (
-          <p>
-            Total <strong>${track.finalTotal.toFixed(2)}</strong>
-          </p>
-        ) : null}
       </div>
 
       <OrderProgress status={status} />
 
-      {weightPhotos.length > 0 ? (
-        <section className="track-photos" aria-label="Scale photo">
-          <h2 className="track-photos-title">Scale photo</h2>
-          <p className="track-photos-hint">
-            Taken when we weighed your laundry at pickup.
-          </p>
-          <div className="track-photos-grid">
-            {weightPhotos.map((photo) => (
-              <a
-                key={photo.url}
-                href={photo.url}
-                target="_blank"
-                rel="noreferrer"
-                className="track-photo"
-              >
-                <img src={photo.url} alt="Scale photo from pickup" />
-              </a>
-            ))}
-          </div>
-        </section>
-      ) : null}
-
-      {deliveryPhotos.length > 0 ? (
-        <section className="track-photos" aria-label="Delivery photo">
-          <h2 className="track-photos-title">Delivery photo</h2>
-          <p className="track-photos-hint">
-            Proof your order was returned.
-          </p>
-          <div className="track-photos-grid">
-            {deliveryPhotos.map((photo) => (
-              <a
-                key={photo.url}
-                href={photo.url}
-                target="_blank"
-                rel="noreferrer"
-                className="track-photo"
-              >
-                <img src={photo.url} alt="Delivery proof photo" />
-              </a>
-            ))}
-          </div>
-        </section>
-      ) : null}
+      <OrderCustomerPhotos
+        photos={track.photos}
+        weightLbs={track.weightLbs}
+        finalTotal={track.finalTotal}
+      />
 
       <div className="mt-5 flex flex-wrap gap-2">
         <Button variant="outline" asChild>

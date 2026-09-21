@@ -11,6 +11,7 @@ import {
 } from "firebase/firestore";
 import { ArrowRight, ChevronDown, PackageOpen } from "lucide-react";
 
+import { OrderCustomerPhotos } from "@/components/order-customer-photos";
 import { OrderProgress } from "@/components/order-progress";
 import { Button } from "@/components/ui/button";
 import { formatPickupDate } from "@/lib/booking";
@@ -20,6 +21,7 @@ import {
   isInProgressOrder,
   isWaitingForPickup,
   normalizeOrderStatus,
+  type OrderPhoto,
   type OrderStatus,
 } from "@/lib/orders";
 import { orderRefFromId, trackPath } from "@/lib/order-tracking";
@@ -35,11 +37,19 @@ type AccountOrderRow = {
   dryCleaning: boolean;
   bagCount: number;
   trackKey?: string;
+  photos: OrderPhoto[];
+  weightLbs: number | null;
+  finalTotal: number | null;
 };
 
 function mapRow(id: string, data: Record<string, unknown>): AccountOrderRow {
   const pickup = (data.pickup ?? {}) as Record<string, unknown>;
   const services = (data.services ?? {}) as Record<string, unknown>;
+  const photos = Array.isArray(data.photos)
+    ? (data.photos as OrderPhoto[]).filter(
+        (photo) => photo && typeof photo.url === "string"
+      )
+    : [];
   return {
     id,
     status: normalizeOrderStatus(data.status),
@@ -49,6 +59,9 @@ function mapRow(id: string, data: Record<string, unknown>): AccountOrderRow {
     dryCleaning: Boolean(services.dryCleaning),
     bagCount: Number(services.bagCount ?? 0),
     trackKey: typeof data.trackKey === "string" ? data.trackKey : undefined,
+    photos,
+    weightLbs: typeof data.weightLbs === "number" ? data.weightLbs : null,
+    finalTotal: typeof data.finalTotal === "number" ? data.finalTotal : null,
   };
 }
 
@@ -210,6 +223,11 @@ export function AccountOrders({ uid }: { uid: string }) {
             {open ? (
               <div className="account-order-body">
                 <OrderProgress status={order.status} />
+                <OrderCustomerPhotos
+                  photos={order.photos}
+                  weightLbs={order.weightLbs}
+                  finalTotal={order.finalTotal}
+                />
                 {order.trackKey ? (
                   <div className="mt-4">
                     <Button variant="outline" size="sm" asChild>

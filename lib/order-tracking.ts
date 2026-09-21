@@ -15,7 +15,7 @@ export const CUSTOMER_PIPELINE_LABELS: Record<
   },
   progress: {
     label: "At the laundry",
-    hint: "Collected and being cleaned. Your scale photo is below when available.",
+    hint: "Collected and being cleaned.",
   },
   delivery: {
     label: "On delivery",

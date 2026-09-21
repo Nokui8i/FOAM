@@ -315,6 +315,47 @@ export function AdminOrdersPanel({
     setError("");
   }, [selected?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Backfill customer tracking with scale/delivery photos + totals.
+  useEffect(() => {
+    if (!selected?.trackKey) return;
+    const visible = customerVisiblePhotos(selected.photos);
+    if (
+      !visible.length &&
+      !(typeof selected.weightLbs === "number" && selected.weightLbs > 0) &&
+      selected.finalTotal == null
+    ) {
+      return;
+    }
+    const trackPatch: Record<string, unknown> = {
+      updatedAt: serverTimestamp(),
+    };
+    if (visible.length) {
+      trackPatch.photos = visible.map((photo) => ({
+        url: photo.url,
+        kind: photo.kind,
+        createdAt: photo.createdAt ?? null,
+      }));
+    }
+    if (typeof selected.weightLbs === "number") {
+      trackPatch.weightLbs = selected.weightLbs;
+    }
+    if (typeof selected.finalTotal === "number") {
+      trackPatch.finalTotal = selected.finalTotal;
+    }
+    void updateDoc(
+      doc(getFirebaseDb(), "orderTracks", selected.trackKey),
+      trackPatch
+    ).catch(() => {
+      /* older orders may lack a track doc */
+    });
+  }, [
+    selected?.id,
+    selected?.trackKey,
+    selected?.photos?.length,
+    selected?.weightLbs,
+    selected?.finalTotal,
+  ]); // eslint-disable-line react-hooks/exhaustive-deps
+
   async function patchOrderDoc(
     order: FoamOrder,
     data: Record<string, unknown>,
