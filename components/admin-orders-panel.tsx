@@ -56,7 +56,7 @@ import {
   type OrderPhotoKind,
   type OrderStatus,
 } from "@/lib/orders";
-import { firstNameFromContact } from "@/lib/order-tracking";
+import { customerVisiblePhotos, firstNameFromContact } from "@/lib/order-tracking";
 import { BUSINESS_WHATSAPP } from "@/lib/site-config";
 import { cn } from "@/lib/utils";
 
@@ -333,12 +333,30 @@ export function AdminOrdersPanel({
         typeof data.status === "string"
           ? normalizeOrderStatus(data.status)
           : null;
-      if (nextStatus && order.trackKey) {
+      if (order.trackKey) {
         try {
-          await updateDoc(doc(getFirebaseDb(), "orderTracks", order.trackKey), {
-            status: nextStatus,
+          const trackPatch: Record<string, unknown> = {
             updatedAt: serverTimestamp(),
-          });
+          };
+          if (nextStatus) trackPatch.status = nextStatus;
+          if (typeof data.weightLbs === "number") {
+            trackPatch.weightLbs = data.weightLbs;
+          }
+          if (typeof data.finalTotal === "number") {
+            trackPatch.finalTotal = data.finalTotal;
+          }
+          const visible = customerVisiblePhotos(order.photos);
+          if (visible.length) {
+            trackPatch.photos = visible.map((photo) => ({
+              url: photo.url,
+              kind: photo.kind,
+              createdAt: photo.createdAt ?? null,
+            }));
+          }
+          await updateDoc(
+            doc(getFirebaseDb(), "orderTracks", order.trackKey),
+            trackPatch
+          );
         } catch {
           /* older orders may lack a track doc */
         }
@@ -463,15 +481,33 @@ export function AdminOrdersPanel({
         kind,
         file,
       });
+      const photo: OrderPhoto = {
+        url: uploaded.url,
+        kind,
+        createdAt: new Date().toISOString(),
+      };
       await updateDoc(doc(getFirebaseDb(), "orders", selected.id), {
-        photos: arrayUnion({
-          url: uploaded.url,
-          kind,
-          createdAt: new Date().toISOString(),
-        }),
+        photos: arrayUnion(photo),
         statusUpdatedAt: serverTimestamp(),
         lastUpdatedBy: adminEmail,
       });
+      if (selected.trackKey && (kind === "weight" || kind === "return")) {
+        try {
+          await updateDoc(
+            doc(getFirebaseDb(), "orderTracks", selected.trackKey),
+            {
+              photos: arrayUnion({
+                url: photo.url,
+                kind: photo.kind,
+                createdAt: photo.createdAt ?? null,
+              }),
+              updatedAt: serverTimestamp(),
+            }
+          );
+        } catch {
+          /* older orders may lack a track doc */
+        }
+      }
       setOkMsg(kind === "return" ? "Delivery photo saved." : "Photo saved.");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not save photo.");

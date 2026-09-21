@@ -1,4 +1,4 @@
-import type { OrderStatus } from "@/lib/orders";
+import type { OrderStatus, OrderPhoto } from "@/lib/orders";
 import {
   ORDER_PIPELINE_STEPS,
   orderPipelineIndex,
@@ -15,7 +15,7 @@ export const CUSTOMER_PIPELINE_LABELS: Record<
   },
   progress: {
     label: "At the laundry",
-    hint: "Collected and being cleaned.",
+    hint: "Collected and being cleaned. Your scale photo is below when available.",
   },
   delivery: {
     label: "On delivery",
@@ -37,6 +37,10 @@ export type OrderTrackSnapshot = {
   laundry: boolean;
   dryCleaning: boolean;
   bagCount: number;
+  /** Customer-visible ops photos (scale + delivery proof). */
+  photos?: OrderPhoto[];
+  weightLbs?: number | null;
+  finalTotal?: number | null;
   updatedAt?: unknown;
   createdAt?: unknown;
 };
@@ -58,6 +62,18 @@ export function firstNameFromContact(name: string) {
 
 export function trackPath(trackKey: string) {
   return `/track?k=${encodeURIComponent(trackKey)}`;
+}
+
+/** Photos safe to show on the public tracking page. */
+export function customerVisiblePhotos(photos?: OrderPhoto[] | null) {
+  if (!photos?.length) return [];
+  return photos.filter(
+    (photo) =>
+      photo &&
+      typeof photo.url === "string" &&
+      photo.url.length > 0 &&
+      (photo.kind === "weight" || photo.kind === "return")
+  );
 }
 
 export function customerPipelineSteps(status: OrderStatus) {
