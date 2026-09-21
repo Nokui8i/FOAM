@@ -13,6 +13,7 @@ import {
 } from "firebase/firestore";
 import {
   ArrowLeft,
+  ArrowRight,
   CalendarDays,
   Camera,
   Check,
@@ -20,10 +21,15 @@ import {
   Clock,
   MapPin,
   MessageCircle,
+  Minus,
   MoreHorizontal,
   PackageCheck,
   Phone,
+  Plus,
+  Save,
+  Scale,
   Search,
+  Shirt,
   Truck,
   UserRound,
   X,
@@ -478,10 +484,52 @@ export function AdminOrdersPanel({
 
   function addDryItem(item: DryCleanCatalogItem) {
     setDryItems((current) => [...current, { name: item.name, price: item.price }]);
+    setOpenCatalog(true);
   }
 
   function removeDryItem(index: number) {
     setDryItems((current) => current.filter((_, i) => i !== index));
+  }
+
+  function nudgeWeight(delta: number) {
+    const current = Number(weightInput);
+    const base = Number.isFinite(current) ? current : 0;
+    const next = Math.max(0, Math.round((base + delta) * 10) / 10);
+    setWeightInput(next > 0 ? String(next) : "");
+  }
+
+  async function removeWeightPhoto(url: string) {
+    if (!selected) return;
+    const nextPhotos = (selected.photos ?? []).filter((photo) => photo.url !== url);
+    setUploadingPhoto(true);
+    setError("");
+    try {
+      await updateDoc(doc(getFirebaseDb(), "orders", selected.id), {
+        photos: nextPhotos,
+        statusUpdatedAt: serverTimestamp(),
+        lastUpdatedBy: adminEmail,
+      });
+      if (selected.trackKey) {
+        try {
+          const visible = customerVisiblePhotos(nextPhotos);
+          await updateDoc(doc(getFirebaseDb(), "orderTracks", selected.trackKey), {
+            photos: visible.map((photo) => ({
+              url: photo.url,
+              kind: photo.kind,
+              createdAt: photo.createdAt ?? null,
+            })),
+            updatedAt: serverTimestamp(),
+          });
+        } catch {
+          /* older orders may lack a track doc */
+        }
+      }
+      setOkMsg("Photo removed.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not remove photo.");
+    } finally {
+      setUploadingPhoto(false);
+    }
   }
 
   async function saveBilling() {
@@ -727,27 +775,56 @@ export function AdminOrdersPanel({
     // confirmed / en route — weigh, photo, dry clean, bill
     return (
       <>
-        <div className="ops-pickup-grid">
-          <div className="ops-pickup-col">
-            <label className="ops-weight-field">
-              Weight in pounds
-              <span className="ops-weight-input">
-                <input
-                  type="number"
-                  inputMode="decimal"
-                  min={0}
-                  step={0.1}
-                  value={weightInput}
-                  onChange={(e) => setWeightInput(e.target.value)}
-                  placeholder="0.0"
-                />
-                <span>lb</span>
-              </span>
-            </label>
+        <div className="ops-soft-card">
+          <div className="ops-soft-grid">
+            <section className="ops-soft-col" aria-label="Scale">
+              <div className="ops-soft-section-head">
+                <span className="ops-soft-icon" aria-hidden>
+                  <Scale size={16} />
+                </span>
+                <h4>Weight in pounds</h4>
+              </div>
+              <div className="ops-soft-stepper">
+                <button
+                  type="button"
+                  className="ops-soft-stepper-btn"
+                  aria-label="Decrease weight"
+                  disabled={saving || uploadingPhoto}
+                  onClick={() => nudgeWeight(-0.1)}
+                >
+                  <Minus size={16} />
+                </button>
+                <label className="ops-soft-stepper-value">
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    min={0}
+                    step={0.1}
+                    value={weightInput}
+                    onChange={(e) => setWeightInput(e.target.value)}
+                    placeholder="0.0"
+                  />
+                  <span>lb</span>
+                </label>
+                <button
+                  type="button"
+                  className="ops-soft-stepper-btn"
+                  aria-label="Increase weight"
+                  disabled={saving || uploadingPhoto}
+                  onClick={() => nudgeWeight(0.1)}
+                >
+                  <Plus size={16} />
+                </button>
+              </div>
 
-            <div className="ops-photo-block">
-              <label className="ops-photo-upload is-primary">
-                <Camera size={16} aria-hidden />
+              <div className="ops-soft-section-head">
+                <span className="ops-soft-icon" aria-hidden>
+                  <Camera size={16} />
+                </span>
+                <h4>Scale photo</h4>
+              </div>
+              <label className="ops-soft-dropzone">
+                <Camera size={22} aria-hidden />
                 <span>
                   {uploadingPhoto
                     ? "Uploading…"
@@ -767,44 +844,94 @@ export function AdminOrdersPanel({
                   }}
                 />
               </label>
-              <div className="ops-photo-thumbs ops-photo-area">
-                {weightPhotos.length ? (
-                  weightPhotos.map((photo) => (
-                    <a
-                      key={photo.url}
-                      href={photo.url}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="ops-photo-thumb"
-                    >
-                      <img src={photo.url} alt="Weight scale photo" />
-                    </a>
-                  ))
-                ) : (
-                  <span className="ops-chips-empty">
-                    Photos appear here after upload
-                  </span>
-                )}
-              </div>
-            </div>
-          </div>
+              {weightPhotos.length ? (
+                <div className="ops-soft-thumbs">
+                  {weightPhotos.map((photo) => (
+                    <div key={photo.url} className="ops-soft-thumb">
+                      <a href={photo.url} target="_blank" rel="noreferrer">
+                        <img src={photo.url} alt="Weight scale photo" />
+                      </a>
+                      <button
+                        type="button"
+                        className="ops-soft-thumb-remove"
+                        aria-label="Remove photo"
+                        disabled={uploadingPhoto || saving}
+                        onClick={() => void removeWeightPhoto(photo.url)}
+                      >
+                        <X size={12} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+            </section>
 
-          <div className="ops-pickup-col">
-            <div className="ops-catalog is-panel" ref={catalogRef}>
-              <Button
-                type="button"
-                variant="outline"
-                className="ops-catalog-toggle"
-                onClick={() => setOpenCatalog((v) => !v)}
-              >
-                Dry cleaning catalog
-                <span className="ops-catalog-toggle-hint">
-                  {openCatalog ? "Close" : "Open"}
+            <section
+              className="ops-soft-col"
+              aria-label="Dry cleaning"
+              ref={catalogRef}
+            >
+              <div className="ops-soft-section-head">
+                <span className="ops-soft-icon" aria-hidden>
+                  <Shirt size={16} />
                 </span>
-              </Button>
-              {openCatalog ? (
+                <h4>Dry cleaning catalog</h4>
+                <button
+                  type="button"
+                  className="ops-soft-open"
+                  onClick={() => setOpenCatalog((v) => !v)}
+                >
+                  {openCatalog ? "Close" : "Open"}
+                  <ArrowRight size={14} aria-hidden />
+                </button>
+              </div>
+
+              {dryItems.length ? (
+                <div className="ops-soft-items">
+                  {dryItems.map((item, itemIndex) => (
+                    <div
+                      key={`${item.name}-${itemIndex}`}
+                      className="ops-soft-item"
+                    >
+                      <span className="ops-soft-item-mark" aria-hidden>
+                        <Shirt size={14} />
+                      </span>
+                      <span className="ops-soft-item-copy">
+                        <span>{item.name}</span>
+                        <strong>${item.price.toFixed(2)}</strong>
+                      </span>
+                      <button
+                        type="button"
+                        aria-label={`Remove ${item.name}`}
+                        onClick={() => removeDryItem(itemIndex)}
+                      >
+                        <X size={14} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="ops-soft-empty">No dry-clean items yet</p>
+              )}
+
+              {selected.services.dryCleaning && dryItems.length === 0 ? (
+                <p className="ops-dry-warn" role="status">
+                  Customer ordered dry cleaning — add items before charging.
+                </p>
+              ) : null}
+
+              {!openCatalog ? (
+                <button
+                  type="button"
+                  className="ops-soft-add"
+                  onClick={() => setOpenCatalog(true)}
+                >
+                  <Plus size={16} aria-hidden />
+                  Add more items
+                </button>
+              ) : (
                 <div
-                  className="ops-catalog-menu"
+                  className="ops-soft-catalog"
                   role="listbox"
                   aria-label="Dry cleaning catalog"
                   aria-multiselectable="true"
@@ -862,80 +989,55 @@ export function AdminOrdersPanel({
                     )}
                   </div>
                 </div>
-              ) : null}
-            </div>
-            {selected.services.dryCleaning && dryItems.length === 0 ? (
-              <p className="ops-dry-warn" role="status">
-                Customer ordered dry cleaning — add items, or you&rsquo;ll be asked
-                to confirm before charging.
-              </p>
-            ) : null}
-            <div className="ops-chips">
-              {dryItems.length ? (
-                dryItems.map((item, itemIndex) => (
-                  <span
-                    key={`${item.name}-${itemIndex}`}
-                    className="ops-chip"
-                  >
-                    {item.name} <b>${item.price.toFixed(2)}</b>
-                    <button
-                      type="button"
-                      aria-label={`Remove ${item.name}`}
-                      onClick={() => removeDryItem(itemIndex)}
-                    >
-                      <X size={12} />
-                    </button>
-                  </span>
-                ))
-              ) : (
-                <span className="ops-chips-empty">No dry-clean items</span>
               )}
-            </div>
+            </section>
           </div>
-        </div>
 
-        <div className="ops-billing-card">
-          <div className="ops-billing-total">
-            <strong>
-              {previewTotal != null
-                ? `$${previewTotal.toFixed(2)}`
-                : selected.finalTotal != null
-                  ? `$${selected.finalTotal.toFixed(2)}`
-                  : "—"}
-            </strong>
-          </div>
-          <div className="ops-action-row">
-            {stageBackLabel ? (
+          <div className="ops-soft-footer">
+            <div className="ops-soft-total">
+              <span>Total</span>
+              <strong>
+                {previewTotal != null
+                  ? `$${previewTotal.toFixed(2)}`
+                  : selected.finalTotal != null
+                    ? `$${selected.finalTotal.toFixed(2)}`
+                    : "—"}
+              </strong>
+            </div>
+            <div className="ops-soft-actions">
+              {stageBackLabel ? (
+                <button
+                  type="button"
+                  className="ops-soft-btn"
+                  disabled={saving || uploadingPhoto}
+                  onClick={() => void goBackStage()}
+                >
+                  <ArrowLeft size={15} aria-hidden />
+                  {stageBackLabel}
+                </button>
+              ) : null}
               <button
                 type="button"
-                className="ops-stage-back"
+                className="ops-soft-btn"
                 disabled={saving || uploadingPhoto}
-                onClick={() => void goBackStage()}
+                onClick={() => void saveBilling()}
               >
-                <ArrowLeft size={14} aria-hidden />
-                {stageBackLabel}
+                <Save size={15} aria-hidden />
+                Save &amp; close
               </button>
-            ) : null}
-            <Button
-              type="button"
-              variant="outline"
-              className="ops-btn-lg"
-              disabled={saving || uploadingPhoto}
-              onClick={() => void saveBilling()}
-            >
-              Save &amp; close
-            </Button>
-            {canCharge ? (
-              <Button
-                type="button"
-                className="ops-btn-lg ops-billing-charge"
-                disabled={saving || uploadingPhoto}
-                onClick={() => void chargeAndCollect()}
-              >
-                <PackageCheck size={15} />
-                Charge · send to laundry
-              </Button>
-            ) : null}
+              {canCharge ? (
+                <button
+                  type="button"
+                  className="ops-soft-btn is-primary"
+                  disabled={saving || uploadingPhoto}
+                  onClick={() => void chargeAndCollect()}
+                >
+                  <PackageCheck size={15} aria-hidden />
+                  Charge · send to laundry
+                  <ArrowRight size={15} aria-hidden />
+                </button>
+              ) : null}
+            </div>
           </div>
         </div>
       </>
