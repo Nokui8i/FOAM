@@ -191,15 +191,15 @@ export function AccountOrders({ uid }: { uid: string }) {
               onClick={() => setOpenId(open ? null : order.id)}
             >
               <div>
-                <h3>Ref {orderRefFromId(order.id)}</h3>
-                <p>
+                <h3>
                   {order.pickupDate
                     ? `${formatPickupDate(order.pickupDate)}${
                         order.pickupSlot ? ` · ${order.pickupSlot}` : ""
                       }`
                     : "Pickup scheduled"}
                   {services ? ` · ${services}` : ""}
-                </p>
+                </h3>
+                <p>Ref {orderRefFromId(order.id)}</p>
               </div>
               <span className="inline-flex items-center gap-2">
                 <span

@@ -171,15 +171,15 @@ function TrackBody() {
     <article className="account-order-card track-order-card">
       <div className="account-order-head is-static">
         <div>
-          <h3>Ref {orderRefFromId(track.orderId || track.ref)}</h3>
-          <p>
+          <h3>
             {track.pickupDate
               ? `${formatPickupDate(track.pickupDate)}${
                   track.pickupSlot ? ` · ${track.pickupSlot}` : ""
                 }`
               : "Pickup scheduled"}
             {services ? ` · ${services}` : ""}
-          </p>
+          </h3>
+          <p>Ref {orderRefFromId(track.orderId || track.ref)}</p>
         </div>
         <span
           className={cn("account-order-badge", active && "is-active")}
