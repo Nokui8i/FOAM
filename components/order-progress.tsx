@@ -37,14 +37,11 @@ export function OrderProgress({ status, className }: OrderProgressProps) {
             )}
           >
             <span className="order-progress-dot" aria-hidden>
-              {step.state === "done" ? <Check size={12} strokeWidth={3} /> : null}
-            </span>
-            <div className="order-progress-copy">
-              <strong>{step.label}</strong>
-              {step.state === "active" || step.state === "done" ? (
-                <small>{step.hint}</small>
+              {step.state === "done" ? (
+                <Check size={12} strokeWidth={3} />
               ) : null}
-            </div>
+            </span>
+            <strong className="order-progress-label">{step.label}</strong>
           </li>
         ))}
       </ol>

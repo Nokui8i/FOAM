@@ -3874,7 +3874,7 @@
 
   .order-progress {
     display: grid;
-    gap: 0.85rem;
+    gap: 0.65rem;
   }
 
   .order-progress-cancelled {
@@ -3890,30 +3890,50 @@
 
   .order-progress-list {
     margin: 0;
-    padding: 0;
+    padding: 0.25rem 0 0;
     list-style: none;
-    display: grid;
+    display: flex;
+    align-items: flex-start;
     gap: 0;
+    width: 100%;
   }
 
   .order-progress-step {
-    display: grid;
-    grid-template-columns: 1.35rem minmax(0, 1fr);
-    gap: 0.65rem;
-    padding: 0.65rem 0;
-    border-bottom: 1px solid var(--color-border);
+    position: relative;
+    display: flex;
+    flex: 1 1 0;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.4rem;
+    min-width: 0;
+    padding: 0;
+    border: 0;
   }
 
-  .order-progress-step:last-child {
-    border-bottom: 0;
+  .order-progress-step:not(:last-child)::before {
+    content: "";
+    position: absolute;
+    top: 0.7rem;
+    left: calc(50% + 0.85rem);
+    right: calc(-50% + 0.85rem);
+    height: 2px;
+    border-radius: 999px;
+    background: color-mix(in oklab, var(--color-border) 70%, var(--color-muted-foreground));
+    pointer-events: none;
+  }
+
+  .order-progress-step.is-done:not(:last-child)::before {
+    background: var(--color-accent-strong);
   }
 
   .order-progress-dot {
+    position: relative;
+    z-index: 1;
     display: grid;
     place-items: center;
-    width: 1.35rem;
-    height: 1.35rem;
-    margin-top: 0.1rem;
+    width: 1.4rem;
+    height: 1.4rem;
+    margin: 0;
     border-radius: 999px;
     border: 1.5px solid var(--color-border);
     background: #fff;
@@ -3926,30 +3946,34 @@
     background: var(--color-accent-strong);
   }
 
-  .order-progress-step.is-upcoming .order-progress-copy {
-    opacity: 0.55;
+  .order-progress-step.is-active .order-progress-dot {
+    box-shadow: 0 0 0 3px color-mix(in oklab, var(--color-accent-strong) 20%, transparent);
   }
 
-  .order-progress-copy {
-    min-width: 0;
-    display: grid;
-    gap: 0.15rem;
-  }
-
-  .order-progress-copy strong {
-    font-size: 0.95rem;
+  .order-progress-label {
+    display: block;
+    max-width: 100%;
+    font-size: clamp(0.62rem, 2.4vw, 0.74rem);
     font-weight: 700;
     letter-spacing: -0.01em;
+    line-height: 1.2;
+    text-align: center;
+    color: color-mix(in oklab, var(--color-muted-foreground) 45%, var(--color-foreground));
   }
 
-  .order-progress-copy small {
-    font-size: 0.78rem;
-    color: var(--color-muted-foreground);
-    line-height: 1.4;
+  .order-progress-step.is-done .order-progress-label,
+  .order-progress-step.is-active .order-progress-label {
+    color: var(--color-foreground);
+  }
+
+  .order-progress-step.is-upcoming .order-progress-label {
+    opacity: 0.65;
   }
 
   .order-progress-status {
     margin: 0;
+    padding-top: 0.65rem;
+    border-top: 1px solid var(--color-border);
     font-size: 0.75rem;
     font-weight: 650;
     color: var(--color-muted-foreground);
