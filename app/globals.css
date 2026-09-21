@@ -8120,25 +8120,25 @@ button.ops-row {
   width: 100%;
   display: grid;
   grid-template-columns: 1fr;
-  gap: 0.85rem;
-  margin-top: 0.5rem;
-  padding: 1rem;
-  border: 1px solid var(--ops-nav-active);
-  border-radius: var(--ops-radius);
-  background: var(--ops-nav);
-  box-shadow: var(--ops-shadow-billing);
-  color: var(--ops-nav-fg);
+  gap: 0.55rem;
+  margin-top: 0.35rem;
+  padding: 0.7rem 0.8rem;
+  border: 1px solid var(--ops-border);
+  border-radius: 0.65rem;
+  background: #fff;
+  box-shadow: none;
+  color: var(--ops-ink);
 }
 .ops-billing-summary {
-  border: 1px solid var(--ops-nav-active);
-  background: var(--ops-nav);
-  color: var(--ops-nav-fg);
-  box-shadow: var(--ops-shadow-billing);
+  border: 1px solid var(--ops-border);
+  background: #fff;
+  color: var(--ops-ink);
+  box-shadow: none;
 }
 .ops-billing-summary-head {
   margin-bottom: 1.25rem;
   padding-bottom: 1rem;
-  border-bottom: 1px solid var(--ops-nav-active);
+  border-bottom: 1px solid var(--ops-border);
 }
 .ops-billing-summary-head .ops-panel-title-number {
   margin: 0;
@@ -8153,7 +8153,7 @@ button.ops-row {
   margin: 0.25rem 0 0;
   font-size: 0.75rem;
   line-height: 1.4;
-  color: var(--ops-nav-muted);
+  color: var(--ops-muted);
 }
 .ops-billing-summary-total {
   display: flex;
@@ -8161,18 +8161,18 @@ button.ops-row {
   justify-content: space-between;
   gap: 0.75rem;
   padding-bottom: 1.25rem;
-  border-bottom: 1px solid var(--ops-nav-active);
+  border-bottom: 1px solid var(--ops-border);
 }
 .ops-billing-summary-total span {
   font-size: 0.875rem;
-  color: var(--ops-nav-muted);
+  color: var(--ops-muted);
 }
 .ops-billing-summary-total strong {
   font-family: var(--ops-display);
   font-size: 2.25rem;
   font-weight: 800;
   line-height: 1;
-  color: var(--ops-nav-fg);
+  color: var(--ops-ink);
 }
 .ops-billing-summary .ops-billing-save {
   margin-top: 1.25rem;
@@ -8182,7 +8182,7 @@ button.ops-row {
   text-align: center;
   font-size: 0.75rem;
   line-height: 1.4;
-  color: var(--ops-nav-muted);
+  color: var(--ops-muted);
 }
 .ops-photo-area {
   min-height: 6rem;
@@ -8204,57 +8204,78 @@ button.ops-row {
   display: flex;
   flex-direction: row;
   align-items: baseline;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: 0.5rem;
-  padding: 0 0 0.85rem;
+  padding: 0 0 0.55rem;
   border: 0;
-  border-bottom: 1px solid var(--ops-nav-active);
+  border-bottom: 1px solid var(--ops-border);
   border-radius: 0;
   background: transparent;
-  text-align: left;
+  text-align: right;
   width: 100%;
   max-width: 100%;
 }
 .ops-billing-total span {
-  font-size: 0.8125rem;
-  color: var(--ops-nav-muted);
-  text-transform: none;
-  letter-spacing: 0;
-  font-weight: 650;
+  display: none;
 }
 .ops-billing-total strong {
   font-family: var(--ops-display);
-  font-size: 1.85rem;
-  font-weight: 800;
+  font-size: 1.15rem;
+  font-weight: 750;
   letter-spacing: -0.02em;
   line-height: 1;
-  color: var(--ops-nav-fg);
+  color: var(--ops-ink);
   min-height: 0;
+}
+.ops-billing-card .ops-action-row {
+  margin-top: 0;
+  gap: 0.4rem;
+}
+.ops-billing-card .ops-btn-lg,
+.ops-billing-card .ops-btn-secondary {
+  height: 2.35rem !important;
+  min-height: 2.35rem !important;
+  border-radius: 0.55rem !important;
+  font-size: 0.8rem !important;
+  font-weight: 650 !important;
+  box-shadow: none !important;
+}
+.ops-billing-card .ops-btn-lg:not([class*="outline"]) {
+  background: var(--ops-primary) !important;
+  color: #fff !important;
+}
+.ops-billing-card .ops-btn-lg:not([class*="outline"]):hover {
+  background: var(--ops-primary-hover) !important;
 }
 .ops-billing-save {
   margin-top: 0.15rem;
   width: 100% !important;
   min-width: 0;
   max-width: 100%;
-  height: 2.85rem !important;
-  padding: 0 1rem !important;
-  font-size: 0.9rem !important;
-  font-weight: 700 !important;
+  height: 2.35rem !important;
+  padding: 0 0.85rem !important;
+  font-size: 0.8rem !important;
+  font-weight: 650 !important;
   background: var(--ops-primary) !important;
   color: #fff !important;
-  border-radius: 0.75rem !important;
-  box-shadow: var(--ops-shadow-sm) !important;
+  border-radius: 0.55rem !important;
+  box-shadow: none !important;
 }
 .ops-billing-save:hover {
   background: var(--ops-primary-hover) !important;
 }
 .ops-billing-card .ops-stage-back {
-  border-color: color-mix(in oklab, var(--ops-nav-fg) 18%, transparent) !important;
-  background: var(--ops-nav-active) !important;
-  color: var(--ops-nav-fg) !important;
+  height: 2.35rem !important;
+  min-height: 2.35rem !important;
+  border-color: var(--ops-border) !important;
+  background: #fff !important;
+  color: var(--ops-ink) !important;
+  font-size: 0.8rem !important;
+  font-weight: 650 !important;
+  border-radius: 0.55rem !important;
 }
 .ops-billing-card .ops-stage-back:hover:not(:disabled) {
-  background: color-mix(in oklab, var(--ops-nav-active) 80%, white) !important;
+  background: color-mix(in srgb, var(--ops-ink) 4%, #fff) !important;
 }
 
 .ops-inquiry { padding: 1rem; }

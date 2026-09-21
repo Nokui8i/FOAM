@@ -841,7 +841,6 @@ export function AdminOrdersPanel({
 
         <div className="ops-billing-card">
           <div className="ops-billing-total">
-            <span>Billing preview</span>
             <strong>
               {previewTotal != null
                 ? `$${previewTotal.toFixed(2)}`
@@ -878,7 +877,7 @@ export function AdminOrdersPanel({
                 disabled={saving || uploadingPhoto}
                 onClick={() => void chargeAndCollect()}
               >
-                <PackageCheck size={16} />
+                <PackageCheck size={15} />
                 Charge · send to laundry
               </Button>
             ) : null}
