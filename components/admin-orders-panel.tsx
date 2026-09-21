@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   arrayUnion,
   collection,
@@ -233,33 +233,8 @@ export function AdminOrdersPanel({
   const [weightInput, setWeightInput] = useState("");
   const [dryItems, setDryItems] = useState<DryCleanItem[]>([]);
   const [dryQuery, setDryQuery] = useState("");
-  const [openCatalog, setOpenCatalog] = useState(false);
   const [saving, setSaving] = useState(false);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
-  const catalogRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!openCatalog) return;
-
-    function handlePointerDown(event: PointerEvent) {
-      const root = catalogRef.current;
-      if (!root) return;
-      const target = event.target;
-      if (target instanceof Node && root.contains(target)) return;
-      setOpenCatalog(false);
-    }
-
-    function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") setOpenCatalog(false);
-    }
-
-    document.addEventListener("pointerdown", handlePointerDown, true);
-    document.addEventListener("keydown", handleKeyDown);
-    return () => {
-      document.removeEventListener("pointerdown", handlePointerDown, true);
-      document.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [openCatalog]);
 
   useEffect(() => {
     const db = getFirebaseDb();
@@ -332,7 +307,6 @@ export function AdminOrdersPanel({
     );
     setDryItems(selected.dryCleanItems ?? []);
     setDryQuery("");
-    setOpenCatalog(false);
     setOkMsg("");
     setError("");
   }, [selected?.id]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -727,10 +701,11 @@ export function AdminOrdersPanel({
     // confirmed / en route — weigh, photo, dry clean, bill
     return (
       <>
-        <div className="ops-pickup-grid">
-          <div className="ops-pickup-col">
+        <div className="ops-pickup-split">
+          <section className="ops-pickup-pane" aria-label="Scale">
+            <div className="ops-pickup-pane-label">Scale</div>
             <label className="ops-weight-field">
-              Weight in pounds
+              Weight
               <span className="ops-weight-input">
                 <input
                   type="number"
@@ -745,28 +720,7 @@ export function AdminOrdersPanel({
               </span>
             </label>
 
-            <div className="ops-photo-block">
-              <label className="ops-photo-upload is-primary">
-                <Camera size={16} aria-hidden />
-                <span>
-                  {uploadingPhoto
-                    ? "Uploading…"
-                    : weightPhotos.length
-                      ? "Add another scale photo"
-                      : "Add scale photo"}
-                </span>
-                <input
-                  type="file"
-                  accept="image/*"
-                  capture="environment"
-                  disabled={uploadingPhoto || saving}
-                  onChange={(e) => {
-                    const file = e.target.files?.[0] ?? null;
-                    void handleOrderPhoto(file, "weight");
-                    e.target.value = "";
-                  }}
-                />
-              </label>
+            <div className="ops-photo-zone">
               <div className="ops-photo-thumbs ops-photo-area">
                 {weightPhotos.length ? (
                   weightPhotos.map((photo) => (
@@ -781,98 +735,111 @@ export function AdminOrdersPanel({
                     </a>
                   ))
                 ) : (
-                  <span className="ops-chips-empty">
-                    Photos appear here after upload
+                  <span className="ops-photo-empty">
+                    <Camera size={18} aria-hidden />
+                    Scale photo
                   </span>
                 )}
               </div>
-            </div>
-          </div>
-
-          <div className="ops-pickup-col">
-            <div className="ops-catalog is-panel" ref={catalogRef}>
-              <Button
-                type="button"
-                variant="outline"
-                className="ops-catalog-toggle"
-                onClick={() => setOpenCatalog((v) => !v)}
-              >
-                Dry cleaning catalog
-                <span className="ops-catalog-toggle-hint">
-                  {openCatalog ? "Close" : "Open"}
+              <label className="ops-photo-upload is-primary">
+                <Camera size={15} aria-hidden />
+                <span>
+                  {uploadingPhoto
+                    ? "Uploading…"
+                    : weightPhotos.length
+                      ? "Add another"
+                      : "Take photo"}
                 </span>
-              </Button>
-              {openCatalog ? (
-                <div
-                  className="ops-catalog-menu"
-                  role="listbox"
-                  aria-label="Dry cleaning catalog"
-                  aria-multiselectable="true"
-                >
-                  <label className="ops-search is-compact">
-                    <Search size={14} aria-hidden />
-                    <input
-                      autoFocus
-                      value={dryQuery}
-                      onChange={(e) => setDryQuery(e.target.value)}
-                      placeholder="Search catalog"
-                    />
-                  </label>
-                  <div className="ops-catalog-list">
-                    {dryMatches.length === 0 ? (
-                      <p className="ops-catalog-empty">No catalog matches</p>
-                    ) : (
-                      dryMatches.map((item) => {
-                        const selectedCount = dryItems.filter(
-                          (dry) => dry.name === item.name
-                        ).length;
-                        return (
-                          <button
-                            key={item.name}
-                            type="button"
-                            role="option"
-                            aria-selected={selectedCount > 0}
-                            className={cn(
-                              "ops-catalog-item",
-                              selectedCount > 0 && "is-selected"
-                            )}
-                            onClick={() => addDryItem(item)}
-                          >
-                            <span className="ops-catalog-item-main">
-                              <span
-                                className={cn(
-                                  "ops-catalog-check",
-                                  selectedCount > 0 && "is-on"
-                                )}
-                                aria-hidden
-                              >
-                                {selectedCount > 0 ? <Check size={12} /> : null}
-                              </span>
-                              <span>{item.name}</span>
-                              {selectedCount > 1 ? (
-                                <span className="ops-catalog-qty">
-                                  ×{selectedCount}
-                                </span>
-                              ) : null}
-                            </span>
-                            <strong>${item.price.toFixed(2)}</strong>
-                          </button>
-                        );
-                      })
-                    )}
-                  </div>
-                </div>
+                <input
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  disabled={uploadingPhoto || saving}
+                  onChange={(e) => {
+                    const file = e.target.files?.[0] ?? null;
+                    void handleOrderPhoto(file, "weight");
+                    e.target.value = "";
+                  }}
+                />
+              </label>
+            </div>
+          </section>
+
+          <section className="ops-pickup-pane" aria-label="Dry cleaning">
+            <div className="ops-pickup-pane-label">
+              Dry clean
+              {dryItems.length > 0 ? (
+                <span className="ops-pickup-pane-count">{dryItems.length}</span>
               ) : null}
             </div>
+
+            <label className="ops-search is-compact ops-catalog-search">
+              <Search size={14} aria-hidden />
+              <input
+                value={dryQuery}
+                onChange={(e) => setDryQuery(e.target.value)}
+                placeholder="Search items"
+              />
+            </label>
+
+            <div
+              className="ops-catalog-list is-open"
+              role="listbox"
+              aria-label="Dry cleaning catalog"
+              aria-multiselectable="true"
+            >
+              {dryMatches.length === 0 ? (
+                <p className="ops-catalog-empty">No matches</p>
+              ) : (
+                dryMatches.map((item) => {
+                  const selectedCount = dryItems.filter(
+                    (dry) => dry.name === item.name
+                  ).length;
+                  return (
+                    <button
+                      key={item.name}
+                      type="button"
+                      role="option"
+                      aria-selected={selectedCount > 0}
+                      className={cn(
+                        "ops-catalog-item",
+                        selectedCount > 0 && "is-selected"
+                      )}
+                      onClick={() => addDryItem(item)}
+                    >
+                      <span className="ops-catalog-item-main">
+                        <span
+                          className={cn(
+                            "ops-catalog-check",
+                            selectedCount > 0 && "is-on"
+                          )}
+                          aria-hidden
+                        >
+                          {selectedCount > 0 ? <Check size={12} /> : null}
+                        </span>
+                        <span>{item.name}</span>
+                        {selectedCount > 1 ? (
+                          <span className="ops-catalog-qty">
+                            ×{selectedCount}
+                          </span>
+                        ) : null}
+                      </span>
+                      <strong>${item.price.toFixed(2)}</strong>
+                    </button>
+                  );
+                })
+              )}
+            </div>
+
             {selected.services.dryCleaning && dryItems.length === 0 ? (
               <p className="ops-dry-warn" role="status">
-                Customer ordered dry cleaning — add items, or you&rsquo;ll be asked
-                to confirm before charging.
+                Customer ordered dry cleaning — add items before charging.
               </p>
             ) : null}
-            <div className="ops-chips">
-              {dryItems.length ? (
-                dryItems.map((item, itemIndex) => (
+
+            {dryItems.length > 0 ? (
+              <div className="ops-chips">
+                {dryItems.map((item, itemIndex) => (
                   <span
                     key={`${item.name}-${itemIndex}`}
                     className="ops-chip"
@@ -886,25 +853,21 @@ export function AdminOrdersPanel({
                       <X size={12} />
                     </button>
                   </span>
-                ))
-              ) : (
-                <span className="ops-chips-empty">No dry-clean items</span>
-              )}
-            </div>
-          </div>
+                ))}
+              </div>
+            ) : null}
+          </section>
         </div>
 
-        <div className="ops-billing-card">
-          <div className="ops-billing-total">
-            <strong>
-              {previewTotal != null
-                ? `$${previewTotal.toFixed(2)}`
-                : selected.finalTotal != null
-                  ? `$${selected.finalTotal.toFixed(2)}`
-                  : "—"}
-            </strong>
-          </div>
-          <div className="ops-action-row">
+        <div className="ops-billing-bar">
+          <strong className="ops-billing-bar-total">
+            {previewTotal != null
+              ? `$${previewTotal.toFixed(2)}`
+              : selected.finalTotal != null
+                ? `$${selected.finalTotal.toFixed(2)}`
+                : "—"}
+          </strong>
+          <div className="ops-billing-bar-actions">
             {stageBackLabel ? (
               <button
                 type="button"
@@ -913,27 +876,27 @@ export function AdminOrdersPanel({
                 onClick={() => void goBackStage()}
               >
                 <ArrowLeft size={14} aria-hidden />
-                {stageBackLabel}
+                Undo
               </button>
             ) : null}
             <Button
               type="button"
               variant="outline"
-              className="ops-btn-lg"
+              className="ops-billing-bar-btn"
               disabled={saving || uploadingPhoto}
               onClick={() => void saveBilling()}
             >
-              Save &amp; close
+              Save
             </Button>
             {canCharge ? (
               <Button
                 type="button"
-                className="ops-btn-lg ops-billing-charge"
+                className="ops-billing-bar-btn ops-billing-charge"
                 disabled={saving || uploadingPhoto}
                 onClick={() => void chargeAndCollect()}
               >
                 <PackageCheck size={15} />
-                Charge · send to laundry
+                Charge
               </Button>
             ) : null}
           </div>
