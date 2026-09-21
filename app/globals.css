@@ -5796,31 +5796,33 @@
 
 /* ===== FOAM Ops console (hub UI) ===== */
 .admin-page {
-  --ops-bg: #F3F5F4;
-  --ops-surface: #F7F8F8;
-  --ops-ink: #12212E;
-  --ops-muted: #5B6B70;
-  --ops-border: #D9E0DE;
-  --ops-accent: #DEEFF0;
-  --ops-primary: #0E7C86;
-  --ops-primary-hover: #0B6169;
-  --ops-danger: #C1503F;
-  --ops-success: #4C8B6B;
-  --ops-warning: #E8A33D;
-  --ops-info: #7B6CA8;
+  --ops-bg: #f4f7fb;
+  --ops-surface: #eef3f8;
+  --ops-ink: #142033;
+  --ops-muted: #64748b;
+  --ops-border: #dbe4ee;
+  --ops-accent: #d9f0fa;
+  --ops-primary: #0b8ec8;
+  --ops-primary-hover: #0876a8;
+  --ops-danger: #d94a3d;
+  --ops-success: #0f766e;
   --ops-card: #ffffff;
-  --ops-nav: #12212E;
-  --ops-nav-fg: #ffffff;
-  --ops-nav-muted: #9FB3BA;
-  --ops-nav-active: #1C3644;
-  --ops-shadow: none;
-  --ops-shadow-panel: none;
-  --ops-shadow-pickup: none;
-  --ops-shadow-billing: none;
-  --ops-shadow-sm: none;
-  --ops-radius: 0.9rem;
-  --ops-font: "Public Sans", var(--font-sans);
-  --ops-display: "Archivo", var(--font-display);
+  --ops-nav: #ffffff;
+  --ops-nav-fg: #142033;
+  --ops-nav-muted: #64748b;
+  --ops-nav-active: #e8f6fc;
+  --ops-shadow:
+    0 10px 28px color-mix(in oklab, var(--ops-ink) 5%, transparent);
+  --ops-shadow-panel:
+    0 16px 40px color-mix(in oklab, var(--ops-ink) 7%, transparent);
+  --ops-shadow-pickup:
+    0 14px 30px color-mix(in oklab, var(--ops-primary) 13%, transparent);
+  --ops-shadow-billing:
+    0 16px 34px color-mix(in oklab, #0b1a2a 22%, transparent);
+  --ops-shadow-sm: 0 1px 2px color-mix(in oklab, var(--ops-ink) 5%, transparent);
+  --ops-radius: 0.85rem;
+  --ops-font: var(--font-sans);
+  --ops-display: var(--font-display);
   min-height: 100dvh;
   background: var(--ops-bg);
   color: var(--ops-ink);
@@ -6809,24 +6811,24 @@ button.ops-row {
 .ops-status-pill.is-new,
 .ops-status-pill.is-open,
 .ops-status-pill.is-waiting {
-  background: color-mix(in srgb, var(--ops-warning) 16%, transparent);
+  background: #eef2f6;
   border-color: transparent;
-  color: color-mix(in srgb, var(--ops-warning) 78%, var(--ops-ink));
+  color: #64748b;
 }
 .ops-status-pill.is-en-route {
-  background: color-mix(in srgb, var(--ops-primary) 14%, transparent);
+  background: #e0f2fe;
   border-color: transparent;
-  color: var(--ops-primary);
+  color: #0369a1;
 }
 .ops-status-pill.is-progress {
-  background: color-mix(in srgb, var(--ops-primary) 14%, transparent);
+  background: #dbeafe;
   border-color: transparent;
-  color: var(--ops-primary-hover);
+  color: #1d4ed8;
 }
 .ops-status-pill.is-ready {
-  background: color-mix(in srgb, var(--ops-info) 14%, transparent);
+  background: #dcfce7;
   border-color: transparent;
-  color: var(--ops-info);
+  color: #15803d;
 }
 .ops-status-pill.is-done {
   background: color-mix(in srgb, var(--ops-success) 12%, transparent);
@@ -6940,20 +6942,16 @@ button.ops-row {
   flex-shrink: 0;
 }
 .ops-icon-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  height: 2.35rem;
-  padding: 0 0.75rem;
-  border-radius: var(--ops-radius);
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 0.55rem;
   border: 1px solid var(--ops-border);
   background: var(--ops-card);
   color: var(--ops-ink);
-  font-size: 0.8rem;
-  font-weight: 700;
   text-decoration: none;
   box-shadow: none;
-  white-space: nowrap;
 }
 .ops-text-btn {
   display: inline-flex;
@@ -7744,24 +7742,6 @@ button.ops-row {
 }
 .ops-action-row .ops-btn-lg {
   width: 100% !important;
-}
-@media (max-width: 767px) {
-  .ops-sticky-cta {
-    position: sticky;
-    bottom: 0;
-    z-index: 5;
-    margin: 0.75rem -1rem -1rem;
-    padding: 0.75rem 1rem calc(0.75rem + env(safe-area-inset-bottom, 0px));
-    background: var(--ops-card);
-    border-top: 1px solid var(--ops-border);
-    box-shadow: 0 -8px 20px -12px rgb(0 0 0 / 0.12);
-  }
-  .ops-sticky-cta .ops-btn-lg,
-  .ops-sticky-cta .ops-billing-save {
-    width: 100%;
-    min-height: 3.1rem;
-    font-size: 0.95rem;
-  }
 }
 .ops-btn-secondary {
   display: inline-flex;

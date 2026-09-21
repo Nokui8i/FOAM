@@ -699,7 +699,7 @@ export function AdminOrdersPanel({
       return (
         <>
           <p className="ops-muted ops-step-help">{workflowHelp}</p>
-          <div className="ops-action-row ops-sticky-cta">
+          <div className="ops-action-row">
             {stageBackLabel ? (
               <button
                 type="button"
@@ -882,7 +882,7 @@ export function AdminOrdersPanel({
                   : "—"}
             </strong>
           </div>
-          <div className="ops-action-row ops-sticky-cta">
+          <div className="ops-action-row">
             {stageBackLabel ? (
               <button
                 type="button"
@@ -911,7 +911,7 @@ export function AdminOrdersPanel({
                 onClick={() => void chargeAndCollect()}
               >
                 <PackageCheck size={16} />
-                Save total &amp; send to Washing
+                Charge · send to laundry
               </Button>
             ) : null}
           </div>
@@ -946,7 +946,7 @@ export function AdminOrdersPanel({
               ? ` · $${selected.finalTotal.toFixed(2)}`
               : ""}
           </p>
-          <div className="ops-action-row ops-sticky-cta">
+          <div className="ops-action-row">
             {stageBackLabel ? (
               <button
                 type="button"
@@ -1018,7 +1018,7 @@ export function AdminOrdersPanel({
               )}
             </div>
           </div>
-          <div className="ops-action-row ops-sticky-cta">
+          <div className="ops-action-row">
             {stageBackLabel ? (
               <button
                 type="button"
@@ -1228,7 +1228,6 @@ export function AdminOrdersPanel({
                     title="Call"
                   >
                     <Phone size={16} />
-                    <span>Call</span>
                   </a>
                   <a
                     className="ops-icon-btn"
@@ -1239,7 +1238,6 @@ export function AdminOrdersPanel({
                     title="WhatsApp"
                   >
                     <MessageCircle size={16} />
-                    <span>WhatsApp</span>
                   </a>
                   <a
                     className="ops-icon-btn"
@@ -1250,7 +1248,6 @@ export function AdminOrdersPanel({
                     title="Maps"
                   >
                     <MapPin size={16} />
-                    <span>Maps</span>
                   </a>
                 </div>
               </div>
