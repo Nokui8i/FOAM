@@ -16,8 +16,6 @@ import {
   CalendarDays,
   Camera,
   Check,
-  Clock3,
-  ExternalLink,
   MapPin,
   MessageCircle,
   PackageCheck,
@@ -72,26 +70,6 @@ const FILTERS: { id: Filter; label: string }[] = [
   { id: "ready", label: "Delivery" },
 ];
 
-function formatCreatedAt(
-  value: FoamOrder["createdAt"] | { toDate?: () => Date } | null | undefined
-) {
-  if (!value || typeof value !== "object" || typeof value.toDate !== "function") {
-    return "—";
-  }
-  try {
-    const date = value.toDate();
-    return date.toLocaleString("en-US", {
-      month: "short",
-      day: "numeric",
-      hour: "numeric",
-      minute: "2-digit",
-    });
-  } catch {
-    return "—";
-  }
-}
-
-/** "Sep 21, 2026" style for list + detail meta */
 function formatPickupDate(date: string) {
   if (!date) return "—";
   const d = new Date(`${date}T12:00:00`);
@@ -1142,88 +1120,28 @@ export function AdminOrdersPanel({
                 onClick={() => onMobileViewChange("list")}
               >
                 <ArrowLeft size={16} />
-                Back to orders
+                Back
               </Button>
 
               <div className="ops-detail-head-row">
                 <div className="ops-detail-head-main">
                   <p className="ops-breadcrumb">
-                    Orders <span aria-hidden>&gt;</span>{" "}
                     {orderDisplayId(selected.id)}
-                  </p>
-                  <div className="ops-detail-name-row">
-                    <h2>{selected.contact.name}</h2>
+                    <span aria-hidden>·</span>
                     <span
                       className={cn(
-                        "ops-status-pill is-lg",
+                        "ops-status-pill",
                         listBadgeClass(selected.status)
                       )}
                     >
-                      {shortStatus(selected.status)}
+                      {orderListBadge(selected.status)}
                     </span>
-                  </div>
-                  <p className="ops-customer-address">
-                    <MapPin size={14} aria-hidden />
-                    {formatOrderAddress(selected)}
                   </p>
-                  <div className="ops-schedule" aria-label="Pickup schedule">
-                    <div className="ops-schedule-item">
-                      <p className="ops-field-label">Pickup date</p>
-                      <p className="ops-schedule-value">
-                        <CalendarDays size={16} aria-hidden />
-                        {formatPickupDate(selected.pickup.date)}
-                      </p>
-                    </div>
-                    <div className="ops-schedule-item">
-                      <p className="ops-field-label">Time window</p>
-                      <p className="ops-schedule-value is-emphasis">
-                        <Clock3 size={16} aria-hidden />
-                        {formatSlotShort(selected.pickup.slot)}
-                      </p>
-                    </div>
-                    <div className="ops-schedule-item">
-                      <p className="ops-field-label">Ordered</p>
-                      <p className="ops-schedule-value is-muted">
-                        {formatCreatedAt(selected.createdAt)}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="ops-fields ops-fields-inline">
-                    <div>
-                      <p className="ops-field-label">Phone</p>
-                      <p>
-                        <a href={`tel:${selected.contact.phone}`}>
-                          {selected.contact.phone || "—"}
-                        </a>
-                      </p>
-                    </div>
-                    <div>
-                      <p className="ops-field-label">Email</p>
-                      <p>
-                        <a href={`mailto:${selected.contact.email}`}>
-                          {selected.contact.email || "—"}
-                        </a>
-                      </p>
-                    </div>
-                    <div>
-                      <p className="ops-field-label">Services</p>
-                      <p>{servicesSummary(selected)}</p>
-                    </div>
-                  </div>
                   {selected.pickup.notes ? (
-                    <div className="ops-access-note">
-                      <p className="ops-field-label">Access notes</p>
-                      <p>{selected.pickup.notes}</p>
-                    </div>
+                    <p className="ops-access-note-inline">
+                      Access: {selected.pickup.notes}
+                    </p>
                   ) : null}
-                  <a
-                    className="ops-link"
-                    href={mapsUrl(selected)}
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    View on Maps <ExternalLink size={14} />
-                  </a>
                 </div>
                 <div className="ops-icon-row">
                   <a

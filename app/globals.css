@@ -6685,8 +6685,8 @@ button.ops-row {
   z-index: 20;
   flex-shrink: 0;
   width: 100%;
-  padding: 0.75rem 1rem;
-  background: color-mix(in oklab, var(--ops-card) 90%, transparent);
+  padding: 0.45rem 0.85rem;
+  background: color-mix(in oklab, var(--ops-card) 92%, transparent);
   border-bottom: 1px solid var(--ops-border);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
@@ -6694,7 +6694,7 @@ button.ops-row {
 @media (min-width: 768px) {
   .ops-detail-head {
     position: static;
-    padding: 0.9rem 1.5rem 0.75rem;
+    padding: 0.45rem 1rem;
     background: transparent;
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
@@ -6702,15 +6702,15 @@ button.ops-row {
 }
 @media (min-width: 1024px) {
   .ops-detail-head {
-    padding: 1rem 1.75rem 0.85rem;
+    padding: 0.5rem 1.25rem;
   }
 }
 .ops-detail-head-row {
   display: flex;
-  flex-wrap: wrap;
-  align-items: flex-start;
+  flex-wrap: nowrap;
+  align-items: center;
   justify-content: space-between;
-  gap: 0.65rem 1rem;
+  gap: 0.5rem 0.75rem;
   width: 100%;
   max-width: none;
   margin-inline: 0;
@@ -6730,17 +6730,17 @@ button.ops-row {
 .ops-back {
   display: inline-flex !important;
   align-items: center !important;
-  gap: 0.35rem !important;
+  gap: 0.3rem !important;
   width: auto !important;
   height: auto !important;
   min-width: 0 !important;
-  margin: 0 0 0.75rem -0.5rem !important;
-  padding: 0.35rem 0.5rem !important;
+  margin: 0 0 0.35rem -0.35rem !important;
+  padding: 0.25rem 0.4rem !important;
   border: 0 !important;
   border-radius: var(--ops-radius) !important;
   background: transparent !important;
   color: var(--ops-ink) !important;
-  font-size: 0.8125rem !important;
+  font-size: 0.75rem !important;
   font-weight: 600 !important;
 }
 .ops-back svg {
@@ -6768,20 +6768,21 @@ button.ops-row {
 .ops-inquiry-head h2 { margin-top: 1rem; }
 .ops-icon-row {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
+  flex-wrap: nowrap;
+  gap: 0.35rem;
+  flex-shrink: 0;
 }
 .ops-icon-btn {
   display: grid;
   place-items: center;
-  width: 2.35rem;
-  height: 2.35rem;
-  border-radius: var(--ops-radius);
+  width: 2rem;
+  height: 2rem;
+  border-radius: 0.55rem;
   border: 1px solid var(--ops-border);
   background: var(--ops-card);
   color: var(--ops-ink);
   text-decoration: none;
-  box-shadow: var(--ops-shadow-sm);
+  box-shadow: none;
 }
 .ops-text-btn {
   display: inline-flex;
@@ -7018,29 +7019,29 @@ button.ops-row {
 }
 .ops-workflow-customer {
   display: grid;
-  gap: 0.35rem;
-  margin: 0 0 1rem;
-  padding: 0 0.15rem 0.95rem;
+  gap: 0.15rem;
+  margin: 0 0 0.65rem;
+  padding: 0 0.1rem 0.55rem;
   border-bottom: 1px solid var(--ops-border);
 }
 .ops-workflow-customer-name {
   margin: 0;
   font-family: var(--ops-display);
-  font-size: clamp(1.15rem, 2.6vw, 1.45rem);
+  font-size: clamp(1.02rem, 2.2vw, 1.2rem);
   font-weight: 800;
   letter-spacing: -0.02em;
-  line-height: 1.2;
+  line-height: 1.15;
   color: var(--ops-ink);
 }
 .ops-workflow-customer-address,
 .ops-workflow-customer-when {
   display: flex;
   align-items: flex-start;
-  gap: 0.35rem;
+  gap: 0.3rem;
   margin: 0;
-  font-size: clamp(0.9rem, 1.7vw, 1.05rem);
+  font-size: clamp(0.8rem, 1.5vw, 0.92rem);
   font-weight: 550;
-  line-height: 1.35;
+  line-height: 1.3;
   color: var(--ops-muted);
 }
 .ops-workflow-customer-when {
@@ -7049,13 +7050,13 @@ button.ops-row {
 }
 .ops-workflow-customer-address svg,
 .ops-workflow-customer-when svg {
-  margin-top: 0.15rem;
+  margin-top: 0.12rem;
   flex-shrink: 0;
   color: var(--ops-primary);
 }
 .ops-workflow-card .ops-timeline {
   margin: 0;
-  padding: 0.35rem 0.25rem 1.1rem;
+  padding: 0.2rem 0.15rem 0.75rem;
   border-bottom: 0;
 }
 .ops-workflow-help {
@@ -8104,11 +8105,11 @@ button.ops-row {
 .ops-detail-stack {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 1rem;
+  gap: 0.65rem;
   width: 100%;
   max-width: 42rem;
   margin-inline: auto;
-  padding: 1rem;
+  padding: 0.65rem 0.85rem 1rem;
   flex: 1;
   min-height: 0;
   overflow-x: hidden;
@@ -8119,7 +8120,7 @@ button.ops-row {
 }
 .ops-detail-stack::-webkit-scrollbar { width: 0; height: 0; }
 @media (min-width: 768px) {
-  .ops-detail-stack { padding: 1rem 1.5rem 1.75rem; gap: 1rem; }
+  .ops-detail-stack { padding: 0.75rem 1rem 1.15rem; gap: 0.65rem; }
 }
 @media (min-width: 1280px) {
   .ops-detail-stack { max-width: 44rem; }
@@ -8136,14 +8137,31 @@ button.ops-row {
   font-size: 0.7rem;
 }
 .ops-breadcrumb {
-  margin: 0 0 0.3rem;
-  font-size: 0.7rem;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin: 0;
+  font-size: 0.78rem;
   font-weight: 700;
   color: var(--ops-muted);
+  line-height: 1.2;
 }
-.ops-breadcrumb span {
-  margin: 0 0.25rem;
-  opacity: 0.7;
+.ops-breadcrumb span[aria-hidden] {
+  margin: 0;
+  opacity: 0.55;
+}
+.ops-breadcrumb .ops-status-pill {
+  max-width: none;
+  padding: 0.18rem 0.45rem;
+  font-size: 0.62rem;
+}
+.ops-access-note-inline {
+  margin: 0.2rem 0 0;
+  font-size: 0.72rem;
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--ops-muted);
 }
 .ops-detail-head .ops-customer-address {
   margin-top: 0.25rem;
