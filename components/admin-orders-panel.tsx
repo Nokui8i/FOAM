@@ -16,10 +16,8 @@ import {
   CalendarDays,
   Camera,
   Check,
-  ChevronDown,
-  Clock,
   ClipboardList,
-  Mail,
+  Clock,
   MapPin,
   MessageCircle,
   MoreHorizontal,
@@ -1183,6 +1181,10 @@ export function AdminOrdersPanel({
                     <span>{orderDisplayId(selected.id)}</span>
                   </p>
                   <h2 className="ops-detail-title">{selected.contact.name}</h2>
+                  <p className="ops-detail-address">
+                    <MapPin size={14} aria-hidden />
+                    {formatOrderAddress(selected)}
+                  </p>
                   <div className="ops-detail-meta">
                     <span>
                       <CalendarDays size={14} aria-hidden />
@@ -1253,55 +1255,6 @@ export function AdminOrdersPanel({
             )}
 
             <div className="ops-detail-stack">
-              <section className="ops-contact-card" aria-label="Customer contact">
-                <div className="ops-contact-person">
-                  <span className="ops-contact-avatar" aria-hidden>
-                    <UserRound size={18} />
-                  </span>
-                  <div className="ops-contact-person-copy">
-                    <p className="ops-contact-name">{selected.contact.name}</p>
-                    <p className="ops-contact-address">
-                      {formatOrderAddress(selected)}
-                    </p>
-                  </div>
-                </div>
-                <a
-                  className="ops-contact-item"
-                  href={`tel:${selected.contact.phone}`}
-                >
-                  <span className="ops-contact-item-icon" aria-hidden>
-                    <Phone size={14} />
-                  </span>
-                  {selected.contact.phone || "—"}
-                </a>
-                <a
-                  className="ops-contact-item"
-                  href={
-                    selected.contact.email
-                      ? `mailto:${selected.contact.email}`
-                      : undefined
-                  }
-                  onClick={(e) => {
-                    if (!selected.contact.email) e.preventDefault();
-                  }}
-                >
-                  <span className="ops-contact-item-icon" aria-hidden>
-                    <Mail size={14} />
-                  </span>
-                  {selected.contact.email || "—"}
-                </a>
-                <a
-                  className="ops-contact-maps"
-                  href={mapsUrl(selected)}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  <MapPin size={14} aria-hidden />
-                  View on Maps
-                  <ChevronDown size={14} aria-hidden />
-                </a>
-              </section>
-
               <section className="ops-card ops-workflow-card">
                 <div className="ops-timeline" role="list">
                   {ORDER_PIPELINE_STEPS.map((step, index) => {

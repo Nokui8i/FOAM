@@ -6911,6 +6911,21 @@ button.ops-row {
   line-height: 1.15;
   color: var(--ops-ink);
 }
+.ops-detail-address {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.35rem;
+  margin: 0.4rem 0 0;
+  font-size: 0.84rem;
+  font-weight: 550;
+  line-height: 1.35;
+  color: var(--ops-muted);
+}
+.ops-detail-address svg {
+  margin-top: 0.12rem;
+  flex-shrink: 0;
+  color: var(--ops-primary);
+}
 .ops-detail-meta {
   display: flex;
   flex-wrap: wrap;
