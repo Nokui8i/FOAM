@@ -24,6 +24,7 @@ import { getFirebaseDb } from "@/lib/firebase";
 import {
   buildOrderTrackDoc,
   makeTrackKey,
+  orderRefFromId,
   trackPath,
 } from "@/lib/order-tracking";
 import { getUserProfile, saveUserProfile } from "@/lib/user-profile";
@@ -431,7 +432,7 @@ export function BookingApp() {
             <p className="eyebrow">Order received</p>
             <h1 className="book-success-title">We&apos;ll confirm your pickup.</h1>
             <p className="book-success-ref">
-              Ref <span>{doneId.slice(0, 8).toUpperCase()}</span>
+              Ref <span>{orderRefFromId(doneId)}</span>
             </p>
             <p className="book-hint">
               {user

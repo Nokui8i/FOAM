@@ -214,9 +214,18 @@ export function orderListBadge(status: OrderStatus): string {
   }
 }
 
+export function orderRefFromId(orderId: string) {
+  let hash = 2166136261;
+  for (let i = 0; i < orderId.length; i++) {
+    hash ^= orderId.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  const n = 10000000 + ((hash >>> 0) % 90000000);
+  return String(n);
+}
+
 export function orderDisplayId(id: string) {
-  const short = id.replace(/[^a-zA-Z0-9]/g, "").slice(0, 4).toUpperCase();
-  return `#FOAM-${short || id.slice(0, 4).toUpperCase()}`;
+  return `#${orderRefFromId(id)}`;
 }
 
 export function orderPipelineIndex(status: OrderStatus): number {

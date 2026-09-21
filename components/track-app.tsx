@@ -20,6 +20,7 @@ import {
 } from "@/lib/orders";
 import {
   customerVisiblePhotos,
+  orderRefFromId,
   type OrderTrackSnapshot,
 } from "@/lib/order-tracking";
 import { cn } from "@/lib/utils";
@@ -170,7 +171,7 @@ function TrackBody() {
     <article className="account-order-card track-order-card">
       <div className="account-order-head is-static">
         <div>
-          <h3>Ref {track.ref}</h3>
+          <h3>Ref {orderRefFromId(track.orderId || track.ref)}</h3>
           <p>
             {track.pickupDate
               ? `${formatPickupDate(track.pickupDate)}${

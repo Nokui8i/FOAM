@@ -2,6 +2,7 @@ import type { OrderStatus, OrderPhoto } from "@/lib/orders";
 import {
   ORDER_PIPELINE_STEPS,
   orderPipelineIndex,
+  orderRefFromId,
 } from "@/lib/orders";
 
 /** Customer-facing stage labels (ops uses different wording). */
@@ -51,14 +52,12 @@ export function makeTrackKey() {
   return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-export function orderRefFromId(orderId: string) {
-  return orderId.slice(0, 8).toUpperCase();
-}
-
 export function firstNameFromContact(name: string) {
   const part = name.trim().split(/\s+/)[0] ?? "";
   return part.slice(0, 40);
 }
+
+export { orderRefFromId };
 
 export function trackPath(trackKey: string) {
   return `/track?k=${encodeURIComponent(trackKey)}`;
