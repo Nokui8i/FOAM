@@ -164,9 +164,6 @@ export function AccountOrders({ uid }: { uid: string }) {
         <h2 className="font-display text-lg font-semibold tracking-tight">
           Your orders
         </h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Live progress for every pickup on this account.
-        </p>
       </div>
 
       {orders.map((order) => {
