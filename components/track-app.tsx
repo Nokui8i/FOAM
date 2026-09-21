@@ -197,12 +197,9 @@ function TrackBody() {
           weightLbs={weightLbs}
           finalTotal={finalTotal}
         />
-        <div className="mt-4 flex flex-wrap gap-2">
+        <div className="mt-4">
           <Button variant="outline" size="sm" asChild>
-            <Link href="/">Home</Link>
-          </Button>
-          <Button variant="outline" size="sm" asChild>
-            <Link href="/account">Account</Link>
+            <Link href="/account">Back</Link>
           </Button>
         </div>
       </div>
