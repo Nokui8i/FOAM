@@ -873,7 +873,7 @@ export function AdminOrdersPanel({
             {canCharge ? (
               <Button
                 type="button"
-                className="ops-btn-lg"
+                className="ops-btn-lg ops-billing-charge"
                 disabled={saving || uploadingPhoto}
                 onClick={() => void chargeAndCollect()}
               >

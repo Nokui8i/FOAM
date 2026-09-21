@@ -8240,11 +8240,12 @@ button.ops-row {
   font-weight: 650 !important;
   box-shadow: none !important;
 }
-.ops-billing-card .ops-btn-lg:not([class*="outline"]) {
+.ops-billing-card .ops-billing-charge {
   background: var(--ops-primary) !important;
   color: #fff !important;
+  border-color: transparent !important;
 }
-.ops-billing-card .ops-btn-lg:not([class*="outline"]):hover {
+.ops-billing-card .ops-billing-charge:hover {
   background: var(--ops-primary-hover) !important;
 }
 .ops-billing-save {
