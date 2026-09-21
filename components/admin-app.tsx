@@ -25,7 +25,21 @@ import { cn } from "@/lib/utils";
 type AdminTab = "orders" | "contacts";
 type MobileView = "list" | "detail";
 
-function FoamMark({ compact = false }: { compact?: boolean }) {
+function FoamMark({
+  compact = false,
+  rail = false,
+}: {
+  compact?: boolean;
+  rail?: boolean;
+}) {
+  if (rail) {
+    return (
+      <div className="ops-rail-mark" aria-label="FOAM">
+        FOAM<span className="ops-rail-mark-dot" aria-hidden="true" />
+      </div>
+    );
+  }
+
   return (
     <div
       className={cn("ops-wordmark", compact && "is-compact")}
@@ -291,7 +305,7 @@ export function AdminApp() {
     <div className="ops-shell">
       <aside className="ops-nav" aria-label="Ops sections">
         <div className="ops-nav-brand">
-          <FoamMark compact />
+          <FoamMark rail />
         </div>
 
         <nav className="ops-nav-links">
