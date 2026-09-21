@@ -478,8 +478,6 @@ export function AdminOrdersPanel({
 
   function addDryItem(item: DryCleanCatalogItem) {
     setDryItems((current) => [...current, { name: item.name, price: item.price }]);
-    setDryQuery("");
-    setOpenCatalog(false);
   }
 
   function removeDryItem(index: number) {
@@ -729,135 +727,170 @@ export function AdminOrdersPanel({
     // confirmed / en route — weigh, photo, dry clean, bill
     return (
       <>
-        <label className="ops-weight-field">
-          Weight in pounds
-          <span className="ops-weight-input">
-            <input
-              type="number"
-              inputMode="decimal"
-              min={0}
-              step={0.1}
-              value={weightInput}
-              onChange={(e) => setWeightInput(e.target.value)}
-              placeholder="0.0"
-            />
-            <span>lb</span>
-          </span>
-        </label>
-
-        <div className="ops-photo-block">
-          <label className="ops-photo-upload is-primary">
-            <Camera size={16} aria-hidden />
-            <span>
-              {uploadingPhoto
-                ? "Uploading…"
-                : weightPhotos.length
-                  ? "Add another scale photo"
-                  : "Add scale photo"}
-            </span>
-            <input
-              type="file"
-              accept="image/*"
-              capture="environment"
-              disabled={uploadingPhoto || saving}
-              onChange={(e) => {
-                const file = e.target.files?.[0] ?? null;
-                void handleOrderPhoto(file, "weight");
-                e.target.value = "";
-              }}
-            />
-          </label>
-          <div className="ops-photo-thumbs ops-photo-area">
-            {weightPhotos.length ? (
-              weightPhotos.map((photo) => (
-                <a
-                  key={photo.url}
-                  href={photo.url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="ops-photo-thumb"
-                >
-                  <img src={photo.url} alt="Weight scale photo" />
-                </a>
-              ))
-            ) : (
-              <span className="ops-chips-empty">
-                Photos appear here after upload
+        <div className="ops-pickup-grid">
+          <div className="ops-pickup-col">
+            <label className="ops-weight-field">
+              Weight in pounds
+              <span className="ops-weight-input">
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  min={0}
+                  step={0.1}
+                  value={weightInput}
+                  onChange={(e) => setWeightInput(e.target.value)}
+                  placeholder="0.0"
+                />
+                <span>lb</span>
               </span>
-            )}
-          </div>
-        </div>
+            </label>
 
-        <div className="ops-flow-subsection">
-          <div className="ops-catalog" ref={catalogRef}>
-            <Button
-              type="button"
-              variant="outline"
-              className="ops-catalog-toggle"
-              onClick={() => setOpenCatalog((v) => !v)}
-            >
-              Dry cleaning catalog
-              <span className="ops-catalog-toggle-hint">
-                {openCatalog ? "Close" : "Open"}
-              </span>
-            </Button>
-            {openCatalog ? (
-              <div className="ops-catalog-menu" role="listbox" aria-label="Dry cleaning catalog">
-                <label className="ops-search is-compact">
-                  <Search size={14} aria-hidden />
-                  <input
-                    autoFocus
-                    value={dryQuery}
-                    onChange={(e) => setDryQuery(e.target.value)}
-                    placeholder="Search catalog"
-                  />
-                </label>
-                <div className="ops-catalog-list">
-                  {dryMatches.length === 0 ? (
-                    <p className="ops-catalog-empty">No catalog matches</p>
-                  ) : (
-                    dryMatches.map((item) => (
-                      <button
-                        key={item.name}
-                        type="button"
-                        className="ops-catalog-item"
-                        onClick={() => addDryItem(item)}
-                      >
-                        <span>{item.name}</span>
-                        <strong>${item.price.toFixed(2)}</strong>
-                      </button>
-                    ))
-                  )}
-                </div>
-              </div>
-            ) : null}
-          </div>
-          {selected.services.dryCleaning && dryItems.length === 0 ? (
-            <p className="ops-dry-warn" role="status">
-              Customer ordered dry cleaning — add items, or you&rsquo;ll be asked
-              to confirm before charging.
-            </p>
-          ) : null}
-          <div className="ops-chips">
-            {dryItems.length ? (
-              dryItems.map((item, itemIndex) => (
-                <span
-                  key={`${item.name}-${itemIndex}`}
-                  className="ops-chip"
-                >
-                  {item.name} <b>${item.price.toFixed(2)}</b>
-                  <button
-                    type="button"
-                    aria-label={`Remove ${item.name}`}
-                    onClick={() => removeDryItem(itemIndex)}
-                  >
-                    <X size={12} />
-                  </button>
+            <div className="ops-photo-block">
+              <label className="ops-photo-upload is-primary">
+                <Camera size={16} aria-hidden />
+                <span>
+                  {uploadingPhoto
+                    ? "Uploading…"
+                    : weightPhotos.length
+                      ? "Add another scale photo"
+                      : "Add scale photo"}
                 </span>
-              ))
-            ) : (
-              <span className="ops-chips-empty">No dry-clean items</span>
-            )}
+                <input
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  disabled={uploadingPhoto || saving}
+                  onChange={(e) => {
+                    const file = e.target.files?.[0] ?? null;
+                    void handleOrderPhoto(file, "weight");
+                    e.target.value = "";
+                  }}
+                />
+              </label>
+              <div className="ops-photo-thumbs ops-photo-area">
+                {weightPhotos.length ? (
+                  weightPhotos.map((photo) => (
+                    <a
+                      key={photo.url}
+                      href={photo.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="ops-photo-thumb"
+                    >
+                      <img src={photo.url} alt="Weight scale photo" />
+                    </a>
+                  ))
+                ) : (
+                  <span className="ops-chips-empty">
+                    Photos appear here after upload
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="ops-pickup-col">
+            <div className="ops-catalog is-panel" ref={catalogRef}>
+              <Button
+                type="button"
+                variant="outline"
+                className="ops-catalog-toggle"
+                onClick={() => setOpenCatalog((v) => !v)}
+              >
+                Dry cleaning catalog
+                <span className="ops-catalog-toggle-hint">
+                  {openCatalog ? "Close" : "Open"}
+                </span>
+              </Button>
+              {openCatalog ? (
+                <div
+                  className="ops-catalog-menu"
+                  role="listbox"
+                  aria-label="Dry cleaning catalog"
+                  aria-multiselectable="true"
+                >
+                  <label className="ops-search is-compact">
+                    <Search size={14} aria-hidden />
+                    <input
+                      autoFocus
+                      value={dryQuery}
+                      onChange={(e) => setDryQuery(e.target.value)}
+                      placeholder="Search catalog"
+                    />
+                  </label>
+                  <div className="ops-catalog-list">
+                    {dryMatches.length === 0 ? (
+                      <p className="ops-catalog-empty">No catalog matches</p>
+                    ) : (
+                      dryMatches.map((item) => {
+                        const selectedCount = dryItems.filter(
+                          (dry) => dry.name === item.name
+                        ).length;
+                        return (
+                          <button
+                            key={item.name}
+                            type="button"
+                            role="option"
+                            aria-selected={selectedCount > 0}
+                            className={cn(
+                              "ops-catalog-item",
+                              selectedCount > 0 && "is-selected"
+                            )}
+                            onClick={() => addDryItem(item)}
+                          >
+                            <span className="ops-catalog-item-main">
+                              <span
+                                className={cn(
+                                  "ops-catalog-check",
+                                  selectedCount > 0 && "is-on"
+                                )}
+                                aria-hidden
+                              >
+                                {selectedCount > 0 ? <Check size={12} /> : null}
+                              </span>
+                              <span>{item.name}</span>
+                              {selectedCount > 1 ? (
+                                <span className="ops-catalog-qty">
+                                  ×{selectedCount}
+                                </span>
+                              ) : null}
+                            </span>
+                            <strong>${item.price.toFixed(2)}</strong>
+                          </button>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
+              ) : null}
+            </div>
+            {selected.services.dryCleaning && dryItems.length === 0 ? (
+              <p className="ops-dry-warn" role="status">
+                Customer ordered dry cleaning — add items, or you&rsquo;ll be asked
+                to confirm before charging.
+              </p>
+            ) : null}
+            <div className="ops-chips">
+              {dryItems.length ? (
+                dryItems.map((item, itemIndex) => (
+                  <span
+                    key={`${item.name}-${itemIndex}`}
+                    className="ops-chip"
+                  >
+                    {item.name} <b>${item.price.toFixed(2)}</b>
+                    <button
+                      type="button"
+                      aria-label={`Remove ${item.name}`}
+                      onClick={() => removeDryItem(itemIndex)}
+                    >
+                      <X size={12} />
+                    </button>
+                  </span>
+                ))
+              ) : (
+                <span className="ops-chips-empty">No dry-clean items</span>
+              )}
+            </div>
           </div>
         </div>
 

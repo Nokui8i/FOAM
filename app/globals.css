@@ -8112,7 +8112,35 @@ button.ops-row {
   color: var(--ops-muted);
 }
 
+.ops-pickup-grid {
+  display: grid;
+  gap: 1rem;
+  margin-bottom: 0.35rem;
+}
+@media (min-width: 768px) {
+  .ops-pickup-grid {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    align-items: start;
+    gap: 1.1rem;
+  }
+}
+.ops-pickup-col {
+  display: grid;
+  gap: 0.7rem;
+  min-width: 0;
+}
+
 .ops-catalog { position: relative; }
+.ops-catalog.is-panel .ops-catalog-menu {
+  position: relative;
+  top: auto;
+  left: auto;
+  right: auto;
+  z-index: 1;
+  margin-top: 0.45rem;
+  max-height: min(22rem, 55vh);
+  box-shadow: 0 8px 20px -12px rgba(15, 23, 32, 0.2);
+}
 .ops-catalog-toggle {
   width: 100% !important;
   max-width: 100% !important;
@@ -8159,8 +8187,8 @@ button.ops-row {
   justify-content: space-between;
   gap: 1rem;
   border: 0;
-  border-radius: 0.25rem;
-  padding: 0.5rem 0.75rem;
+  border-radius: 0.45rem;
+  padding: 0.5rem 0.65rem;
   background: transparent;
   font: inherit;
   font-size: 0.875rem;
@@ -8168,12 +8196,41 @@ button.ops-row {
   cursor: pointer;
 }
 .ops-catalog-item:hover { background: var(--ops-surface); }
+.ops-catalog-item.is-selected {
+  background: color-mix(in oklab, var(--ops-primary) 10%, #fff);
+}
+.ops-catalog-item-main {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-width: 0;
+}
+.ops-catalog-check {
+  display: grid;
+  place-items: center;
+  width: 1.05rem;
+  height: 1.05rem;
+  flex-shrink: 0;
+  border: 1.5px solid var(--ops-border);
+  border-radius: 0.28rem;
+  background: #fff;
+  color: #fff;
+}
+.ops-catalog-check.is-on {
+  border-color: var(--ops-primary);
+  background: var(--ops-primary);
+}
+.ops-catalog-qty {
+  font-size: 0.72rem;
+  font-weight: 750;
+  color: var(--ops-primary);
+}
 .ops-chips {
   display: flex;
   flex-wrap: wrap;
   gap: 0.45rem;
   min-height: 0;
-  margin-top: 0.65rem;
+  margin-top: 0;
   padding: 0;
   border-radius: 0;
   background: transparent;
