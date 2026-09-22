@@ -26,7 +26,6 @@ import {
   PackageCheck,
   Phone,
   Plus,
-  Save,
   Scale,
   Search,
   Shirt,
@@ -821,47 +820,49 @@ export function AdminOrdersPanel({
                 </span>
                 <h4>Scale photo</h4>
               </div>
-              <label className="ops-soft-dropzone">
-                <Camera size={22} aria-hidden />
-                <span>
-                  {uploadingPhoto
-                    ? "Uploading…"
-                    : weightPhotos.length
-                      ? "Add another scale photo"
-                      : "Add scale photo"}
-                </span>
-                <input
-                  type="file"
-                  accept="image/*"
-                  capture="environment"
-                  disabled={uploadingPhoto || saving}
-                  onChange={(e) => {
-                    const file = e.target.files?.[0] ?? null;
-                    void handleOrderPhoto(file, "weight");
-                    e.target.value = "";
-                  }}
-                />
-              </label>
-              {weightPhotos.length ? (
+              {weightPhotos.length === 0 ? (
+                <label className="ops-soft-dropzone">
+                  <Camera size={22} aria-hidden />
+                  <span>
+                    {uploadingPhoto ? "Uploading…" : "Add scale photo"}
+                  </span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    disabled={uploadingPhoto || saving}
+                    onChange={(e) => {
+                      const file = e.target.files?.[0] ?? null;
+                      void handleOrderPhoto(file, "weight");
+                      e.target.value = "";
+                    }}
+                  />
+                </label>
+              ) : (
                 <div className="ops-soft-thumbs">
-                  {weightPhotos.map((photo) => (
-                    <div key={photo.url} className="ops-soft-thumb">
-                      <a href={photo.url} target="_blank" rel="noreferrer">
-                        <img src={photo.url} alt="Weight scale photo" />
-                      </a>
-                      <button
-                        type="button"
-                        className="ops-soft-thumb-remove"
-                        aria-label="Remove photo"
-                        disabled={uploadingPhoto || saving}
-                        onClick={() => void removeWeightPhoto(photo.url)}
-                      >
-                        <X size={12} />
-                      </button>
-                    </div>
-                  ))}
+                  <div className="ops-soft-thumb is-large">
+                    <a
+                      href={weightPhotos[0].url}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      <img
+                        src={weightPhotos[0].url}
+                        alt="Weight scale photo"
+                      />
+                    </a>
+                    <button
+                      type="button"
+                      className="ops-soft-thumb-remove"
+                      aria-label="Remove photo"
+                      disabled={uploadingPhoto || saving}
+                      onClick={() => void removeWeightPhoto(weightPhotos[0].url)}
+                    >
+                      <X size={12} />
+                    </button>
+                  </div>
                 </div>
-              ) : null}
+              )}
             </section>
 
             <section
@@ -1009,18 +1010,9 @@ export function AdminOrdersPanel({
                   onClick={() => void goBackStage()}
                 >
                   <ArrowLeft size={15} aria-hidden />
-                  {stageBackLabel}
+                  Back
                 </button>
               ) : null}
-              <button
-                type="button"
-                className="ops-soft-btn"
-                disabled={saving || uploadingPhoto}
-                onClick={() => void saveBilling()}
-              >
-                <Save size={15} aria-hidden />
-                Save &amp; close
-              </button>
               {canCharge ? (
                 <button
                   type="button"
@@ -1028,8 +1020,7 @@ export function AdminOrdersPanel({
                   disabled={saving || uploadingPhoto}
                   onClick={() => void chargeAndCollect()}
                 >
-                  <PackageCheck size={15} aria-hidden />
-                  Charge · send to laundry
+                  Continue
                   <ArrowRight size={15} aria-hidden />
                 </button>
               ) : null}
