@@ -57,6 +57,7 @@ import {
   orderPipelineIndex,
   orderStageBackLabel,
   orderStatusPrevious,
+  isOrderCharged,
   servicesSummary,
   type DryCleanItem,
   type FoamOrder,
@@ -455,6 +456,15 @@ export function AdminOrdersPanel({
     const prev = orderStatusPrevious(selected.status);
     const label = orderStageBackLabel(selected.status);
     if (!prev || !label) return;
+    if (
+      isOrderCharged(selected) &&
+      (prev === "new" || prev === "confirmed")
+    ) {
+      setError(
+        "Already charged — cannot go back to pickup. Refunds need management approval."
+      );
+      return;
+    }
     const ok = window.confirm(
       `${label}? Customer tracking will move back to this step.`
     );

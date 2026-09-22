@@ -115,12 +115,10 @@ export const ORDER_STATUS_NEXT: Partial<Record<OrderStatus, OrderStatus[]>> = {
   cancelled: [],
 };
 
-/** Undo / step back for driver mistakes (keeps weight, photos, totals). */
+/** Undo / step back for driver mistakes before charge only.
+ * After charge (At laundry+), never return to pickup — refunds need management. */
 export const ORDER_STATUS_PREV: Partial<Record<OrderStatus, OrderStatus>> = {
   confirmed: "new",
-  picked_up: "confirmed",
-  weighed: "confirmed",
-  washing: "confirmed",
   out_for_delivery: "washing",
   delivered: "out_for_delivery",
 };
@@ -132,11 +130,7 @@ export function orderStatusPrevious(status: OrderStatus): OrderStatus | null {
 export function orderStageBackLabel(status: OrderStatus): string | null {
   switch (status) {
     case "confirmed":
-      return "Undo I’m on the way";
-    case "picked_up":
-    case "weighed":
-    case "washing":
-      return "Back to pickup stop";
+      return "Back";
     case "out_for_delivery":
       return "Back to At laundry";
     case "delivered":
@@ -144,6 +138,21 @@ export function orderStageBackLabel(status: OrderStatus): string | null {
     default:
       return null;
   }
+}
+
+/** True once the order has been charged at pickup (cannot undo to stop). */
+export function isOrderCharged(order: {
+  status: OrderStatus;
+  finalTotal?: number | null;
+}): boolean {
+  if (order.finalTotal != null) return true;
+  return (
+    order.status === "picked_up" ||
+    order.status === "weighed" ||
+    order.status === "washing" ||
+    order.status === "out_for_delivery" ||
+    order.status === "delivered"
+  );
 }
 
 /** Visual pipeline (ops + customer). */

@@ -7887,6 +7887,17 @@ button.ops-row {
   font-weight: 600;
   line-height: 1.35;
 }
+.ops-charged-lock {
+  margin: 0.35rem 0 0.15rem;
+  padding: 0.65rem 0.75rem;
+  border-radius: 0.65rem;
+  background: color-mix(in oklab, var(--ops-primary) 8%, #fff);
+  border: 1px solid color-mix(in oklab, var(--ops-primary) 18%, var(--ops-border));
+  color: var(--ops-ink);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  line-height: 1.35;
+}
 .ops-btn-lg {
   width: 100% !important;
   height: 2.85rem !important;
