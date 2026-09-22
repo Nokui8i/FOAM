@@ -626,7 +626,7 @@ export function AdminOrdersPanel({
           /* older orders may lack a track doc */
         }
       }
-      setOkMsg(kind === "return" ? "Delivery photo saved." : "Photo saved.");
+      setOkMsg(kind === "return" ? "Drop-off photo saved." : "Photo saved.");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not save photo.");
     } finally {
@@ -637,7 +637,7 @@ export function AdminOrdersPanel({
   async function markDelivered() {
     if (!selected) return;
     if (deliveryPhotos.length === 0) {
-      setError("Upload a delivery photo before marking delivered.");
+      setError("Upload a drop-off photo before marking delivered.");
       return;
     }
     await setStatus("delivered");
@@ -1113,15 +1113,19 @@ export function AdminOrdersPanel({
     if (stage === 2) {
       return (
         <>
-          <div className="ops-photo-block">
-            <label className="ops-photo-upload is-primary">
-              <Camera size={16} aria-hidden />
+          <div className="ops-soft-section-head" style={{ marginBottom: "0.65rem" }}>
+            <span className="ops-soft-icon" aria-hidden>
+              <Camera size={16} />
+            </span>
+            <h4>Drop-off photo</h4>
+          </div>
+          {deliveryPhotos.length === 0 ? (
+            <label className="ops-soft-dropzone">
+              <Camera size={22} aria-hidden />
               <span>
                 {uploadingPhoto
                   ? "Uploading…"
-                  : deliveryPhotos.length
-                    ? "Add another delivery photo"
-                    : "Photo at the door"}
+                  : "Photo of the delivered bags"}
               </span>
               <input
                 type="file"
@@ -1135,27 +1139,32 @@ export function AdminOrdersPanel({
                 }}
               />
             </label>
-            <div className="ops-photo-thumbs ops-photo-area">
-              {deliveryPhotos.length ? (
-                deliveryPhotos.map((photo) => (
-                  <a
-                    key={photo.url}
-                    href={photo.url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="ops-photo-thumb"
-                  >
-                    <img src={photo.url} alt="Delivery proof photo" />
-                  </a>
-                ))
-              ) : (
-                <span className="ops-chips-empty">
-                  Photos appear here after upload
-                </span>
-              )}
+          ) : (
+            <div className="ops-soft-thumbs">
+              <div className="ops-soft-thumb is-large">
+                <a
+                  href={deliveryPhotos[0].url}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  <img
+                    src={deliveryPhotos[0].url}
+                    alt="Drop-off delivery photo"
+                  />
+                </a>
+                <button
+                  type="button"
+                  className="ops-soft-thumb-remove"
+                  aria-label="Remove photo"
+                  disabled={uploadingPhoto || saving}
+                  onClick={() => void removeWeightPhoto(deliveryPhotos[0].url)}
+                >
+                  <X size={12} />
+                </button>
+              </div>
             </div>
-          </div>
-          <div className="ops-action-row">
+          )}
+          <div className="ops-action-row" style={{ marginTop: "0.85rem" }}>
             {stageBackLabel ? (
               <button
                 type="button"
@@ -1164,7 +1173,7 @@ export function AdminOrdersPanel({
                 onClick={() => void goBackStage()}
               >
                 <ArrowLeft size={14} aria-hidden />
-                {stageBackLabel}
+                Back
               </button>
             ) : null}
             <Button
