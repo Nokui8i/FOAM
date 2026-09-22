@@ -1089,18 +1089,13 @@ export function AdminOrdersPanel({
               ? ` · $${selected.finalTotal.toFixed(2)}`
               : ""}
           </p>
+          {isOrderCharged(selected) ? (
+            <p className="ops-charged-lock" role="status">
+              Charged at pickup — cannot undo to the stop. Refunds need
+              management approval.
+            </p>
+          ) : null}
           <div className="ops-action-row">
-            {stageBackLabel ? (
-              <button
-                type="button"
-                className="ops-stage-back"
-                disabled={saving || uploadingPhoto}
-                onClick={() => void goBackStage()}
-              >
-                <ArrowLeft size={14} aria-hidden />
-                {stageBackLabel}
-              </button>
-            ) : null}
             <Button
               type="button"
               className="ops-btn-lg"
