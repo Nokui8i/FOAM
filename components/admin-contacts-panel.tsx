@@ -165,7 +165,7 @@ export function AdminContactsPanel({
           <div className="ops-list-head-row">
             <div>
               <p className="ops-eyebrow">Current queue</p>
-              <h1 className="ops-list-title">Inquiries</h1>
+              <h1 className="ops-list-title">Support</h1>
             </div>
             <span className="ops-count-chip">{counts[filter]}</span>
           </div>
@@ -175,7 +175,7 @@ export function AdminContactsPanel({
             <input
               value={queryText}
               onChange={(e) => setQueryText(e.target.value)}
-              placeholder="Search inquiries"
+              placeholder="Search name, phone, or message"
             />
           </label>
 
@@ -265,13 +265,13 @@ export function AdminContactsPanel({
               onClick={() => onMobileViewChange("list")}
             >
               <ArrowLeft size={16} />
-              Back to inquiries
+              Back to support
             </Button>
 
             <div className="ops-inquiry-inner">
               <div className="ops-inquiry-head">
                 <div>
-                  <p className="ops-eyebrow">Selected inquiry</p>
+                  <p className="ops-eyebrow">Customer message</p>
                   <span
                     className={cn(
                       "ops-status-pill is-lg",
@@ -282,7 +282,7 @@ export function AdminContactsPanel({
                   </span>
                   <h2>{selected.name}</h2>
                   <p className="ops-muted">
-                    Contact inquiry · {formatDate(selected.createdAt)}
+                    Support · {formatDate(selected.createdAt)}
                   </p>
                 </div>
                 <div className="ops-icon-row">

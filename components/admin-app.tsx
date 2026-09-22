@@ -12,7 +12,7 @@ import {
   type User,
 } from "firebase/auth";
 import { collection, onSnapshot } from "firebase/firestore";
-import { Inbox, CalendarDays, LogOut, Truck } from "lucide-react";
+import { CalendarDays, Headphones, LogOut, Truck } from "lucide-react";
 
 import { AdminContactsPanel } from "@/components/admin-contacts-panel";
 import { AdminOrdersPanel } from "@/components/admin-orders-panel";
@@ -242,7 +242,7 @@ export function AdminApp() {
               <h1 className="ops-login-title">Good to see you.</h1>
               <p className="ops-muted">
                 Sign in to manage pickups, plant workflow, deliveries, and
-                customer inquiries.
+                customer support.
               </p>
             </div>
 
@@ -382,8 +382,8 @@ export function AdminApp() {
             className={cn("ops-nav-btn", tab === "contacts" && "is-active")}
             onClick={() => setDestination("contacts")}
           >
-            <Inbox size={20} aria-hidden />
-            <span>Inquiries</span>
+            <Headphones size={20} aria-hidden />
+            <span>Support</span>
             {openInquiriesCount > 0 ? (
               <span className="ops-nav-badge">{openInquiriesCount}</span>
             ) : null}
