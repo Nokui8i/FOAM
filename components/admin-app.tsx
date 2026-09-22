@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useState, Suspense, type FormEvent } from "react";
 import {
   GoogleAuthProvider,
   getRedirectResult,
@@ -28,10 +28,23 @@ import {
   type FoamOrder,
 } from "@/lib/orders";
 import { isAdminEmail } from "@/lib/site-config";
+import { useQueryReplace } from "@/lib/use-query-replace";
 import { cn } from "@/lib/utils";
 
-type AdminTab = "orders" | "future" | "contacts";
+type AdminTab = "orders" | "future" | "support";
 type MobileView = "list" | "detail";
+
+const TAB_FROM_PARAM: Record<string, AdminTab> = {
+  orders: "orders",
+  future: "future",
+  support: "support",
+  contacts: "support",
+};
+
+function parseAdminTab(raw: string | null): AdminTab {
+  if (!raw) return "orders";
+  return TAB_FROM_PARAM[raw] ?? "orders";
+}
 
 function orderStubFromDoc(data: Record<string, unknown>): FoamOrder {
   const pickup = (data.pickup ?? {}) as Record<string, unknown>;
@@ -100,12 +113,22 @@ function initialsFromEmail(email: string | null | undefined) {
 }
 
 export function AdminApp() {
+  return (
+    <Suspense fallback={<p className="ops-muted ops-loading">Loading…</p>}>
+      <AdminAppInner />
+    </Suspense>
+  );
+}
+
+function AdminAppInner() {
+  const { searchParams, replaceQuery } = useQueryReplace();
   const [user, setUser] = useState<User | null>(null);
   const [authReady, setAuthReady] = useState(false);
   const [loginError, setLoginError] = useState("");
   const [loggingIn, setLoggingIn] = useState(false);
-  const [tab, setTab] = useState<AdminTab>("orders");
-  const [mobileView, setMobileView] = useState<MobileView>("list");
+  const tab = parseAdminTab(searchParams.get("tab"));
+  const mobileView: MobileView =
+    searchParams.get("view") === "detail" ? "detail" : "list";
   const [openInquiriesCount, setOpenInquiriesCount] = useState(0);
   const [ordersCount, setOrdersCount] = useState(0);
   const [futureCount, setFutureCount] = useState(0);
@@ -223,8 +246,16 @@ export function AdminApp() {
   }
 
   function setDestination(next: AdminTab) {
-    setTab(next);
-    setMobileView("list");
+    replaceQuery({
+      tab: next === "orders" ? null : next,
+      view: null,
+      id: null,
+      filter: null,
+    });
+  }
+
+  function setMobileView(view: MobileView) {
+    replaceQuery({ view: view === "detail" ? "detail" : null });
   }
 
   if (!authReady) {
@@ -379,8 +410,8 @@ export function AdminApp() {
           </button>
           <button
             type="button"
-            className={cn("ops-nav-btn", tab === "contacts" && "is-active")}
-            onClick={() => setDestination("contacts")}
+            className={cn("ops-nav-btn", tab === "support" && "is-active")}
+            onClick={() => setDestination("support")}
           >
             <Headphones size={20} aria-hidden />
             <span>Support</span>

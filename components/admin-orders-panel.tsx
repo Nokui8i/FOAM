@@ -72,6 +72,7 @@ import {
 import { customerVisiblePhotos, firstNameFromContact } from "@/lib/order-tracking";
 import { BUSINESS_WHATSAPP } from "@/lib/site-config";
 import { cn } from "@/lib/utils";
+import { useQueryReplace } from "@/lib/use-query-replace";
 
 type Filter = "waiting" | "progress" | "ready" | "done" | "all";
 type MobileView = "list" | "detail";
@@ -84,6 +85,14 @@ const FILTERS: { id: Filter; label: string }[] = [
   { id: "done", label: "Done" },
   { id: "all", label: "All" },
 ];
+
+const FILTER_IDS = new Set<string>(FILTERS.map((f) => f.id));
+
+function parseFilter(raw: string | null, mode: OrdersMode): Filter {
+  if (mode === "future") return "all";
+  if (raw && FILTER_IDS.has(raw)) return raw as Filter;
+  return "waiting";
+}
 
 function formatPickupDate(date: string, withYear = false) {
   if (!date) return "—";
@@ -238,9 +247,10 @@ export function AdminOrdersPanel({
   mobileView: MobileView;
   onMobileViewChange: (view: MobileView) => void;
 }) {
+  const { searchParams, replaceQuery } = useQueryReplace();
   const [rows, setRows] = useState<FoamOrder[]>([]);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [filter, setFilter] = useState<Filter>("waiting");
+  const selectedId = searchParams.get("id");
+  const filter = parseFilter(searchParams.get("filter"), mode);
   const [queryText, setQueryText] = useState("");
   const [error, setError] = useState("");
   const [okMsg, setOkMsg] = useState("");
@@ -251,6 +261,14 @@ export function AdminOrdersPanel({
   const [saving, setSaving] = useState(false);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const catalogRef = useRef<HTMLDivElement>(null);
+
+  function setFilter(next: Filter) {
+    replaceQuery({
+      filter: next === "waiting" ? null : next,
+      id: null,
+      view: null,
+    });
+  }
 
   useEffect(() => {
     if (!openCatalog) return;
@@ -285,7 +303,6 @@ export function AdminOrdersPanel({
           mapOrder(item.id, item.data() as Record<string, unknown>)
         );
         setRows(next);
-        setSelectedId((current) => current ?? next[0]?.id ?? null);
         setError("");
       },
       () => {
@@ -340,14 +357,9 @@ export function AdminOrdersPanel({
     return matched;
   }, [rows, filter, queryText, mode]);
 
-  // Keep detail pane on a row that is actually visible in the current list.
-  useEffect(() => {
-    const stillVisible = filtered.some((row) => row.id === selectedId);
-    if (stillVisible) return;
-    setSelectedId(filtered[0]?.id ?? null);
-  }, [filtered, selectedId]);
-
-  const selected = filtered.find((row) => row.id === selectedId) ?? null;
+  // Prefer URL selection; fall back to first visible row without rewriting the URL.
+  const selected =
+    filtered.find((row) => row.id === selectedId) ?? filtered[0] ?? null;
 
   useEffect(() => {
     if (!selected) return;
@@ -493,14 +505,16 @@ export function AdminOrdersPanel({
   }
 
   async function markLeftForPickup(order: FoamOrder) {
-    setSelectedId(order.id);
+    replaceQuery({
+      id: order.id,
+      filter: null,
+      view: "detail",
+    });
     await patchOrderDoc(
       order,
       { status: "confirmed" },
       "Driver on the way — customer tracking updated"
     );
-    setFilter("waiting");
-    onMobileViewChange("detail");
   }
 
   const dryMatches = useMemo(() => {
@@ -754,8 +768,7 @@ export function AdminOrdersPanel({
     : "";
 
   function selectOrder(id: string) {
-    setSelectedId(id);
-    onMobileViewChange("detail");
+    replaceQuery({ id, view: "detail" });
   }
 
   function renderAtStopWorkspace() {

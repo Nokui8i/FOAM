@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, Suspense, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -64,9 +64,17 @@ import {
   isLasVegasZip,
 } from "@/lib/las-vegas";
 import { cn } from "@/lib/utils";
+import { useQueryReplace } from "@/lib/use-query-replace";
 
 const fieldClass =
   "mt-1.5 w-full rounded-lg border border-border/80 bg-white px-3 py-2.5 text-[15px] outline-none transition focus:border-accent-strong focus:ring-2 focus:ring-accent-strong/20";
+
+function parseBookingStep(raw: string | null): BookingStep | null {
+  if (raw && (BOOKING_STEPS as readonly string[]).includes(raw)) {
+    return raw as BookingStep;
+  }
+  return null;
+}
 
 const STEP_COPY: Record<
   BookingStep,
@@ -91,9 +99,25 @@ const STEP_COPY: Record<
 };
 
 export function BookingApp() {
+  return (
+    <Suspense
+      fallback={
+        <p className="px-4 py-10 text-center text-sm text-muted-foreground">
+          Loading…
+        </p>
+      }
+    >
+      <BookingAppInner />
+    </Suspense>
+  );
+}
+
+function BookingAppInner() {
   const { user, ready } = useAuth();
   const router = useRouter();
-  const [step, setStep] = useState<BookingStep>("services");
+  const { searchParams, replaceQuery } = useQueryReplace();
+  const step =
+    parseBookingStep(searchParams.get("step")) ?? ("services" as BookingStep);
   const [draft, setDraft] = useState<BookingDraft>(() => emptyBookingDraft());
   const [picker, setPicker] = useState<null | keyof BookingDraft>(null);
   const [showFullCalendar, setShowFullCalendar] = useState(false);
@@ -114,14 +138,28 @@ export function BookingApp() {
     [draft, repeatDiscountEligible, user]
   );
 
+  function setStep(next: BookingStep) {
+    replaceQuery({ step: next === "services" ? null : next });
+  }
+
   useEffect(() => {
     const saved = loadBookingDraft();
+    const fromUrl = parseBookingStep(searchParams.get("step"));
     if (saved) {
       setDraft(saved.draft);
-      setStep(saved.step);
+      if (!fromUrl && saved.step !== "services") {
+        replaceQuery({ step: saved.step });
+      }
     }
     setDraftHydrated(true);
+    // Restore once on mount.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    if (!draftHydrated) return;
+    saveBookingDraft(draft, step);
+  }, [draft, step, draftHydrated]);
 
   useEffect(() => {
     if (!draft.pickupDate && dates[0]) {

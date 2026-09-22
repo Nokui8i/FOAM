@@ -23,6 +23,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { getFirebaseDb } from "@/lib/firebase";
 import { BUSINESS_WHATSAPP } from "@/lib/site-config";
+import { useQueryReplace } from "@/lib/use-query-replace";
 import { cn } from "@/lib/utils";
 
 type ContactRow = {
@@ -46,6 +47,13 @@ const FILTERS: { id: InboxFilter; label: string }[] = [
   { id: "all", label: "All" },
 ];
 
+const FILTER_IDS = new Set<string>(FILTERS.map((f) => f.id));
+
+function parseInboxFilter(raw: string | null): InboxFilter {
+  if (raw && FILTER_IDS.has(raw)) return raw as InboxFilter;
+  return "open";
+}
+
 function formatDate(value: Timestamp | null) {
   if (!value) return "Just now";
   return value.toDate().toLocaleString();
@@ -64,11 +72,20 @@ export function AdminContactsPanel({
   mobileView: MobileView;
   onMobileViewChange: (view: MobileView) => void;
 }) {
+  const { searchParams, replaceQuery } = useQueryReplace();
   const [rows, setRows] = useState<ContactRow[]>([]);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [filter, setFilter] = useState<InboxFilter>("open");
+  const selectedId = searchParams.get("id");
+  const filter = parseInboxFilter(searchParams.get("filter"));
   const [queryText, setQueryText] = useState("");
   const [error, setError] = useState("");
+
+  function setFilter(next: InboxFilter) {
+    replaceQuery({
+      filter: next === "open" ? null : next,
+      id: null,
+      view: null,
+    });
+  }
 
   useEffect(() => {
     const db = getFirebaseDb();
@@ -95,7 +112,6 @@ export function AdminContactsPanel({
           } satisfies ContactRow;
         });
         setRows(next);
-        setSelectedId((current) => current ?? next[0]?.id ?? null);
         setError("");
       },
       () => {
@@ -126,7 +142,8 @@ export function AdminContactsPanel({
     });
   }, [rows, filter, queryText]);
 
-  const selected = rows.find((row) => row.id === selectedId) ?? null;
+  const selected =
+    filtered.find((row) => row.id === selectedId) ?? filtered[0] ?? null;
 
   async function markRead(id: string) {
     await updateDoc(doc(getFirebaseDb(), "contactMessages", id), {
@@ -142,8 +159,7 @@ export function AdminContactsPanel({
   }
 
   async function selectRow(row: ContactRow) {
-    setSelectedId(row.id);
-    onMobileViewChange("detail");
+    replaceQuery({ id: row.id, view: "detail" });
     if (!row.read) {
       await markRead(row.id);
     }

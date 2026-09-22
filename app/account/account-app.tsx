@@ -4,6 +4,7 @@ import {
   useEffect,
   useRef,
   useState,
+  Suspense,
   type FormEvent,
   type KeyboardEvent,
   type ReactNode,
@@ -22,6 +23,7 @@ import { AccountOrders } from "@/components/account-orders";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/components/auth-provider";
 import { GoogleSignInButton } from "@/components/google-sign-in-button";
+import { useQueryReplace } from "@/lib/use-query-replace";
 import { cn } from "@/lib/utils";
 import {
   LAS_VEGAS_CITY,
@@ -44,6 +46,20 @@ type Mode = "signin" | "signup";
 const tabs = ["Details", "Preferences", "Orders", "Payments"] as const;
 type TabName = (typeof tabs)[number];
 
+const TAB_PARAM: Record<TabName, string> = {
+  Details: "details",
+  Preferences: "preferences",
+  Orders: "orders",
+  Payments: "payments",
+};
+
+function parseAccountTab(raw: string | null): TabName {
+  const match = (Object.entries(TAB_PARAM) as [TabName, string][]).find(
+    ([, value]) => value === raw
+  );
+  return match?.[0] ?? "Details";
+}
+
 const inputClass =
   "h-9 w-full rounded-md border border-border bg-white px-3 text-sm text-foreground outline-none transition placeholder:text-muted-foreground/70 hover:border-muted-foreground/50 focus:border-accent-strong focus:ring-2 focus:ring-accent-strong/15 disabled:cursor-not-allowed disabled:border-border disabled:bg-muted/70 disabled:text-muted-foreground";
 
@@ -60,11 +76,12 @@ function AccountProfile({
   isAdmin: boolean;
   onSignOut: () => void;
 }) {
+  const { searchParams, replaceQuery } = useQueryReplace();
   const [profile, setProfile] = useState<UserProfile>(() => ({
     ...defaultProfile(uid, email),
     name: displayName,
   }));
-  const [activeTab, setActiveTab] = useState<TabName>("Details");
+  const activeTab = parseAccountTab(searchParams.get("tab"));
   const [saving, setSaving] = useState(false);
   const [savedPanel, setSavedPanel] = useState<"details" | "preferences" | null>(
     null
@@ -102,7 +119,9 @@ function AccountProfile({
   }, [uid, email, displayName]);
 
   const chooseTab = (tab: TabName) => {
-    setActiveTab(tab);
+    replaceQuery({
+      tab: tab === "Details" ? null : TAB_PARAM[tab],
+    });
     setSavedPanel(null);
     setError("");
     // Scroll the page (not an inner frame) so switching tabs feels natural.
@@ -700,15 +719,17 @@ export function AccountApp() {
   // Don't block the sign-in UI on Firebase ready — LAN/mobile often delays auth init.
   if (user) {
     return (
-      <AccountProfile
-        uid={user.uid}
-        email={user.email ?? ""}
-        displayName={
-          user.displayName?.trim() || user.email?.split("@")[0] || ""
-        }
-        isAdmin={isAdminEmail(user.email)}
-        onSignOut={handleSignOut}
-      />
+      <Suspense fallback={<p className="text-sm text-muted-foreground">Loading…</p>}>
+        <AccountProfile
+          uid={user.uid}
+          email={user.email ?? ""}
+          displayName={
+            user.displayName?.trim() || user.email?.split("@")[0] || ""
+          }
+          isAdmin={isAdminEmail(user.email)}
+          onSignOut={handleSignOut}
+        />
+      </Suspense>
     );
   }
 
