@@ -712,8 +712,6 @@ export function AdminOrdersPanel({
     : null;
 
   const stage = selected ? orderPipelineIndex(selected.status) : 0;
-  const activeStep = ORDER_PIPELINE_STEPS[Math.max(0, stage)];
-  const stepNumber = Math.max(1, stage + 1);
 
   const canCharge =
     !!selected &&
@@ -886,34 +884,6 @@ export function AdminOrdersPanel({
                 </button>
               </div>
 
-              {dryItems.length ? (
-                <div className="ops-soft-items">
-                  {dryItems.map((item, itemIndex) => (
-                    <div
-                      key={`${item.name}-${itemIndex}`}
-                      className="ops-soft-item"
-                    >
-                      <span className="ops-soft-item-mark" aria-hidden>
-                        <Shirt size={14} />
-                      </span>
-                      <span className="ops-soft-item-copy">
-                        <span>{item.name}</span>
-                        <strong>${item.price.toFixed(2)}</strong>
-                      </span>
-                      <button
-                        type="button"
-                        aria-label={`Remove ${item.name}`}
-                        onClick={() => removeDryItem(itemIndex)}
-                      >
-                        <X size={14} />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="ops-soft-empty">No dry-clean items yet</p>
-              )}
-
               {selected.services.dryCleaning && dryItems.length === 0 ? (
                 <p className="ops-dry-warn" role="status">
                   Customer ordered dry cleaning — add items before charging.
@@ -990,6 +960,32 @@ export function AdminOrdersPanel({
                   </div>
                 </div>
               )}
+
+              {dryItems.length ? (
+                <div className="ops-soft-items">
+                  {dryItems.map((item, itemIndex) => (
+                    <div
+                      key={`${item.name}-${itemIndex}`}
+                      className="ops-soft-item"
+                    >
+                      <span className="ops-soft-item-mark" aria-hidden>
+                        <Shirt size={14} />
+                      </span>
+                      <span className="ops-soft-item-copy">
+                        <span>{item.name}</span>
+                        <strong>${item.price.toFixed(2)}</strong>
+                      </span>
+                      <button
+                        type="button"
+                        aria-label={`Remove ${item.name}`}
+                        onClick={() => removeDryItem(itemIndex)}
+                      >
+                        <X size={14} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
             </section>
           </div>
 
@@ -1433,14 +1429,12 @@ export function AdminOrdersPanel({
                 </div>
 
                 <div className="ops-stage-card">
-                  <div className="ops-stage-card-head">
-                    <UserRound size={18} aria-hidden />
-                    <h3>
-                      {selected.status === "cancelled"
-                        ? "Order cancelled"
-                        : `Step ${stepNumber} of 4: ${activeStep?.label ?? ""}`}
-                    </h3>
-                  </div>
+                  {selected.status === "cancelled" ? (
+                    <div className="ops-stage-card-head">
+                      <UserRound size={18} aria-hidden />
+                      <h3>Order cancelled</h3>
+                    </div>
+                  ) : null}
                   {renderWorkspaceBody()}
                 </div>
               </section>
