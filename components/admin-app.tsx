@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, Suspense, type FormEvent } from "react";
+import { useEffect, useRef, useState, Suspense, type FormEvent } from "react";
 import {
   GoogleAuthProvider,
   getRedirectResult,
@@ -132,8 +132,33 @@ function AdminAppInner() {
   const [openInquiriesCount, setOpenInquiriesCount] = useState(0);
   const [ordersCount, setOrdersCount] = useState(0);
   const [futureCount, setFutureCount] = useState(0);
+  const [accountMenuOpen, setAccountMenuOpen] = useState(false);
+  const accountMenuRef = useRef<HTMLDivElement>(null);
 
   const allowed = isAdminEmail(user?.email);
+
+  useEffect(() => {
+    if (!accountMenuOpen) return;
+
+    function handlePointerDown(event: PointerEvent) {
+      const root = accountMenuRef.current;
+      if (!root) return;
+      const target = event.target;
+      if (target instanceof Node && root.contains(target)) return;
+      setAccountMenuOpen(false);
+    }
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") setAccountMenuOpen(false);
+    }
+
+    document.addEventListener("pointerdown", handlePointerDown, true);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown, true);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [accountMenuOpen]);
 
   useEffect(() => {
     const auth = getFirebaseAuth();
@@ -422,15 +447,36 @@ function AdminAppInner() {
         </nav>
 
         <div className="ops-nav-foot">
-          <button
-            type="button"
-            className="ops-nav-avatar"
-            title={`Sign out · ${user.email ?? ""}`}
-            aria-label="Sign out"
-            onClick={() => void signOut(getFirebaseAuth())}
-          >
-            {avatar}
-          </button>
+          <div className="ops-account-menu" ref={accountMenuRef}>
+            <button
+              type="button"
+              className={cn("ops-nav-avatar", accountMenuOpen && "is-open")}
+              title={user.email ?? "Account"}
+              aria-label="Account menu"
+              aria-expanded={accountMenuOpen}
+              aria-haspopup="menu"
+              onClick={() => setAccountMenuOpen((open) => !open)}
+            >
+              {avatar}
+            </button>
+            {accountMenuOpen ? (
+              <div className="ops-account-popover" role="menu">
+                <p className="ops-account-email">{user.email}</p>
+                <button
+                  type="button"
+                  className="ops-account-signout"
+                  role="menuitem"
+                  onClick={() => {
+                    setAccountMenuOpen(false);
+                    void signOut(getFirebaseAuth());
+                  }}
+                >
+                  <LogOut size={15} aria-hidden />
+                  Sign out
+                </button>
+              </div>
+            ) : null}
+          </div>
         </div>
       </aside>
 

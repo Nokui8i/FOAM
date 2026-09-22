@@ -6285,8 +6285,52 @@
   font-weight: 800;
   cursor: pointer;
 }
-.ops-nav-avatar:hover {
+.ops-nav-avatar:hover,
+.ops-nav-avatar.is-open {
   background: color-mix(in srgb, #00a8d8 35%, transparent);
+}
+.ops-account-menu {
+  position: relative;
+  display: flex;
+  justify-content: center;
+}
+.ops-account-popover {
+  position: absolute;
+  left: calc(100% + 0.65rem);
+  bottom: 0;
+  z-index: 40;
+  min-width: 13.5rem;
+  padding: 0.65rem;
+  border: 1px solid var(--ops-border, #e2e8f0);
+  border-radius: 0.75rem;
+  background: #fff;
+  box-shadow: 0 12px 28px color-mix(in oklab, #0b1c2c 18%, transparent);
+}
+.ops-account-email {
+  margin: 0 0 0.55rem;
+  padding: 0 0.2rem;
+  color: var(--ops-muted, #64748b);
+  font-size: 0.75rem;
+  line-height: 1.35;
+  word-break: break-all;
+}
+.ops-account-signout {
+  display: inline-flex;
+  width: 100%;
+  align-items: center;
+  gap: 0.45rem;
+  margin: 0;
+  padding: 0.55rem 0.65rem;
+  border: 0;
+  border-radius: 0.55rem;
+  background: color-mix(in srgb, #16324a 6%, #fff);
+  color: #16324a;
+  font-size: 0.875rem;
+  font-weight: 650;
+  cursor: pointer;
+}
+.ops-account-signout:hover {
+  background: color-mix(in srgb, #16324a 12%, #fff);
 }
 .ops-nav-user-meta,
 .ops-nav-email,
