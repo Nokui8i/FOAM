@@ -73,12 +73,12 @@ import { customerVisiblePhotos, firstNameFromContact } from "@/lib/order-trackin
 import { BUSINESS_WHATSAPP } from "@/lib/site-config";
 import { cn } from "@/lib/utils";
 
-type Filter = "waiting" | "future" | "progress" | "ready" | "done" | "all";
+type Filter = "waiting" | "progress" | "ready" | "done" | "all";
 type MobileView = "list" | "detail";
+type OrdersMode = "today" | "future";
 
 const FILTERS: { id: Filter; label: string }[] = [
   { id: "waiting", label: "Waiting" },
-  { id: "future", label: "Future" },
   { id: "progress", label: "In Progress" },
   { id: "ready", label: "Ready" },
   { id: "done", label: "Done" },
@@ -228,10 +228,12 @@ function mapOrder(id: string, data: Record<string, unknown>): FoamOrder {
 }
 
 export function AdminOrdersPanel({
+  mode = "today",
   adminEmail,
   mobileView,
   onMobileViewChange,
 }: {
+  mode?: OrdersMode;
   adminEmail: string;
   mobileView: MobileView;
   onMobileViewChange: (view: MobileView) => void;
@@ -295,11 +297,10 @@ export function AdminOrdersPanel({
   const counts = useMemo(
     () => ({
       waiting: rows.filter((r) => isWaitingTodayOrder(r)).length,
-      future: rows.filter((r) => isFuturePickupOrder(r)).length,
       progress: rows.filter((r) => isWashingOrder(r.status)).length,
       ready: rows.filter((r) => isReadyForDelivery(r.status)).length,
       done: rows.filter((r) => isDoneOrder(r.status)).length,
-      all: rows.length,
+      all: rows.filter((r) => !isFuturePickupOrder(r)).length,
     }),
     [rows]
   );
@@ -307,11 +308,15 @@ export function AdminOrdersPanel({
   const filtered = useMemo(() => {
     const q = queryText.trim().toLowerCase();
     const matched = rows.filter((row) => {
-      if (filter === "waiting" && !isWaitingTodayOrder(row)) return false;
-      if (filter === "future" && !isFuturePickupOrder(row)) return false;
-      if (filter === "progress" && !isWashingOrder(row.status)) return false;
-      if (filter === "ready" && !isReadyForDelivery(row.status)) return false;
-      if (filter === "done" && !isDoneOrder(row.status)) return false;
+      if (mode === "future") {
+        if (!isFuturePickupOrder(row)) return false;
+      } else {
+        if (isFuturePickupOrder(row)) return false;
+        if (filter === "waiting" && !isWaitingTodayOrder(row)) return false;
+        if (filter === "progress" && !isWashingOrder(row.status)) return false;
+        if (filter === "ready" && !isReadyForDelivery(row.status)) return false;
+        if (filter === "done" && !isDoneOrder(row.status)) return false;
+      }
       if (!q) return true;
       const hay = [
         row.contact.name,
@@ -329,11 +334,11 @@ export function AdminOrdersPanel({
       return hay.includes(q);
     });
 
-    if (filter === "waiting" || filter === "future" || filter === "ready") {
+    if (mode === "future" || filter === "waiting" || filter === "ready") {
       return [...matched].sort(compareOrdersByPickupSchedule);
     }
     return matched;
-  }, [rows, filter, queryText]);
+  }, [rows, filter, queryText, mode]);
 
   // Keep detail pane on a row that is actually visible in the current list.
   useEffect(() => {
@@ -1248,7 +1253,9 @@ export function AdminOrdersPanel({
         )}
       >
         <div className="ops-list-head">
-          <h1 className="ops-list-title">Orders</h1>
+          <h1 className="ops-list-title">
+            {mode === "future" ? "Future" : "Orders"}
+          </h1>
           <label className="ops-search">
             <Search size={15} aria-hidden />
             <input
@@ -1258,21 +1265,23 @@ export function AdminOrdersPanel({
             />
           </label>
 
-          <div className="ops-filter-row" role="group" aria-label="Order filters">
-            {FILTERS.map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                className={cn(
-                  "ops-filter-chip",
-                  filter === item.id && "is-active"
-                )}
-                onClick={() => setFilter(item.id)}
-              >
-                {item.label} {counts[item.id]}
-              </button>
-            ))}
-          </div>
+          {mode === "today" ? (
+            <div className="ops-filter-row" role="group" aria-label="Order filters">
+              {FILTERS.map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  className={cn(
+                    "ops-filter-chip",
+                    filter === item.id && "is-active"
+                  )}
+                  onClick={() => setFilter(item.id)}
+                >
+                  {item.label} {counts[item.id]}
+                </button>
+              ))}
+            </div>
+          ) : null}
         </div>
 
         {error && !selected ? <p className="ops-error ops-pad">{error}</p> : null}
@@ -1280,7 +1289,11 @@ export function AdminOrdersPanel({
         <div className="ops-list-scroll">
           <div className="ops-list-card">
             {filtered.length === 0 ? (
-              <p className="ops-empty">Live orders will appear here.</p>
+              <p className="ops-empty">
+                {mode === "future"
+                  ? "Future pickups will appear here, sorted by date and time."
+                  : "Live orders will appear here."}
+              </p>
             ) : (
               filtered.map((row) => (
                 <button

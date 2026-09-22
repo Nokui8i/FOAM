@@ -12,18 +12,48 @@ import {
   type User,
 } from "firebase/auth";
 import { collection, onSnapshot } from "firebase/firestore";
-import { Inbox, LogOut, Truck } from "lucide-react";
+import { Inbox, CalendarDays, LogOut, Truck } from "lucide-react";
 
 import { AdminContactsPanel } from "@/components/admin-contacts-panel";
 import { AdminOrdersPanel } from "@/components/admin-orders-panel";
 import { Button } from "@/components/ui/button";
 import { getFirebaseAuth, getFirebaseDb } from "@/lib/firebase";
 import { purgeExpiredOpsDataOncePerSession } from "@/lib/data-retention";
+import {
+  isFuturePickupOrder,
+  isReadyForDelivery,
+  isWaitingTodayOrder,
+  isWashingOrder,
+  normalizeOrderStatus,
+  type FoamOrder,
+} from "@/lib/orders";
 import { isAdminEmail } from "@/lib/site-config";
 import { cn } from "@/lib/utils";
 
-type AdminTab = "orders" | "contacts";
+type AdminTab = "orders" | "future" | "contacts";
 type MobileView = "list" | "detail";
+
+function orderStubFromDoc(data: Record<string, unknown>): FoamOrder {
+  const pickup = (data.pickup ?? {}) as Record<string, unknown>;
+  return {
+    id: "",
+    status: normalizeOrderStatus(data.status),
+    guest: false,
+    uid: null,
+    services: { laundry: true, dryCleaning: false, bagCount: 1 },
+    contact: { name: "", email: "", phone: "" },
+    pickup: {
+      address: "",
+      unit: "",
+      city: "",
+      zip: "",
+      notes: "",
+      date: String(pickup.date ?? ""),
+      slot: String(pickup.slot ?? ""),
+      repeat: false,
+    },
+  };
+}
 
 function FoamMark({
   compact = false,
@@ -78,6 +108,7 @@ export function AdminApp() {
   const [mobileView, setMobileView] = useState<MobileView>("list");
   const [openInquiriesCount, setOpenInquiriesCount] = useState(0);
   const [ordersCount, setOrdersCount] = useState(0);
+  const [futureCount, setFutureCount] = useState(0);
 
   const allowed = isAdminEmail(user?.email);
 
@@ -109,9 +140,24 @@ export function AdminApp() {
       setOpenInquiriesCount(open);
     });
     const unsubOrders = onSnapshot(collection(db, "orders"), (snap) => {
-      setOrdersCount(
-        snap.docs.filter((d) => d.data().status !== "cancelled").length
-      );
+      let todayActive = 0;
+      let future = 0;
+      for (const docSnap of snap.docs) {
+        const order = orderStubFromDoc(docSnap.data() as Record<string, unknown>);
+        if (isFuturePickupOrder(order)) {
+          future += 1;
+          continue;
+        }
+        if (
+          isWaitingTodayOrder(order) ||
+          isWashingOrder(order.status) ||
+          isReadyForDelivery(order.status)
+        ) {
+          todayActive += 1;
+        }
+      }
+      setOrdersCount(todayActive);
+      setFutureCount(future);
     });
     return () => {
       unsubContacts();
@@ -322,6 +368,17 @@ export function AdminApp() {
           </button>
           <button
             type="button"
+            className={cn("ops-nav-btn", tab === "future" && "is-active")}
+            onClick={() => setDestination("future")}
+          >
+            <CalendarDays size={20} aria-hidden />
+            <span>Future</span>
+            {futureCount > 0 ? (
+              <span className="ops-nav-badge">{futureCount}</span>
+            ) : null}
+          </button>
+          <button
+            type="button"
             className={cn("ops-nav-btn", tab === "contacts" && "is-active")}
             onClick={() => setDestination("contacts")}
           >
@@ -374,8 +431,10 @@ export function AdminApp() {
               mobileView === "detail" && "is-detail-open"
             )}
           >
-            {tab === "orders" ? (
+            {tab === "orders" || tab === "future" ? (
               <AdminOrdersPanel
+                key={tab}
+                mode={tab === "future" ? "future" : "today"}
                 adminEmail={user.email ?? ""}
                 mobileView={mobileView}
                 onMobileViewChange={setMobileView}
