@@ -245,6 +245,53 @@ export function isWaitingForPickup(status: OrderStatus) {
   return status === "new" || status === "confirmed";
 }
 
+export function isDoneOrder(status: OrderStatus) {
+  return status === "delivered" || status === "cancelled";
+}
+
+/** Ops “today” in Las Vegas (service city). */
+export function opsTodayIso(now = new Date()): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Los_Angeles",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(now);
+}
+
+/** Sort key for pickup slots like "7am - 10am". Unknown slots go last. */
+export function pickupSlotSortKey(slot: string): number {
+  const match = slot.trim().match(/^(\d{1,2})\s*(am|pm)/i);
+  if (!match) return 99;
+  let hour = Number(match[1]);
+  const meridiem = match[2].toLowerCase();
+  if (meridiem === "pm" && hour < 12) hour += 12;
+  if (meridiem === "am" && hour === 12) hour = 0;
+  return hour;
+}
+
+export function compareOrdersByPickupSchedule(a: FoamOrder, b: FoamOrder): number {
+  const dateCmp = (a.pickup.date || "").localeCompare(b.pickup.date || "");
+  if (dateCmp !== 0) return dateCmp;
+  const slotCmp = pickupSlotSortKey(a.pickup.slot) - pickupSlotSortKey(b.pickup.slot);
+  if (slotCmp !== 0) return slotCmp;
+  return (a.pickup.slot || "").localeCompare(b.pickup.slot || "");
+}
+
+/** Today's pickups still waiting (includes overdue so ops doesn't miss them). */
+export function isWaitingTodayOrder(order: FoamOrder, today = opsTodayIso()) {
+  if (!isWaitingForPickup(order.status)) return false;
+  const date = order.pickup.date || "";
+  return !date || date <= today;
+}
+
+/** Scheduled pickups after today, still waiting. */
+export function isFuturePickupOrder(order: FoamOrder, today = opsTodayIso()) {
+  if (!isWaitingForPickup(order.status)) return false;
+  const date = order.pickup.date || "";
+  return Boolean(date && date > today);
+}
+
 /** Driver left the depot / plant and is heading to collect bags. */
 export function isEnRouteToPickup(status: OrderStatus) {
   return status === "confirmed";

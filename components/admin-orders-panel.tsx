@@ -47,9 +47,13 @@ import {
   computeFinalTotal,
   dryCleanItemsTotal,
   formatOrderAddress,
+  compareOrdersByPickupSchedule,
+  isDoneOrder,
   isEnRouteToPickup,
+  isFuturePickupOrder,
   isReadyForDelivery,
   isWaitingForPickup,
+  isWaitingTodayOrder,
   isWashingOrder,
   normalizeOrderStatus,
   orderDisplayId,
@@ -69,14 +73,16 @@ import { customerVisiblePhotos, firstNameFromContact } from "@/lib/order-trackin
 import { BUSINESS_WHATSAPP } from "@/lib/site-config";
 import { cn } from "@/lib/utils";
 
-type Filter = "all" | "waiting" | "progress" | "ready";
+type Filter = "waiting" | "future" | "progress" | "ready" | "done" | "all";
 type MobileView = "list" | "detail";
 
 const FILTERS: { id: Filter; label: string }[] = [
-  { id: "all", label: "All" },
   { id: "waiting", label: "Waiting" },
+  { id: "future", label: "Future" },
   { id: "progress", label: "In Progress" },
   { id: "ready", label: "Ready" },
+  { id: "done", label: "Done" },
+  { id: "all", label: "All" },
 ];
 
 function formatPickupDate(date: string, withYear = false) {
@@ -232,7 +238,7 @@ export function AdminOrdersPanel({
 }) {
   const [rows, setRows] = useState<FoamOrder[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [filter, setFilter] = useState<Filter>("all");
+  const [filter, setFilter] = useState<Filter>("waiting");
   const [queryText, setQueryText] = useState("");
   const [error, setError] = useState("");
   const [okMsg, setOkMsg] = useState("");
@@ -288,20 +294,24 @@ export function AdminOrdersPanel({
 
   const counts = useMemo(
     () => ({
-      all: rows.length,
-      waiting: rows.filter((r) => isWaitingForPickup(r.status)).length,
+      waiting: rows.filter((r) => isWaitingTodayOrder(r)).length,
+      future: rows.filter((r) => isFuturePickupOrder(r)).length,
       progress: rows.filter((r) => isWashingOrder(r.status)).length,
       ready: rows.filter((r) => isReadyForDelivery(r.status)).length,
+      done: rows.filter((r) => isDoneOrder(r.status)).length,
+      all: rows.length,
     }),
     [rows]
   );
 
   const filtered = useMemo(() => {
     const q = queryText.trim().toLowerCase();
-    return rows.filter((row) => {
-      if (filter === "waiting" && !isWaitingForPickup(row.status)) return false;
+    const matched = rows.filter((row) => {
+      if (filter === "waiting" && !isWaitingTodayOrder(row)) return false;
+      if (filter === "future" && !isFuturePickupOrder(row)) return false;
       if (filter === "progress" && !isWashingOrder(row.status)) return false;
       if (filter === "ready" && !isReadyForDelivery(row.status)) return false;
+      if (filter === "done" && !isDoneOrder(row.status)) return false;
       if (!q) return true;
       const hay = [
         row.contact.name,
@@ -318,6 +328,11 @@ export function AdminOrdersPanel({
         .toLowerCase();
       return hay.includes(q);
     });
+
+    if (filter === "waiting" || filter === "future" || filter === "ready") {
+      return [...matched].sort(compareOrdersByPickupSchedule);
+    }
+    return matched;
   }, [rows, filter, queryText]);
 
   // Keep detail pane on a row that is actually visible in the current list.
