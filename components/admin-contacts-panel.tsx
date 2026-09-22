@@ -271,7 +271,6 @@ export function AdminContactsPanel({
             <div className="ops-inquiry-inner">
               <div className="ops-inquiry-head">
                 <div>
-                  <p className="ops-eyebrow">Customer message</p>
                   <span
                     className={cn(
                       "ops-status-pill is-lg",
@@ -282,7 +281,7 @@ export function AdminContactsPanel({
                   </span>
                   <h2>{selected.name}</h2>
                   <p className="ops-muted">
-                    Support · {formatDate(selected.createdAt)}
+                    {formatDate(selected.createdAt)}
                   </p>
                 </div>
                 <div className="ops-icon-row">
@@ -316,15 +315,8 @@ export function AdminContactsPanel({
                 </div>
               </div>
 
-              <section className="ops-card">
-                <div className="ops-panel-title is-numbered">
-                  <span className="ops-panel-title-number" aria-hidden>
-                    01
-                  </span>
-                  <div>
-                    <h3>Message</h3>
-                  </div>
-                </div>
+              <section className="ops-support-block">
+                <h3 className="ops-support-block-title">Customer</h3>
                 <div className="ops-fields">
                   <div>
                     <p className="ops-field-label">Name</p>
@@ -332,7 +324,7 @@ export function AdminContactsPanel({
                   </div>
                   <div>
                     <p className="ops-field-label">Topic</p>
-                    <p>{selected.topic}</p>
+                    <p>{selected.topic || "—"}</p>
                   </div>
                   <div>
                     <p className="ops-field-label">Email</p>
@@ -351,24 +343,26 @@ export function AdminContactsPanel({
                     </p>
                   </div>
                 </div>
-                <div className="ops-message-block">
-                  <p className="ops-field-label">Full message</p>
-                  <div className="ops-message-body">{selected.message}</div>
-                </div>
-                <Button
-                  type="button"
-                  className="ops-btn-lg"
-                  variant={selected.status === "done" ? "outline" : "default"}
-                  onClick={() => void toggleDone(selected)}
-                >
-                  {selected.status === "done" ? (
-                    <Repeat2 size={16} />
-                  ) : (
-                    <Check size={16} />
-                  )}
-                  {selected.status === "done" ? "Reopen" : "Mark done"}
-                </Button>
               </section>
+
+              <section className="ops-support-block">
+                <h3 className="ops-support-block-title">Message</h3>
+                <div className="ops-message-body">{selected.message}</div>
+              </section>
+
+              <Button
+                type="button"
+                className="ops-btn-lg"
+                variant={selected.status === "done" ? "outline" : "default"}
+                onClick={() => void toggleDone(selected)}
+              >
+                {selected.status === "done" ? (
+                  <Repeat2 size={16} />
+                ) : (
+                  <Check size={16} />
+                )}
+                {selected.status === "done" ? "Reopen" : "Mark done"}
+              </Button>
             </div>
           </article>
         )}

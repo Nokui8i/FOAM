@@ -8425,9 +8425,25 @@ button.ops-row {
   border-bottom: 1px solid var(--ops-border);
   margin-bottom: 1.5rem;
 }
-.ops-message-block { margin-top: 1.75rem; }
+.ops-support-block {
+  margin-bottom: 1.75rem;
+  padding-bottom: 1.75rem;
+  border-bottom: 1px solid var(--ops-border);
+}
+.ops-support-block:last-of-type {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+.ops-support-block-title {
+  margin: 0 0 0.85rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ops-muted, #64748b);
+}
 .ops-message-body {
-  margin-top: 0.75rem;
+  margin-top: 0;
   padding: 1.25rem;
   border-radius: var(--ops-radius);
   background: var(--ops-surface);
@@ -8436,7 +8452,7 @@ button.ops-row {
   font-size: 0.9375rem;
   box-shadow: inset 0 1px 2px color-mix(in oklab, var(--ops-ink) 5%, transparent);
 }
-.ops-inquiry .ops-btn-lg { margin-top: 1.5rem; }
+.ops-inquiry .ops-btn-lg { margin-top: 0.5rem; }
 
 /* Orders detail — vertical stack (mockup) */
 .ops-detail-stack {
