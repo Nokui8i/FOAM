@@ -865,102 +865,28 @@ export function AdminOrdersPanel({
               )}
             </section>
 
-            <section
-              className="ops-soft-col"
-              aria-label="Dry cleaning"
-              ref={catalogRef}
-            >
+            <section className="ops-soft-col" aria-label="Dry cleaning">
               <div className="ops-soft-section-head">
                 <span className="ops-soft-icon" aria-hidden>
                   <Shirt size={16} />
                 </span>
                 <h4>Dry cleaning catalog</h4>
-                <button
-                  type="button"
-                  className="ops-soft-open"
-                  onClick={() => setOpenCatalog((v) => !v)}
-                >
-                  {openCatalog ? "Close" : "Open"}
-                  <ArrowRight size={14} aria-hidden />
-                </button>
               </div>
+
+              <button
+                type="button"
+                className="ops-soft-add"
+                onClick={() => setOpenCatalog(true)}
+              >
+                <Plus size={16} aria-hidden />
+                Add more items
+              </button>
 
               {selected.services.dryCleaning && dryItems.length === 0 ? (
                 <p className="ops-dry-warn" role="status">
                   Customer ordered dry cleaning — add items before charging.
                 </p>
               ) : null}
-
-              {!openCatalog ? (
-                <button
-                  type="button"
-                  className="ops-soft-add"
-                  onClick={() => setOpenCatalog(true)}
-                >
-                  <Plus size={16} aria-hidden />
-                  Add more items
-                </button>
-              ) : (
-                <div
-                  className="ops-soft-catalog"
-                  role="listbox"
-                  aria-label="Dry cleaning catalog"
-                  aria-multiselectable="true"
-                >
-                  <label className="ops-search is-compact">
-                    <Search size={14} aria-hidden />
-                    <input
-                      autoFocus
-                      value={dryQuery}
-                      onChange={(e) => setDryQuery(e.target.value)}
-                      placeholder="Search catalog"
-                    />
-                  </label>
-                  <div className="ops-catalog-list">
-                    {dryMatches.length === 0 ? (
-                      <p className="ops-catalog-empty">No catalog matches</p>
-                    ) : (
-                      dryMatches.map((item) => {
-                        const selectedCount = dryItems.filter(
-                          (dry) => dry.name === item.name
-                        ).length;
-                        return (
-                          <button
-                            key={item.name}
-                            type="button"
-                            role="option"
-                            aria-selected={selectedCount > 0}
-                            className={cn(
-                              "ops-catalog-item",
-                              selectedCount > 0 && "is-selected"
-                            )}
-                            onClick={() => addDryItem(item)}
-                          >
-                            <span className="ops-catalog-item-main">
-                              <span
-                                className={cn(
-                                  "ops-catalog-check",
-                                  selectedCount > 0 && "is-on"
-                                )}
-                                aria-hidden
-                              >
-                                {selectedCount > 0 ? <Check size={12} /> : null}
-                              </span>
-                              <span>{item.name}</span>
-                              {selectedCount > 1 ? (
-                                <span className="ops-catalog-qty">
-                                  ×{selectedCount}
-                                </span>
-                              ) : null}
-                            </span>
-                            <strong>${item.price.toFixed(2)}</strong>
-                          </button>
-                        );
-                      })
-                    )}
-                  </div>
-                </div>
-              )}
 
               {dryItems.length ? (
                 <div className="ops-soft-items">
@@ -985,6 +911,100 @@ export function AdminOrdersPanel({
                       </button>
                     </div>
                   ))}
+                </div>
+              ) : null}
+
+              {openCatalog ? (
+                <div
+                  className="ops-catalog-overlay"
+                  role="presentation"
+                  onClick={() => setOpenCatalog(false)}
+                >
+                  <div
+                    className="ops-catalog-modal"
+                    role="dialog"
+                    aria-modal="true"
+                    aria-label="Dry cleaning catalog"
+                    ref={catalogRef}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <div className="ops-catalog-modal-head">
+                      <h4>Add dry clean items</h4>
+                      <button
+                        type="button"
+                        className="ops-catalog-modal-close"
+                        aria-label="Close"
+                        onClick={() => setOpenCatalog(false)}
+                      >
+                        <X size={16} />
+                      </button>
+                    </div>
+                    <label className="ops-search is-compact">
+                      <Search size={14} aria-hidden />
+                      <input
+                        autoFocus
+                        value={dryQuery}
+                        onChange={(e) => setDryQuery(e.target.value)}
+                        placeholder="Search catalog"
+                      />
+                    </label>
+                    <div
+                      className="ops-catalog-list"
+                      role="listbox"
+                      aria-multiselectable="true"
+                    >
+                      {dryMatches.length === 0 ? (
+                        <p className="ops-catalog-empty">No catalog matches</p>
+                      ) : (
+                        dryMatches.map((item) => {
+                          const selectedCount = dryItems.filter(
+                            (dry) => dry.name === item.name
+                          ).length;
+                          return (
+                            <button
+                              key={item.name}
+                              type="button"
+                              role="option"
+                              aria-selected={selectedCount > 0}
+                              className={cn(
+                                "ops-catalog-item",
+                                selectedCount > 0 && "is-selected"
+                              )}
+                              onClick={() => addDryItem(item)}
+                            >
+                              <span className="ops-catalog-item-main">
+                                <span
+                                  className={cn(
+                                    "ops-catalog-check",
+                                    selectedCount > 0 && "is-on"
+                                  )}
+                                  aria-hidden
+                                >
+                                  {selectedCount > 0 ? (
+                                    <Check size={12} />
+                                  ) : null}
+                                </span>
+                                <span>{item.name}</span>
+                                {selectedCount > 1 ? (
+                                  <span className="ops-catalog-qty">
+                                    ×{selectedCount}
+                                  </span>
+                                ) : null}
+                              </span>
+                              <strong>${item.price.toFixed(2)}</strong>
+                            </button>
+                          );
+                        })
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      className="ops-catalog-modal-done"
+                      onClick={() => setOpenCatalog(false)}
+                    >
+                      Done
+                    </button>
+                  </div>
                 </div>
               ) : null}
             </section>
