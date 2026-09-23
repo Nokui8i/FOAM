@@ -7370,17 +7370,18 @@ button.ops-row {
   border: 0;
   background: transparent;
   text-align: center;
-  font-family: var(--ops-display);
-  font-size: 1.35rem;
+  font-family: var(--ops-body), "DM Sans", sans-serif;
+  font-size: 15px;
   font-weight: 800;
-  letter-spacing: -0.03em;
+  letter-spacing: 0;
+  line-height: 1.2;
   color: var(--ops-ink);
   outline: none;
 }
 .ops-soft-stepper-value span {
-  font-size: 0.85rem;
-  font-weight: 700;
-  color: var(--ops-muted);
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--ops-ink);
 }
 .ops-soft-dropzone {
   position: relative;
