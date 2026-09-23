@@ -87,6 +87,8 @@ const FILTERS: { id: Filter; label: string }[] = [
   { id: "all", label: "All" },
 ];
 
+const ROW_FILTERS = FILTERS.filter((item) => item.id !== "all");
+
 const FILTER_IDS = new Set<string>(FILTERS.map((f) => f.id));
 
 function parseFilter(raw: string | null, mode: OrdersMode): Filter {
@@ -1313,6 +1315,18 @@ export function AdminOrdersPanel({
                 {mode === "future" ? "Future" : "Orders"}
               </h1>
             </div>
+            {mode === "today" ? (
+              <button
+                type="button"
+                className={cn(
+                  "ops-all-tab",
+                  filter === "all" && "is-active"
+                )}
+                onClick={() => setFilter("all")}
+              >
+                All {counts.all}
+              </button>
+            ) : null}
           </div>
           <label className="ops-search">
             <Search size={15} aria-hidden />
@@ -1325,7 +1339,7 @@ export function AdminOrdersPanel({
 
           {mode === "today" ? (
             <div className="ops-filter-row" role="group" aria-label="Order filters">
-              {FILTERS.map((item) => (
+              {ROW_FILTERS.map((item) => (
                 <button
                   key={item.id}
                   type="button"
