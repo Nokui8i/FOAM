@@ -760,9 +760,9 @@
   background: #fff;
   box-shadow: 0 12px 25px -18px rgba(22,50,74,.55);
 }
-.admin-page .ops-soft-section-head { display: flex; align-items: center; gap: 10px; margin-bottom: 0; }
+.admin-page .ops-soft-section-head { display: flex; align-items: center; gap: 8px; margin: 0 0 2px; }
 .admin-page .ops-soft-section-head + .ops-soft-section-head,
-.admin-page .ops-soft-stepper + .ops-soft-section-head { margin-top: 12px; }
+.admin-page .ops-soft-stepper + .ops-soft-section-head { margin-top: 10px; }
 .admin-page .ops-soft-icon {
   width: 2rem;
   height: 2rem;
@@ -777,7 +777,7 @@
   height: 44px;
   width: fit-content;
   max-width: 100%;
-  margin: 6px auto 8px;
+  margin: 2px auto 6px;
   display: grid;
   grid-template-columns: 40px minmax(96px, 132px) 40px;
   align-items: center;
@@ -838,7 +838,7 @@
 .admin-page .ops-soft-dropzone {
   position: relative;
   min-height: 44px;
-  margin-top: 6px;
+  margin-top: 2px;
   padding: 0 16px;
   display: flex;
   align-items: center;
@@ -856,7 +856,7 @@
 .admin-page .ops-soft-dropzone input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
 .admin-page .ops-soft-add {
   min-height: 44px;
-  margin: 6px 0 0;
+  margin: 2px 0 0;
   padding: 0 16px;
   display: inline-flex;
   align-items: center;
