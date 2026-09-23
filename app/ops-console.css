@@ -329,6 +329,29 @@
   background: transparent;
   font-size: 13px;
 }
+.admin-page .ops-catalog-modal .ops-search {
+  height: 40px;
+  margin: 10px 0 8px;
+  padding: 0 12px;
+  border: 1px solid var(--ops-border);
+  border-radius: 9px;
+  background: #fff;
+  box-shadow: none;
+  color: var(--ops-muted);
+}
+.admin-page .ops-catalog-modal .ops-search input {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  border-radius: 0;
+  height: auto;
+  padding: 0;
+}
+.admin-page .ops-catalog-modal .ops-search svg {
+  position: static;
+  transform: none;
+  flex-shrink: 0;
+}
 .admin-page .ops-filter-row {
   display: grid;
   grid-template-columns: repeat(4, minmax(0,1fr));
