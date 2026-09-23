@@ -905,7 +905,7 @@ export function AdminOrdersPanel({
     }
 
     const dryTotal = dryCleanItemsTotal(dryItems);
-    // Min $50 is on laundry + service fee combined (same as charge).
+    // Min $50 is on laundry alone; service fee is added on top.
     const laundryPlusFee = computeFinalTotal({
       weightLbs: hasLaundry ? lbs : 0,
       tier: selected.pricing?.tier,
@@ -918,8 +918,7 @@ export function AdminOrdersPanel({
     });
 
     const laundryPending = hasLaundry && !(lbs > 0);
-    const atMinimum =
-      hasLaundry && Math.round((laundryRaw + fee) * 100) / 100 < min;
+    const atMinimum = hasLaundry && (laundryPending || laundryRaw < min);
 
     type Line = { label: string; amount: number };
     const lines: Line[] = [];
@@ -931,12 +930,11 @@ export function AdminOrdersPanel({
 
     if (hasLaundry) {
       if (atMinimum || laundryPending) {
-        // Show laundry + fee as separate lines that still sum to the $50 min.
         lines.push({
           label: laundryPending
             ? `Laundry · ${rateLabel} (min $${min})`
             : `Laundry · ${rateLabel} (minimum)`,
-          amount: Math.round((min - fee) * 100) / 100,
+          amount: min,
         });
       } else {
         lines.push({

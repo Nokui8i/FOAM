@@ -456,6 +456,7 @@ export function computeFinalTotal(opts: {
   if (discountPct > 0) {
     laundry = laundry * (1 - discountPct / 100);
   }
-  const sub = Math.max(laundry + fee, min);
-  return Math.round((sub + tip) * 100) / 100;
+  // Min $50 applies to laundry only — service fee is on top.
+  laundry = Math.max(laundry, min);
+  return Math.round((laundry + fee + tip) * 100) / 100;
 }
