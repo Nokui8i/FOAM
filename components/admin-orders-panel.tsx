@@ -77,6 +77,7 @@ import {
   type OrderPhotoKind,
   type OrderStatus,
 } from "@/lib/orders";
+import { ensureNextWeeklyOrder } from "@/lib/weekly-automation";
 import { customerVisiblePhotos, firstNameFromContact } from "@/lib/order-tracking";
 import { BUSINESS_WHATSAPP } from "@/lib/site-config";
 import { cn } from "@/lib/utils";
@@ -709,6 +710,17 @@ export function AdminOrdersPanel({
       return;
     }
     await setStatus("delivered");
+    try {
+      const next = await ensureNextWeeklyOrder({
+        ...selected,
+        status: "delivered",
+      });
+      if (next.created && next.nextDate) {
+        setOkMsg(`Delivered · next weekly pickup queued for ${next.nextDate}`);
+      }
+    } catch {
+      /* weekly queue is best-effort — delivery already saved */
+    }
   }
 
   async function chargeAndCollect() {

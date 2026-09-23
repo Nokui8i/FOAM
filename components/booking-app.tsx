@@ -27,7 +27,9 @@ import {
   orderRefFromId,
   trackPath,
 } from "@/lib/order-tracking";
-import { getUserProfile, saveUserProfile } from "@/lib/user-profile";
+import { defaultProfile, getUserProfile, saveUserProfile } from "@/lib/user-profile";
+import { ensureNextWeeklyOrder } from "@/lib/weekly-automation";
+import type { FoamOrder } from "@/lib/orders";
 import {
   BOOKING_STEPS,
   DETERGENT_BOOKING_OPTIONS,
@@ -444,6 +446,41 @@ function BookingAppInner() {
           }
 
           if (shouldSave) await saveUserProfile(user.uid, next);
+        } else if (repeatActive) {
+          const created = {
+            ...defaultProfile(user.uid, user.email ?? draft.email.trim()),
+            name: draft.name.trim() || user.displayName || "",
+            phone: draft.phone.trim(),
+            address: draft.address.trim(),
+            unit: draft.unit.trim(),
+            city: draft.city.trim() || LAS_VEGAS_CITY,
+            zip: draft.zip.trim(),
+            pickupNotes: draft.pickupNotes.trim(),
+            weeklyRepeatEnabled: true,
+          };
+          const { uid: _profileUid, ...rest } = created;
+          void _profileUid;
+          await saveUserProfile(user.uid, rest);
+        }
+
+        if (repeatActive) {
+          try {
+            await ensureNextWeeklyOrder({
+              id: ref.id,
+              status: "new",
+              uid: user.uid,
+              guest: false,
+              trackKey,
+              services: payload.services,
+              contact: payload.contact,
+              pickup: payload.pickup,
+              preferences: payload.preferences,
+              pricing: payload.pricing,
+              tip,
+            } as FoamOrder);
+          } catch {
+            /* first order already placed — next week queue is best-effort */
+          }
         }
       }
 

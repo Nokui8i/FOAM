@@ -285,6 +285,62 @@ function AccountProfile({
               title="Personal details"
               helper="Contact and pickup address — reused on future bookings."
             />
+            <div
+              className={cn(
+                "mt-4 rounded-lg border p-4",
+                profile.weeklyRepeatEnabled
+                  ? "border-teal-200 bg-teal-50/80"
+                  : "border-border bg-white"
+              )}
+            >
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-foreground">
+                    Weekly repeat pickup
+                  </p>
+                  <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                    {profile.weeklyRepeatEnabled
+                      ? "On — we queue the same day & time every week at $2.35/lb + $5 service fee. Turn off below to stop future automated pickups."
+                      : "Off — enable for automatic weekly pickups at the weekly rate ($2.35/lb). You can cancel anytime."}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={profile.weeklyRepeatEnabled}
+                  className={cn(
+                    "relative h-8 w-14 shrink-0 rounded-full transition",
+                    profile.weeklyRepeatEnabled
+                      ? "bg-(--color-accent-strong)"
+                      : "bg-muted-foreground/35"
+                  )}
+                  onClick={() =>
+                    setProfile({
+                      ...profile,
+                      weeklyRepeatEnabled: !profile.weeklyRepeatEnabled,
+                    })
+                  }
+                >
+                  <span
+                    className={cn(
+                      "absolute top-1 size-6 rounded-full bg-white shadow transition",
+                      profile.weeklyRepeatEnabled ? "left-7" : "left-1"
+                    )}
+                  />
+                  <span className="sr-only">
+                    {profile.weeklyRepeatEnabled
+                      ? "Disable weekly repeat"
+                      : "Enable weekly repeat"}
+                  </span>
+                </button>
+              </div>
+              {profile.weeklyRepeatEnabled ? (
+                <p className="mt-3 text-xs font-medium text-teal-800">
+                  Status: Active · Save details below after turning this off to
+                  cancel.
+                </p>
+              ) : null}
+            </div>
             <div className="mt-4 grid gap-x-3 gap-y-3 sm:grid-cols-2">
               <Field label="Full name">
                 <input
@@ -395,29 +451,19 @@ function AccountProfile({
               title="Laundry preferences"
               helper="How we wash and finish your laundry by default."
             />
-            <div className="mt-4 rounded-lg border border-border bg-white p-3 sm:p-4">
-              <label className="flex cursor-pointer items-start gap-3">
-                <input
-                  type="checkbox"
-                  className="mt-1 size-4 shrink-0 accent-(--color-accent-strong)"
-                  checked={profile.weeklyRepeatEnabled}
-                  onChange={(e) =>
-                    setProfile({
-                      ...profile,
-                      weeklyRepeatEnabled: e.target.checked,
-                    })
-                  }
-                />
-                <span>
-                  <span className="block text-sm font-semibold">
-                    Weekly repeat pickup
-                  </span>
-                  <span className="mt-0.5 block text-xs text-muted-foreground">
-                    Same day &amp; time automatically. Turn this off anytime to
-                    cancel future automated pickups. Save to apply.
-                  </span>
-                </span>
-              </label>
+            <div className="mt-4 rounded-lg border border-border bg-muted/40 p-3 sm:p-4">
+              <p className="text-xs text-muted-foreground">
+                Weekly repeat on/off also lives under{" "}
+                <button
+                  type="button"
+                  className="font-semibold text-foreground underline-offset-2 hover:underline"
+                  onClick={() => replaceQuery({ tab: "details" })}
+                >
+                  Details
+                </button>
+                {" — "}
+                turn it off there and Save to cancel future automated pickups.
+              </p>
             </div>
             <div className="mt-4 grid gap-x-3 gap-y-3 sm:grid-cols-2">
               <SelectField

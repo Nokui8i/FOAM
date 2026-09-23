@@ -69,7 +69,8 @@ service cloud.firestore {
         && request.resource.data.contact.phone.size() > 0
         && request.resource.data.contact.phone.size() <= 40
         && (
-          request.resource.data.guest == true
+          isAdmin()
+          || request.resource.data.guest == true
           || (isSignedIn() && request.resource.data.uid == request.auth.uid)
         );
 
