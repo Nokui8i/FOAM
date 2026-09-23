@@ -663,16 +663,17 @@
 }
 .admin-page .stage-copy small,
 .admin-page .ops-field-label {
-  color: color-mix(in srgb, var(--ops-ink) 55%, var(--ops-muted));
+  color: color-mix(in srgb, var(--ops-ink) 70%, var(--ops-muted));
   font-size: 10px;
   font-weight: 800;
   letter-spacing: .14em;
 }
 .admin-page .stage-copy h3 {
-  margin: 6px 0 8px;
+  margin: 6px 0 14px;
   color: var(--ops-ink);
   font: 800 clamp(22px,2vw,28px)/1.1 var(--ops-display);
   letter-spacing: -.04em;
+  font-weight: 800;
 }
 .admin-page .stage-copy > p {
   margin: 0 0 18px;
