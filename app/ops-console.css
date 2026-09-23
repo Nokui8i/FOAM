@@ -149,6 +149,13 @@
   transition: transform .16s ease, background .16s ease;
 }
 .admin-page .nav-button:hover { background: rgba(255,255,255,.07); transform: translateX(2px); }
+.admin-page .nav-button.is-sub {
+  margin-left: 10px;
+  width: calc(100% - 10px);
+  min-height: 42px;
+  opacity: .95;
+}
+.admin-page .nav-button.is-sub span { font-size: 14px; }
 .admin-page .nav-button.active {
   color: #fff;
   background: rgba(255,255,255,.11);
