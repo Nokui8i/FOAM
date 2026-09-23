@@ -581,9 +581,12 @@
 .admin-page .ops-call-note {
   margin: 0 0 4px;
   color: var(--ops-ink);
-  font-size: 13px;
+  font-size: 16px;
   font-weight: 650;
-  line-height: 1.4;
+  line-height: 1.45;
+}
+.admin-page .ops-stage-card .ops-soft-section-head h3 {
+  font-size: 18px !important;
 }
 .admin-page .ops-error { color: var(--ops-danger); font-weight: 700; }
 
