@@ -306,6 +306,7 @@ function AdminAppInner() {
       id: null,
       filter: null,
       section: null,
+      day: null,
     });
   }
 
@@ -484,7 +485,7 @@ function AdminAppInner() {
             </button>
             <button
               type="button"
-              className={cn("nav-button", tab === "alerts" && "active")}
+              className={cn("nav-button is-sub", tab === "alerts" && "active")}
               onClick={() => setDestination("alerts")}
             >
               <Bell size={18} aria-hidden />

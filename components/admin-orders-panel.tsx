@@ -64,6 +64,7 @@ import {
   isWaitingTodayOrder,
   isWashingOrder,
   normalizeOrderStatus,
+  opsTodayIso,
   orderDisplayId,
   orderListBadge,
   orderPipelineIndex,
@@ -77,7 +78,7 @@ import {
   type OrderPhotoKind,
   type OrderStatus,
 } from "@/lib/orders";
-import { ensureNextWeeklyOrder } from "@/lib/weekly-automation";
+import { ensureNextWeeklyOrder, addDaysToYmd } from "@/lib/weekly-automation";
 import { customerVisiblePhotos, firstNameFromContact } from "@/lib/order-tracking";
 import { BUSINESS_WHATSAPP } from "@/lib/site-config";
 import { cn } from "@/lib/utils";
@@ -114,6 +115,21 @@ function formatPickupDate(date: string, withYear = false) {
     day: "numeric",
     ...(withYear ? { year: "numeric" as const } : {}),
   });
+}
+
+function formatFutureDayTab(ymd: string) {
+  const d = new Date(`${ymd}T12:00:00`);
+  if (Number.isNaN(d.getTime())) {
+    return { weekday: "—", dayNum: ymd };
+  }
+  return {
+    weekday: d.toLocaleDateString("en-US", { weekday: "short" }),
+    dayNum: d.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+  };
+}
+
+function buildFutureWeekDays(today = opsTodayIso()) {
+  return Array.from({ length: 7 }, (_, i) => addDaysToYmd(today, i + 1));
 }
 
 function formatSlotShort(slot: string) {
@@ -273,9 +289,20 @@ export function AdminOrdersPanel({
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const catalogRef = useRef<HTMLDivElement>(null);
 
+  const futureWeekDays = useMemo(() => buildFutureWeekDays(), []);
+  const futureWeekEnd = futureWeekDays[futureWeekDays.length - 1] ?? "";
+
   function setFilter(next: Filter) {
     replaceQuery({
       filter: next === "waiting" ? null : next,
+      id: null,
+      view: null,
+    });
+  }
+
+  function setFutureDay(next: string) {
+    replaceQuery({
+      day: next === futureWeekDays[0] ? null : next,
       id: null,
       view: null,
     });
@@ -333,11 +360,43 @@ export function AdminOrdersPanel({
     [rows]
   );
 
+  const futureDayCounts = useMemo(() => {
+    const map: Record<string, number> = { later: 0 };
+    for (const day of futureWeekDays) map[day] = 0;
+    for (const row of rows) {
+      if (!isFuturePickupOrder(row)) continue;
+      const date = row.pickup.date || "";
+      if (date && Object.prototype.hasOwnProperty.call(map, date)) {
+        map[date] += 1;
+      } else if (date && futureWeekEnd && date > futureWeekEnd) {
+        map.later += 1;
+      }
+    }
+    return map;
+  }, [rows, futureWeekDays, futureWeekEnd]);
+
+  const dayParam = searchParams.get("day");
+  const selectedFutureDay = useMemo(() => {
+    if (mode !== "future") return futureWeekDays[0] ?? "";
+    if (dayParam === "later") return "later";
+    if (dayParam && futureWeekDays.includes(dayParam)) return dayParam;
+    const firstWithOrders = futureWeekDays.find(
+      (day) => (futureDayCounts[day] ?? 0) > 0
+    );
+    return firstWithOrders ?? futureWeekDays[0] ?? "";
+  }, [mode, dayParam, futureWeekDays, futureDayCounts]);
+
   const filtered = useMemo(() => {
     const q = queryText.trim().toLowerCase();
     const matched = rows.filter((row) => {
       if (mode === "future") {
         if (!isFuturePickupOrder(row)) return false;
+        const date = row.pickup.date || "";
+        if (selectedFutureDay === "later") {
+          if (!(futureWeekEnd && date > futureWeekEnd)) return false;
+        } else if (date !== selectedFutureDay) {
+          return false;
+        }
       } else {
         if (isFuturePickupOrder(row)) return false;
         if (filter === "waiting" && !isWaitingTodayOrder(row)) return false;
@@ -366,7 +425,14 @@ export function AdminOrdersPanel({
       return [...matched].sort(compareOrdersByPickupSchedule);
     }
     return matched;
-  }, [rows, filter, queryText, mode]);
+  }, [
+    rows,
+    filter,
+    queryText,
+    mode,
+    selectedFutureDay,
+    futureWeekEnd,
+  ]);
 
   // Prefer URL selection; fall back to first visible row without rewriting the URL.
   const selected =
@@ -1590,7 +1656,49 @@ export function AdminOrdersPanel({
                 </button>
               ))}
             </div>
-          ) : null}
+          ) : (
+            <div
+              className="ops-day-tabs"
+              role="group"
+              aria-label="Pickup days this week"
+            >
+              {futureWeekDays.map((day) => {
+                const label = formatFutureDayTab(day);
+                const count = futureDayCounts[day] ?? 0;
+                return (
+                  <button
+                    key={day}
+                    type="button"
+                    className={cn(
+                      "ops-day-tab",
+                      selectedFutureDay === day && "is-active"
+                    )}
+                    onClick={() => setFutureDay(day)}
+                  >
+                    <span className="ops-day-tab-weekday">{label.weekday}</span>
+                    <span className="ops-day-tab-date">{label.dayNum}</span>
+                    <span className="ops-day-tab-count">{count}</span>
+                  </button>
+                );
+              })}
+              {(futureDayCounts.later ?? 0) > 0 ? (
+                <button
+                  type="button"
+                  className={cn(
+                    "ops-day-tab",
+                    selectedFutureDay === "later" && "is-active"
+                  )}
+                  onClick={() => setFutureDay("later")}
+                >
+                  <span className="ops-day-tab-weekday">Later</span>
+                  <span className="ops-day-tab-date">+7d</span>
+                  <span className="ops-day-tab-count">
+                    {futureDayCounts.later}
+                  </span>
+                </button>
+              ) : null}
+            </div>
+          )}
         </div>
 
         {error && !selected ? <p className="ops-error ops-pad">{error}</p> : null}
@@ -1600,7 +1708,9 @@ export function AdminOrdersPanel({
             {filtered.length === 0 ? (
               <p className="ops-empty">
                 {mode === "future"
-                  ? "Future pickups will appear here, sorted by date and time."
+                  ? selectedFutureDay === "later"
+                    ? "No pickups beyond this week."
+                    : `No pickups on ${formatPickupDate(selectedFutureDay)}.`
                   : "Live orders will appear here."}
               </p>
             ) : (
