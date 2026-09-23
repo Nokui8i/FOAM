@@ -795,7 +795,6 @@ export function AdminOrdersPanel({
           <div className="stage-copy">
             <small>NEXT MOVE</small>
             <h3>Head to the pickup</h3>
-            <p>The customer’s window is active. Start the route when you leave.</p>
             <div className="stage-actions">
               <a
                 className="secondary-action"
