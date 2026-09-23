@@ -783,10 +783,10 @@ export function AdminOrdersPanel({
           <div className="bag-delight" aria-hidden="true">
             <div className="bag-handle" />
             <div className="bag-body">
-              <span className="ops-bag-mark" aria-hidden="true">
+              <span className="ops-foam-mark ops-bag-mark" aria-hidden="true">
                 F
-                <span className="ops-bag-mark-o">
-                  <span className="ops-bag-mark-bubbles">
+                <span className="site-header-o" aria-hidden="true">
+                  <span className="site-header-bubbles">
                     <i />
                     <i />
                     <i />
