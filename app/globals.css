@@ -7299,10 +7299,10 @@ button.ops-row {
   flex: 1;
   min-width: 0;
   font-family: var(--ops-display);
-  font-size: clamp(20px, 1.8vw, 26px);
+  font-size: 15px;
   font-weight: 800;
-  line-height: 1.1;
-  letter-spacing: -0.04em;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
   color: var(--ops-ink);
 }
 .ops-soft-icon {
