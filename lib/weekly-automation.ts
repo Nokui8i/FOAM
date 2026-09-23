@@ -45,43 +45,6 @@ function isOpenWeeklyOrder(data: Record<string, unknown>, date: string) {
   return pickup.date === date;
 }
 
-function mapOrder(id: string, data: Record<string, unknown>): FoamOrder {
-  const pickup = (data.pickup ?? {}) as Record<string, unknown>;
-  const services = (data.services ?? {}) as Record<string, unknown>;
-  const contact = (data.contact ?? {}) as Record<string, unknown>;
-  return {
-    id,
-    status: (data.status as FoamOrder["status"]) || "new",
-    uid: typeof data.uid === "string" ? data.uid : null,
-    guest: Boolean(data.guest),
-    trackKey: typeof data.trackKey === "string" ? data.trackKey : undefined,
-    services: {
-      laundry: Boolean(services.laundry),
-      dryCleaning: Boolean(services.dryCleaning),
-      bagCount: Number(services.bagCount ?? 0),
-    },
-    contact: {
-      name: String(contact.name ?? ""),
-      email: String(contact.email ?? ""),
-      phone: String(contact.phone ?? ""),
-    },
-    pickup: {
-      address: String(pickup.address ?? ""),
-      unit: String(pickup.unit ?? ""),
-      city: String(pickup.city ?? ""),
-      zip: String(pickup.zip ?? ""),
-      notes: String(pickup.notes ?? ""),
-      date: String(pickup.date ?? ""),
-      slot: String(pickup.slot ?? ""),
-      repeat: Boolean(pickup.repeat),
-      repeatRequested: Boolean(pickup.repeatRequested),
-    },
-    preferences: (data.preferences as FoamOrder["preferences"]) ?? {},
-    pricing: data.pricing as FoamOrder["pricing"],
-    tip: typeof data.tip === "number" ? data.tip : undefined,
-  };
-}
-
 /**
  * After a weekly order is placed or finished, ensure the next same-slot
  * pickup (+7 days) exists while the customer still has weekly enabled.
