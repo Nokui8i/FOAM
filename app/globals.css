@@ -7676,17 +7676,14 @@ button.ops-row {
   display: grid;
   gap: 0.15rem;
 }
-.ops-soft-total span {
-  font-size: 0.75rem;
-  font-weight: 650;
-  color: var(--ops-muted);
-}
+.ops-soft-total span,
 .ops-soft-total strong {
-  font-family: var(--ops-display);
-  font-size: 1.85rem;
+  font-family: var(--ops-body), "DM Sans", sans-serif;
+  font-size: 15px;
   font-weight: 800;
-  letter-spacing: -0.03em;
-  line-height: 1;
+  letter-spacing: 0;
+  line-height: 1.2;
+  text-transform: none;
   color: var(--ops-ink);
 }
 .ops-soft-actions {

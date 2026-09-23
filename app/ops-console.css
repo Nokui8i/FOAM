@@ -1199,13 +1199,23 @@
   gap: 4px;
   min-width: 0;
   flex: 1 1 auto;
-  color: color-mix(in srgb, var(--ops-ink) 70%, var(--ops-muted));
-  font-size: 10px;
+  color: var(--ops-ink);
+  font-size: 15px;
   font-weight: 800;
-  letter-spacing: .14em;
-  text-transform: uppercase;
+  letter-spacing: 0;
+  text-transform: none;
+  line-height: 1.2;
 }
-.admin-page .ops-soft-total > strong { color: var(--ops-navy); font: 800 25px/1.1 var(--ops-display); letter-spacing: -.04em; text-transform: none; }
+.admin-page .ops-soft-total > span,
+.admin-page .ops-soft-total > strong {
+  color: var(--ops-ink) !important;
+  font-family: var(--ops-body), "DM Sans", sans-serif !important;
+  font-size: 15px !important;
+  font-weight: 800 !important;
+  line-height: 1.2 !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+}
 .admin-page .ops-soft-breakdown {
   display: grid;
   gap: 5px;
@@ -1215,23 +1225,27 @@
   font-size: 15px;
   font-weight: 800;
   color: var(--ops-ink);
+  line-height: 1.2;
 }
 .admin-page .ops-soft-breakdown-row,
 .admin-page .ops-soft-breakdown-total {
   display: flex;
   justify-content: space-between;
-  align-items: baseline;
+  align-items: center;
   gap: 16px;
   font-size: 15px;
   font-weight: 800;
   color: var(--ops-ink);
   text-transform: none;
   letter-spacing: 0;
+  line-height: 1.2;
 }
 .admin-page .ops-soft-breakdown-row span,
 .admin-page .ops-soft-breakdown-row strong,
 .admin-page .ops-soft-breakdown-total span,
-.admin-page .ops-soft-breakdown-total strong {
+.admin-page .ops-soft-breakdown-total strong,
+.admin-page .ops-soft-total .ops-soft-breakdown span,
+.admin-page .ops-soft-total .ops-soft-breakdown strong {
   color: var(--ops-ink) !important;
   font-family: var(--ops-body), "DM Sans", sans-serif !important;
   font-size: 15px !important;

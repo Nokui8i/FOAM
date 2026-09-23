@@ -1363,23 +1363,83 @@ export function AdminOrdersPanel({
                       key={line.label}
                       className="ops-soft-breakdown-row"
                     >
-                      <span>{line.label}</span>
-                      <strong style={{ fontSize: 15, fontWeight: 800 }}>
+                      <span
+                        style={{
+                          fontSize: 15,
+                          fontWeight: 800,
+                          lineHeight: 1.2,
+                          letterSpacing: 0,
+                          textTransform: "none",
+                          color: "inherit",
+                        }}
+                      >
+                        {line.label}
+                      </span>
+                      <strong
+                        style={{
+                          fontSize: 15,
+                          fontWeight: 800,
+                          lineHeight: 1.2,
+                          letterSpacing: 0,
+                          textTransform: "none",
+                          color: "inherit",
+                        }}
+                      >
                         ${line.amount.toFixed(2)}
                       </strong>
                     </div>
                   ))}
                   <div className="ops-soft-breakdown-total">
-                    <span>Total</span>
-                    <strong style={{ fontSize: 15, fontWeight: 800 }}>
+                    <span
+                      style={{
+                        fontSize: 15,
+                        fontWeight: 800,
+                        lineHeight: 1.2,
+                        letterSpacing: 0,
+                        textTransform: "none",
+                        color: "inherit",
+                      }}
+                    >
+                      Total
+                    </span>
+                    <strong
+                      style={{
+                        fontSize: 15,
+                        fontWeight: 800,
+                        lineHeight: 1.2,
+                        letterSpacing: 0,
+                        textTransform: "none",
+                        color: "inherit",
+                      }}
+                    >
                       ${previewBreakdown.total.toFixed(2)}
                     </strong>
                   </div>
                 </div>
               ) : (
                 <>
-                  <span>Total</span>
-                  <strong style={{ fontSize: 15, fontWeight: 800 }}>
+                  <span
+                    style={{
+                      fontSize: 15,
+                      fontWeight: 800,
+                      lineHeight: 1.2,
+                      letterSpacing: 0,
+                      textTransform: "none",
+                      color: "inherit",
+                    }}
+                  >
+                    Total
+                  </span>
+                  <strong
+                    style={{
+                      fontSize: 15,
+                      fontWeight: 800,
+                      lineHeight: 1.2,
+                      letterSpacing: 0,
+                      textTransform: "none",
+                      color: "inherit",
+                    }}
+                  >
                     {selected.finalTotal != null
                       ? `$${selected.finalTotal.toFixed(2)}`
                       : "—"}
