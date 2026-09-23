@@ -816,7 +816,7 @@
 .admin-page .ops-login {
   min-height: 100dvh;
   display: grid;
-  grid-template-columns: .9fr 1.1fr;
+  grid-template-columns: 1.15fr .85fr;
   background: var(--ops-wash);
 }
 .admin-page .ops-login-form-pane { display: grid; place-items: center; padding: 40px; order: 2; }
@@ -838,10 +838,14 @@
   display: flex;
   flex-direction: column;
   justify-content: space-between;
+  gap: 28px;
   min-height: 100dvh;
   padding: 48px 52px 56px;
   color: #fff;
-  background: linear-gradient(150deg,var(--ops-navy),#145477);
+  background:
+    radial-gradient(ellipse 70% 55% at 38% 42%, rgba(0, 168, 216, .22), transparent 62%),
+    radial-gradient(ellipse 50% 40% at 78% 78%, rgba(90, 200, 230, .12), transparent 55%),
+    linear-gradient(155deg, #0b2a3d 0%, var(--ops-navy) 42%, #145477 100%);
   overflow: hidden;
   order: 1;
 }
@@ -849,11 +853,15 @@
   position: absolute;
   inset: 0;
   pointer-events: none;
-  background: radial-gradient(circle at 72% 48%,rgba(0,168,216,.2),transparent 28%);
+  opacity: .55;
+  background:
+    radial-gradient(circle at 18% 22%, rgba(255,255,255,.08), transparent 18%),
+    radial-gradient(circle at 86% 18%, rgba(255,255,255,.05), transparent 14%),
+    radial-gradient(circle at 70% 68%, rgba(0,168,216,.16), transparent 22%);
 }
 .admin-page .ops-login-brand-top {
   position: relative;
-  z-index: 1;
+  z-index: 2;
 }
 .admin-page .ops-login-brand-top small {
   display: block;
@@ -863,9 +871,61 @@
   font-weight: 700;
   letter-spacing: .18em;
 }
-.admin-page .ops-login-brand-copy { position: relative; z-index: 1; max-width: 22rem; }
+.admin-page .ops-login-brand-art {
+  position: relative;
+  z-index: 1;
+  flex: 1;
+  display: grid;
+  place-items: center;
+  min-height: 220px;
+  pointer-events: none;
+}
+.admin-page .ops-login-brand-glow {
+  position: absolute;
+  width: min(58vw, 420px);
+  height: min(58vw, 420px);
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(120, 210, 235, .35) 0%, rgba(0, 168, 216, .12) 42%, transparent 68%);
+  filter: blur(8px);
+  animation: ops-login-glow 6.5s ease-in-out infinite;
+}
+.admin-page .ops-login-koala {
+  position: relative;
+  z-index: 1;
+  width: min(52vw, 380px);
+  height: auto;
+  mix-blend-mode: screen;
+  filter: drop-shadow(0 28px 48px rgba(4, 24, 40, .35));
+  animation: ops-login-float 5.8s ease-in-out infinite;
+  transform-origin: center 60%;
+}
+.admin-page .ops-login-bubble {
+  position: absolute;
+  z-index: 2;
+  border-radius: 50%;
+  background: radial-gradient(circle at 30% 28%, rgba(255,255,255,.85), rgba(180, 230, 245, .35) 45%, rgba(255,255,255,.08) 70%, transparent 72%);
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.18);
+  animation: ops-login-bubble 7s ease-in-out infinite;
+}
+.admin-page .ops-login-bubble-a { width: 18px; height: 18px; top: 18%; left: 22%; animation-delay: 0s; }
+.admin-page .ops-login-bubble-b { width: 28px; height: 28px; top: 28%; right: 18%; animation-delay: -2.2s; }
+.admin-page .ops-login-bubble-c { width: 14px; height: 14px; bottom: 22%; left: 30%; animation-delay: -4.1s; }
+.admin-page .ops-login-brand-copy { position: relative; z-index: 2; max-width: 22rem; }
 .admin-page .ops-login-brand-title { margin: 0; font: 800 clamp(35px,4vw,58px)/1.02 var(--ops-display); letter-spacing: -.05em; }
 .admin-page .ops-login-brand-sub { margin: 18px 0 0; color: rgba(255,255,255,.58); font-size: 1rem; line-height: 1.5; }
+
+@keyframes ops-login-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-12px); }
+}
+@keyframes ops-login-glow {
+  0%, 100% { opacity: .75; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.06); }
+}
+@keyframes ops-login-bubble {
+  0%, 100% { transform: translateY(0) scale(1); opacity: .55; }
+  50% { transform: translateY(-18px) scale(1.08); opacity: .9; }
+}
 
 @media (max-width: 1120px) {
   .admin-page .ops-frame { grid-template-columns: 78px 330px minmax(460px,1fr); }
@@ -942,7 +1002,10 @@
   .admin-page .ops-inquiry-head .ops-icon-row { width: 100%; align-self: auto; }
   .admin-page .ops-inquiry-head .ops-text-btn { flex: 1; padding-inline: 6px; }
   .admin-page .ops-login { grid-template-columns: 1fr; overflow: auto; }
-  .admin-page .ops-login-brand { min-height: auto; padding: 28px 24px 32px; order: 1; gap: 28px; }
+  .admin-page .ops-login-brand { min-height: auto; padding: 28px 24px 32px; order: 1; gap: 20px; }
+  .admin-page .ops-login-brand-art { min-height: 160px; }
+  .admin-page .ops-login-koala { width: min(58vw, 220px); }
+  .admin-page .ops-login-brand-glow { width: min(70vw, 260px); height: min(70vw, 260px); }
   .admin-page .ops-login-brand-title { font-size: clamp(28px, 8vw, 40px); }
   .admin-page .ops-login-form-pane { padding: 42px 20px; order: 2; }
 }

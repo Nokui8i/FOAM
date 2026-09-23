@@ -364,6 +364,20 @@ function AdminAppInner() {
             <FoamMark rail />
             <small>OPS · LAS VEGAS</small>
           </div>
+          <div className="ops-login-brand-art" aria-hidden>
+            <span className="ops-login-brand-glow" />
+            <span className="ops-login-bubble ops-login-bubble-a" />
+            <span className="ops-login-bubble ops-login-bubble-b" />
+            <span className="ops-login-bubble ops-login-bubble-c" />
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              className="ops-login-koala"
+              src="/foam-koala.png"
+              alt=""
+              width={720}
+              height={720}
+            />
+          </div>
           <div className="ops-login-brand-copy">
             <p className="ops-login-brand-title">
               Every pickup.
