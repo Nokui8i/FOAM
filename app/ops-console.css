@@ -668,9 +668,7 @@
   font-weight: 800;
   letter-spacing: .14em;
 }
-.admin-page .stage-copy h3,
-.admin-page .ops-soft-section-head h3,
-.admin-page .ops-soft-section-head h4 {
+.admin-page .stage-copy h3 {
   margin: 6px 0 14px;
   color: var(--ops-ink);
   font: 800 clamp(22px, 2vw, 28px) / 1.1 var(--ops-display) !important;
@@ -683,10 +681,10 @@
   min-width: 0;
   color: var(--ops-ink);
   font-family: var(--ops-display) !important;
-  font-size: clamp(20px, 1.8vw, 26px) !important;
+  font-size: 15px !important;
   font-weight: 800 !important;
-  line-height: 1.1 !important;
-  letter-spacing: -.04em !important;
+  line-height: 1.2 !important;
+  letter-spacing: -.02em !important;
 }
 .admin-page .stage-copy > p {
   margin: 0 0 18px;
