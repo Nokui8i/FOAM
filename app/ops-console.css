@@ -409,7 +409,9 @@
 .admin-page .ops-list-card { display: grid; gap: 7px; margin-top: 11px; padding: 0; border: 0; box-shadow: none; }
 .admin-page .ops-row {
   position: relative;
+  z-index: 0;
   width: 100%;
+  min-width: 0;
   min-height: 72px;
   display: flex;
   flex-direction: column;
@@ -422,45 +424,118 @@
   cursor: pointer;
   transition: transform .16s ease, box-shadow .16s ease;
 }
+.admin-page .ops-row:has(.ops-row-menu) { z-index: 3; }
 .admin-page .ops-row:hover { transform: translateY(-1px); box-shadow: 0 12px 25px -18px rgba(22,50,74,.55); }
 .admin-page .ops-row.is-active {
   border-color: rgba(11,142,200,.35);
   background: linear-gradient(145deg, #e8f3f8, #fff);
   box-shadow: inset 3px 0 0 var(--ops-sky), 0 12px 25px -18px rgba(22,50,74,.55);
 }
-.admin-page .ops-row-top { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-.admin-page .ops-row-name { color: var(--ops-ink); font-size: 16px; font-weight: 800; }
-.admin-page .ops-row-when,
-.admin-page .ops-row-meta,
-.admin-page .ops-row-address,
-.admin-page .ops-row-foot {
-  margin-top: 5px;
-  color: var(--ops-muted);
-  font-size: 14px;
-  line-height: 1.4;
-}
-.admin-page .ops-row-address {
-  display: block;
-  max-width: 100%;
+.admin-page .ops-row-top { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 8px; min-width: 0; }
+.admin-page .ops-row-name {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  color: color-mix(in srgb, var(--ops-ink) 78%, var(--ops-muted));
+  color: var(--ops-ink);
+  font-size: 15px;
+  font-weight: 800;
+}
+.admin-page .ops-row-when,
+.admin-page .ops-row-meta,
+.admin-page .ops-row-foot {
+  margin-top: 4px;
+  color: var(--ops-muted);
+  font-size: 13px;
+  line-height: 1.35;
+}
+.admin-page .ops-row-when {
   font-weight: 650;
+  color: color-mix(in srgb, var(--ops-ink) 68%, var(--ops-muted));
 }
-.admin-page .ops-row-when { font-weight: 700; color: color-mix(in srgb, var(--ops-ink) 70%, var(--ops-muted)); }
-.admin-page .ops-row-actions {
+.admin-page .ops-row-address-line {
   display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 10px;
+  align-items: center;
+  gap: 4px;
+  margin-top: 4px;
+  min-width: 0;
+  width: 100%;
 }
-.admin-page .ops-row-actions .ops-soft-btn {
+.admin-page .ops-row-address {
+  display: block;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: color-mix(in srgb, var(--ops-ink) 72%, var(--ops-muted));
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.35;
+}
+.admin-page .ops-row-address.is-expanded {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: unset;
+}
+.admin-page .ops-row-expand {
+  flex: 0 0 auto;
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  color: var(--ops-muted);
+  background: transparent;
+  cursor: pointer;
+}
+.admin-page .ops-row-expand:hover,
+.admin-page .ops-row-expand.is-open {
+  color: var(--ops-ink);
+  background: color-mix(in srgb, var(--ops-navy) 8%, #fff);
+}
+.admin-page .ops-row-menu {
+  position: absolute;
+  right: 10px;
+  top: calc(100% - 6px);
+  z-index: 5;
+  min-width: 168px;
+  padding: 6px;
+  border: 1px solid var(--ops-border);
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 16px 32px -18px rgba(22,50,74,.55);
+}
+.admin-page .ops-row-menu button {
+  width: 100%;
   min-height: 36px;
-  padding: 0 12px;
-  font-size: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--ops-ink);
+  font: 700 12px/1.1 var(--ops-display);
+  cursor: pointer;
+  text-align: left;
 }
-.admin-page .ops-row-foot { width: 100%; display: flex; justify-content: space-between; align-items: center; }
+.admin-page .ops-row-menu button:hover { background: var(--ops-wash); }
+.admin-page .ops-row-menu button.is-danger { color: var(--ops-danger); }
+.admin-page .ops-row-foot {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
 .admin-page .ops-row-ref { font-size: 12px; font-weight: 700; }
 .admin-page .ops-row-price { color: var(--ops-success); font-size: 13px; font-weight: 800; }
 .admin-page .ops-status-pill {

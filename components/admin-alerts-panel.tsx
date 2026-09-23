@@ -14,6 +14,7 @@ import {
   Check,
   Clock,
   MapPin,
+  MoreHorizontal,
   Search,
   X,
 } from "lucide-react";
@@ -133,6 +134,10 @@ export function AdminAlertsPanel({
   const [error, setError] = useState("");
   const [okMsg, setOkMsg] = useState("");
   const [queryText, setQueryText] = useState("");
+  const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
+  const [expandedAddressId, setExpandedAddressId] = useState<string | null>(
+    null
+  );
   const selectedId = searchParams.get("id");
   const filter = (searchParams.get("filter") as AlertFilter) || "todo";
   const safeFilter: AlertFilter = ["todo", "done", "all"].includes(filter)
@@ -337,91 +342,137 @@ export function AdminAlertsPanel({
                 No pickups in the 3–4 day reminder window.
               </p>
             ) : (
-              filtered.map((row) => (
-                <div
-                  key={row.orderId}
-                  role="button"
-                  tabIndex={0}
-                  className={cn(
-                    "ops-row",
-                    selectedId === row.orderId && "is-active"
-                  )}
-                  onClick={() => selectAlert(row.orderId)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === " ") {
-                      e.preventDefault();
+              filtered.map((row) => {
+                const addressOpen = expandedAddressId === row.orderId;
+                const menuOpen = menuOpenId === row.orderId;
+                return (
+                  <div
+                    key={row.orderId}
+                    role="button"
+                    tabIndex={0}
+                    className={cn(
+                      "ops-row",
+                      selectedId === row.orderId && "is-active"
+                    )}
+                    onClick={() => {
+                      setMenuOpenId(null);
                       selectAlert(row.orderId);
-                    }
-                  }}
-                >
-                  <span className="ops-row-top">
-                    <span className="ops-row-name">
-                      {row.name || "Customer"}
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        setMenuOpenId(null);
+                        selectAlert(row.orderId);
+                      }
+                    }}
+                  >
+                    <span className="ops-row-top">
+                      <span className="ops-row-name">
+                        {row.name || "Customer"}
+                      </span>
+                      <span
+                        className={cn(
+                          "ops-status-pill",
+                          row.contacted ? "is-ready" : "is-open"
+                        )}
+                      >
+                        {row.contacted ? "Confirmed" : "Call needed"}
+                      </span>
+                    </span>
+                    <span className="ops-row-when">
+                      {formatAlertDate(row.pickupDate)},{" "}
+                      {formatSlotShort(row.pickupSlot)}
+                      {" · "}
+                      in {row.daysUntil} day{row.daysUntil === 1 ? "" : "s"}
                     </span>
                     <span
-                      className={cn(
-                        "ops-status-pill",
-                        row.contacted ? "is-ready" : "is-open"
-                      )}
+                      className="ops-row-address-line"
+                      onClick={(e) => e.stopPropagation()}
+                      onKeyDown={(e) => e.stopPropagation()}
                     >
-                      {row.contacted ? "Confirmed" : "Call needed"}
-                    </span>
-                  </span>
-                  <span className="ops-row-when">
-                    {formatAlertDate(row.pickupDate)},{" "}
-                    {formatSlotShort(row.pickupSlot)}
-                    {" · "}
-                    in {row.daysUntil} day{row.daysUntil === 1 ? "" : "s"}
-                  </span>
-                  <span className="ops-row-address">
-                    {row.address || "No address on file"}
-                  </span>
-                  <span className="ops-row-foot">
-                    <span className="ops-row-ref">
-                      {orderDisplayId(row.orderId)}
-                    </span>
-                    <span className="ops-row-price">
-                      {row.weekly
-                        ? row.hasDiscount
-                          ? "Weekly · 10% off"
-                          : "Weekly"
-                        : "Pickup"}
-                    </span>
-                  </span>
-                  <span
-                    className="ops-row-actions"
-                    onClick={(e) => e.stopPropagation()}
-                    onKeyDown={(e) => e.stopPropagation()}
-                  >
-                    {!row.contacted ? (
+                      <span
+                        className={cn(
+                          "ops-row-address",
+                          addressOpen && "is-expanded"
+                        )}
+                      >
+                        {row.address || "No address on file"}
+                      </span>
                       <button
                         type="button"
-                        className="ops-soft-btn is-primary"
-                        onClick={() => void markContacted(row.orderId, true)}
+                        className={cn(
+                          "ops-row-expand",
+                          (addressOpen || menuOpen) && "is-open"
+                        )}
+                        aria-label="More options"
+                        aria-expanded={menuOpen || addressOpen}
+                        title="Expand address & actions"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const closing = menuOpenId === row.orderId;
+                          setMenuOpenId(closing ? null : row.orderId);
+                          setExpandedAddressId(closing ? null : row.orderId);
+                        }}
                       >
-                        <Check size={14} aria-hidden />
-                        Confirm
+                        <MoreHorizontal size={16} aria-hidden />
                       </button>
-                    ) : (
-                      <button
-                        type="button"
-                        className="ops-soft-btn"
-                        onClick={() => void markContacted(row.orderId, false)}
+                    </span>
+                    <span className="ops-row-foot">
+                      <span className="ops-row-ref">
+                        {orderDisplayId(row.orderId)}
+                      </span>
+                      <span className="ops-row-price">
+                        {row.weekly
+                          ? row.hasDiscount
+                            ? "Weekly · 10% off"
+                            : "Weekly"
+                          : "Pickup"}
+                      </span>
+                    </span>
+                    {menuOpen ? (
+                      <div
+                        className="ops-row-menu"
+                        onClick={(e) => e.stopPropagation()}
+                        onKeyDown={(e) => e.stopPropagation()}
                       >
-                        Undo
-                      </button>
-                    )}
-                    <button
-                      type="button"
-                      className="ops-soft-btn is-danger"
-                      onClick={() => void cancelAlertOrder(row)}
-                    >
-                      <X size={14} aria-hidden />
-                      Cancel
-                    </button>
-                  </span>
-                </div>
-              ))
+                        {!row.contacted ? (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setMenuOpenId(null);
+                              void markContacted(row.orderId, true);
+                            }}
+                          >
+                            <Check size={14} aria-hidden />
+                            Confirm pickup
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setMenuOpenId(null);
+                              void markContacted(row.orderId, false);
+                            }}
+                          >
+                            Undo confirm
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          className="is-danger"
+                          onClick={() => {
+                            setMenuOpenId(null);
+                            void cancelAlertOrder(row);
+                          }}
+                        >
+                          <X size={14} aria-hidden />
+                          Cancel order
+                        </button>
+                      </div>
+                    ) : null}
+                  </div>
+                );
+              })
             )}
           </div>
         </div>
