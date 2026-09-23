@@ -15,6 +15,11 @@ service firebase.storage {
       allow write: if isAdmin()
         && request.resource.size < 8 * 1024 * 1024
         && request.resource.contentType.matches('image/.*');
+      allow delete: if isAdmin();
+    }
+
+    match /order-photos/{orderId} {
+      allow read, delete: if isAdmin();
     }
 
     match /{allPaths=**} {
