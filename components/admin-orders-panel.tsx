@@ -110,10 +110,9 @@ const WASH_PREF_ROWS: { key: string; label: string }[] = [
 ];
 
 function washPreferenceRows(prefs?: Record<string, string> | null) {
-  if (!prefs) return [];
-  return WASH_PREF_ROWS.flatMap(({ key, label }) => {
-    const value = String(prefs[key] ?? "").trim();
-    return value ? [{ label, value }] : [];
+  return WASH_PREF_ROWS.map(({ key, label }) => {
+    const value = String(prefs?.[key] ?? "").trim();
+    return { label, value: value || "—" };
   });
 }
 
@@ -1579,13 +1578,16 @@ export function AdminOrdersPanel({
     }
 
     if (stage === 1) {
-      const prefRows = washPreferenceRows(selected.preferences);
+      const showPrefs = Boolean(selected.services.laundry);
+      const prefRows = showPrefs
+        ? washPreferenceRows(selected.preferences)
+        : [];
       const notes = (selected.orderNotes ?? "").trim();
       return (
         <section
           className={cn(
             "stage locked-stage",
-            (prefRows.length > 0 || notes) && "has-prefs"
+            (showPrefs || notes) && "has-prefs"
           )}
         >
           <div className="lock-illustration" aria-hidden>
@@ -1619,9 +1621,9 @@ export function AdminOrdersPanel({
               <ArrowRight size={16} />
             </Button>
           </div>
-          {prefRows.length > 0 || notes ? (
+          {showPrefs || notes ? (
             <div className="ops-wash-prefs">
-              {prefRows.length > 0 ? (
+              {showPrefs ? (
                 <>
                   <h4>Wash preferences</h4>
                   <dl>
@@ -1640,11 +1642,6 @@ export function AdminOrdersPanel({
                   <p>{notes}</p>
                 </div>
               ) : null}
-            </div>
-          ) : selected.services.laundry ? (
-            <div className="ops-wash-prefs is-empty">
-              <h4>Wash preferences</h4>
-              <p>No preferences saved on this order.</p>
             </div>
           ) : null}
         </section>
