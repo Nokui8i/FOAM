@@ -781,7 +781,18 @@ export function AdminOrdersPanel({
           <div className="bag-delight" aria-hidden="true">
             <div className="bag-handle" />
             <div className="bag-body">
-              <span>FOAM<i /></span>
+              <span className="ops-bag-mark" aria-hidden="true">
+                F
+                <span className="ops-bag-mark-o">
+                  <span className="ops-bag-mark-bubbles">
+                    <i />
+                    <i />
+                    <i />
+                  </span>
+                  O
+                </span>
+                AM.
+              </span>
             </div>
             <div className="bag-shadow" />
           </div>

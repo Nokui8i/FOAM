@@ -81,17 +81,13 @@ function FoamMark({
   compact?: boolean;
   rail?: boolean;
 }) {
-  if (rail) {
-    return (
-      <div className="ops-rail-mark" aria-label="FOAM">
-        FOAM<span className="ops-rail-mark-dot" aria-hidden="true" />
-      </div>
-    );
-  }
-
   return (
     <div
-      className={cn("ops-wordmark", compact && "is-compact")}
+      className={cn(
+        "ops-wordmark",
+        compact && "is-compact",
+        rail && "is-rail"
+      )}
       aria-label="FOAM"
     >
       F
