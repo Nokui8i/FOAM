@@ -830,7 +830,7 @@ export function AdminOrdersPanel({
                 <span className="ops-soft-icon" aria-hidden>
                   <Scale size={16} />
                 </span>
-                <h4>Weight in pounds</h4>
+                <h3>Weight in pounds</h3>
               </div>
               <div className="ops-soft-stepper">
                 <button
@@ -869,7 +869,7 @@ export function AdminOrdersPanel({
                 <span className="ops-soft-icon" aria-hidden>
                   <Camera size={16} />
                 </span>
-                <h4>Scale photo</h4>
+                <h3>Scale photo</h3>
               </div>
               {weightPhotos.length === 0 ? (
                 <label className="ops-soft-dropzone">
@@ -921,7 +921,7 @@ export function AdminOrdersPanel({
                 <span className="ops-soft-icon" aria-hidden>
                   <Shirt size={16} />
                 </span>
-                <h4>Dry cleaning catalog</h4>
+                <h3>Dry cleaning catalog</h3>
               </div>
 
               <button

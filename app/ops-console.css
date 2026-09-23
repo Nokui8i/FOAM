@@ -668,12 +668,19 @@
   font-weight: 800;
   letter-spacing: .14em;
 }
-.admin-page .stage-copy h3 {
+.admin-page .stage-copy h3,
+.admin-page .ops-soft-section-head h3,
+.admin-page .ops-soft-section-head h4 {
   margin: 6px 0 14px;
   color: var(--ops-ink);
-  font: 800 clamp(22px,2vw,28px)/1.1 var(--ops-display);
-  letter-spacing: -.04em;
-  font-weight: 800;
+  font: 800 clamp(22px, 2vw, 28px) / 1.1 var(--ops-display) !important;
+  letter-spacing: -.04em !important;
+}
+.admin-page .ops-soft-section-head h3,
+.admin-page .ops-soft-section-head h4 {
+  margin: 0;
+  flex: 1;
+  min-width: 0;
 }
 .admin-page .stage-copy > p {
   margin: 0 0 18px;
@@ -752,16 +759,16 @@
 .admin-page .ops-soft-section-head { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
 .admin-page .ops-soft-section-head + .ops-soft-section-head,
 .admin-page .ops-soft-stepper + .ops-soft-section-head { margin-top: 16px; }
-.admin-page .ops-soft-section-head h4 {
-  margin: 0;
-  color: var(--ops-ink);
-  font-family: var(--ops-display);
-  font-size: clamp(22px, 2vw, 28px);
-  font-weight: 800;
-  line-height: 1.1;
-  letter-spacing: -.04em;
+.admin-page .ops-soft-icon {
+  width: 2rem;
+  height: 2rem;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  border-radius: 999px;
+  color: var(--ops-primary);
+  background: color-mix(in oklab, var(--ops-primary) 14%, #fff);
 }
-.admin-page .ops-soft-icon { color: var(--ops-primary); flex-shrink: 0; }
 .admin-page .ops-soft-stepper {
   height: 86px;
   margin: 13px 0;
@@ -779,38 +786,39 @@
 .admin-page .ops-soft-stepper-value span { margin-left: 4px; color: rgba(255,255,255,.55); }
 .admin-page .ops-soft-dropzone {
   position: relative;
-  min-height: 62px;
+  min-height: 44px;
   margin-top: 10px;
-  padding: 10px;
+  padding: 0 16px;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  border: 1px dashed var(--ops-border);
+  border: 1px solid var(--ops-border);
   border-radius: 9px;
-  color: var(--ops-primary);
-  font-family: var(--ops-display);
-  font-size: 14px;
-  font-weight: 800;
+  color: var(--ops-ink);
+  background: #fff;
+  box-shadow: 0 12px 25px -18px rgba(22,50,74,.55);
+  font: 800 13px/1.1 var(--ops-display);
   letter-spacing: -.02em;
   cursor: pointer;
 }
 .admin-page .ops-soft-dropzone input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
 .admin-page .ops-soft-add {
-  min-height: 40px;
+  min-height: 44px;
   margin: 13px 0 0;
-  padding: 0 12px;
-  display: flex;
+  padding: 0 16px;
+  display: inline-flex;
   align-items: center;
-  gap: 5px;
+  justify-content: center;
+  gap: 8px;
   border: 0;
-  border-radius: 7px;
-  color: var(--ops-primary);
-  background: #e4f4fa;
-  font-family: var(--ops-display);
-  font-size: 14px;
-  font-weight: 800;
+  border-radius: 9px;
+  color: #fff;
+  background: linear-gradient(180deg, #19a0d5, var(--ops-primary));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.35), 0 11px 20px -10px rgba(11,142,200,.8), 0 3px 0 #0876a8;
+  font: 800 13px/1.1 var(--ops-display);
   letter-spacing: -.02em;
+  cursor: pointer;
 }
 .admin-page .ops-soft-items { display: grid; gap: 6px; margin-top: 10px; }
 .admin-page .ops-soft-item { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 7px; background: var(--ops-wash); font-size: 12px; }
@@ -832,16 +840,21 @@
   padding: 0 16px;
   display: inline-flex;
   align-items: center;
-  gap: 7px;
+  gap: 8px;
   border: 1px solid var(--ops-border);
   border-radius: 9px;
   background: #fff;
-  font-family: var(--ops-display);
-  font-size: 13px;
-  font-weight: 800;
+  box-shadow: 0 12px 25px -18px rgba(22,50,74,.55);
+  font: 800 13px/1.1 var(--ops-display);
   letter-spacing: -.02em;
+  cursor: pointer;
 }
-.admin-page .ops-soft-btn.is-primary { color: #fff; border-color: var(--ops-primary); background: var(--ops-primary); }
+.admin-page .ops-soft-btn.is-primary {
+  color: #fff;
+  border: 0;
+  background: linear-gradient(180deg, #19a0d5, var(--ops-primary));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.35), 0 11px 20px -10px rgba(11,142,200,.8), 0 3px 0 #0876a8;
+}
 .admin-page .ops-soft-thumb { position: relative; width: 110px; height: 64px; margin-top: 10px; overflow: hidden; border-radius: 8px; }
 .admin-page .ops-soft-thumb img { width: 100%; height: 100%; object-fit: cover; }
 .admin-page .ops-soft-thumb-remove { position: absolute; top: 4px; right: 4px; width: 24px; height: 24px; display: grid; place-items: center; border: 0; border-radius: 50%; color: #fff; background: rgba(22,50,74,.8); }

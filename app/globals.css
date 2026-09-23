@@ -7298,9 +7298,10 @@ button.ops-row {
   flex: 1;
   min-width: 0;
   font-family: var(--ops-display);
-  font-size: 0.95rem;
-  font-weight: 750;
-  letter-spacing: -0.02em;
+  font-size: clamp(22px, 2vw, 28px);
+  font-weight: 800;
+  line-height: 1.1;
+  letter-spacing: -0.04em;
   color: var(--ops-ink);
 }
 .ops-soft-icon {
