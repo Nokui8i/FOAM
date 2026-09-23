@@ -7293,12 +7293,13 @@ button.ops-row {
   gap: 0.55rem;
   min-width: 0;
 }
+.ops-soft-section-head h3,
 .ops-soft-section-head h4 {
   margin: 0;
   flex: 1;
   min-width: 0;
   font-family: var(--ops-display);
-  font-size: clamp(22px, 2vw, 28px);
+  font-size: clamp(20px, 1.8vw, 26px);
   font-weight: 800;
   line-height: 1.1;
   letter-spacing: -0.04em;

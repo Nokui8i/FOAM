@@ -681,6 +681,12 @@
   margin: 0;
   flex: 1;
   min-width: 0;
+  color: var(--ops-ink);
+  font-family: var(--ops-display) !important;
+  font-size: clamp(20px, 1.8vw, 26px) !important;
+  font-weight: 800 !important;
+  line-height: 1.1 !important;
+  letter-spacing: -.04em !important;
 }
 .admin-page .stage-copy > p {
   margin: 0 0 18px;
@@ -756,9 +762,9 @@
   background: #fff;
   box-shadow: 0 12px 25px -18px rgba(22,50,74,.55);
 }
-.admin-page .ops-soft-section-head { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
+.admin-page .ops-soft-section-head { display: flex; align-items: center; gap: 10px; margin-bottom: 0; }
 .admin-page .ops-soft-section-head + .ops-soft-section-head,
-.admin-page .ops-soft-stepper + .ops-soft-section-head { margin-top: 16px; }
+.admin-page .ops-soft-stepper + .ops-soft-section-head { margin-top: 12px; }
 .admin-page .ops-soft-icon {
   width: 2rem;
   height: 2rem;
@@ -773,7 +779,7 @@
   height: 44px;
   width: fit-content;
   max-width: 100%;
-  margin: 10px auto 12px;
+  margin: 6px auto 8px;
   display: grid;
   grid-template-columns: 40px minmax(96px, 132px) 40px;
   align-items: center;
@@ -834,7 +840,7 @@
 .admin-page .ops-soft-dropzone {
   position: relative;
   min-height: 44px;
-  margin-top: 10px;
+  margin-top: 6px;
   padding: 0 16px;
   display: flex;
   align-items: center;
@@ -852,7 +858,7 @@
 .admin-page .ops-soft-dropzone input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
 .admin-page .ops-soft-add {
   min-height: 44px;
-  margin: 13px 0 0;
+  margin: 6px 0 0;
   padding: 0 16px;
   display: inline-flex;
   align-items: center;
@@ -905,7 +911,7 @@
 .admin-page .ops-soft-thumbs {
   display: flex;
   justify-content: center;
-  margin-top: 10px;
+  margin-top: 6px;
 }
 .admin-page .ops-soft-thumb {
   position: relative;
@@ -936,7 +942,7 @@
   cursor: pointer;
 }
 .admin-page .ops-dry-warn {
-  margin: 10px 0 0;
+  margin: 8px 0 0;
   color: var(--ops-danger);
   font-family: var(--ops-display);
   font-size: 13px;
