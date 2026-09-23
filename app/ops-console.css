@@ -1289,8 +1289,8 @@
   border-radius: 8px;
   background: #fff;
   box-shadow: 0 12px 25px -18px rgba(22,50,74,.55);
-  font-family: var(--ops-display), "Manrope", sans-serif !important;
-  font-size: 13px !important;
+  font-family: var(--ops-body), "DM Sans", sans-serif !important;
+  font-size: 15px !important;
   font-weight: 800 !important;
   line-height: 1.1 !important;
   letter-spacing: -.02em;
