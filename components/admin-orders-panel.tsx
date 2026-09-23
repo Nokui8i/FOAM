@@ -811,23 +811,32 @@ export function AdminOrdersPanel({
     type Line = { label: string; amount: number };
     const lines: Line[] = [];
 
+    const isWeekly =
+      selected.pricing?.tier === "weekly" ||
+      Boolean(selected.pickup.repeatRequested);
+    const rateLabel = `$${rate.toFixed(2)}/lb`;
+
     if (hasLaundry) {
       if (atMinimum || laundryPending) {
         // Show laundry + fee as separate lines that still sum to the $50 min.
         lines.push({
-          label: laundryPending ? `Laundry (min $${min})` : "Laundry (minimum)",
+          label: laundryPending
+            ? `Laundry · ${rateLabel} (min $${min})`
+            : `Laundry · ${rateLabel} (minimum)`,
           amount: Math.round((min - fee) * 100) / 100,
         });
       } else {
         lines.push({
-          label: `Laundry (${lbs.toFixed(1)} lb)`,
+          label: `Laundry (${lbs.toFixed(1)} lb · ${rateLabel}${
+            discountPct > 0 ? ` · ${discountPct}% off` : ""
+          })`,
           amount: laundryRaw,
         });
       }
     }
 
     if (fee > 0) {
-      lines.push({ label: "Service fee", amount: fee });
+      lines.push({ label: "Service fee (pickup)", amount: fee });
     }
 
     if (dryTotal > 0) {
@@ -839,7 +848,7 @@ export function AdminOrdersPanel({
 
     const total = Math.round((laundryPlusFee + dryTotal + tip) * 100) / 100;
 
-    return { lines, total };
+    return { lines, total, isWeekly, rate };
   }, [selected, weightInput, dryItems]);
 
   const stageBackLabel = selected
@@ -929,6 +938,32 @@ export function AdminOrdersPanel({
             ) : (
               <span className="ops-service-chip">No dry cleaning</span>
             )}
+            {selected.services.laundry ? (
+              selected.pricing?.tier === "weekly" ||
+              selected.pickup.repeatRequested ? (
+                <span className="ops-service-chip is-weekly">
+                  Weekly · $
+                  {(
+                    selected.pricing?.laundryRatePerLb ?? RATE_WEEKLY_PER_LB_USD
+                  ).toFixed(2)}
+                  /lb
+                </span>
+              ) : (
+                <span className="ops-service-chip is-on-demand">
+                  On-demand · $
+                  {(
+                    selected.pricing?.laundryRatePerLb ??
+                    RATE_STANDARD_PER_LB_USD
+                  ).toFixed(2)}
+                  /lb
+                </span>
+              )
+            ) : null}
+            {selected.pricing?.repeatDiscountEligible ? (
+              <span className="ops-service-chip is-discount">
+                {selected.pricing.repeatDiscountPercent ?? 10}% off this pickup
+              </span>
+            ) : null}
           </div>
           <div className="ops-soft-grid">
             <section className="ops-soft-col" aria-label="Scale">
@@ -1217,15 +1252,7 @@ export function AdminOrdersPanel({
                       key={line.label}
                       className="ops-soft-breakdown-row"
                     >
-                      <span>
-                        {line.label}
-                        {line.note ? (
-                          <em className="ops-soft-breakdown-note">
-                            {" "}
-                            · {line.note}
-                          </em>
-                        ) : null}
-                      </span>
+                      <span>{line.label}</span>
                       <strong>${line.amount.toFixed(2)}</strong>
                     </div>
                   ))}
