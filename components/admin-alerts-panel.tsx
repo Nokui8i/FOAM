@@ -606,9 +606,9 @@ export function AdminAlertsPanel({
                   </p>
                 ) : (
                   <p className="ops-call-note">
-                    {selected.weekly
-                      ? "Confirm to keep it. Cancel stops this pickup, weekly automation, and the 10% off."
-                      : "Confirm to keep it. Cancel only if they asked to cancel."}
+                    {selected.weekly || selected.automatedWeekly
+                      ? "This pickup was created by weekly automation. Call the customer — make sure they know the date & time and are ready. Confirm if yes. Cancel stops this pickup, future weekly orders, and the 10% off."
+                      : "Call the customer — make sure they know the date & time and are ready. Confirm if yes. Cancel only if they asked to cancel."}
                   </p>
                 )}
                 <div className="ops-action-row" style={{ marginTop: 12 }}>
