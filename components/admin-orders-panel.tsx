@@ -773,9 +773,9 @@ export function AdminOrdersPanel({
       (selected.pricing?.tier === "weekly"
         ? RATE_WEEKLY_PER_LB_USD
         : RATE_STANDARD_PER_LB_USD);
-    const wantsDelivery =
+    const wantsService =
       hasLaundry || Boolean(selected.services.dryCleaning) || dryItems.length > 0;
-    const fee = wantsDelivery
+    const fee = wantsService
       ? selected.pricing?.deliveryFee ?? DELIVERY_FEE_USD
       : 0;
     const min = selected.pricing?.minimumOrder ?? MIN_ORDER_USD;
@@ -792,6 +792,7 @@ export function AdminOrdersPanel({
     }
 
     const dryTotal = dryCleanItemsTotal(dryItems);
+    // Min $50 is on laundry + service fee combined (same as charge).
     const laundryPlusFee = computeFinalTotal({
       weightLbs: hasLaundry ? lbs : 0,
       tier: selected.pricing?.tier,
@@ -807,27 +808,26 @@ export function AdminOrdersPanel({
     const atMinimum =
       hasLaundry && Math.round((laundryRaw + fee) * 100) / 100 < min;
 
-    type Line = { label: string; amount: number; note?: string };
+    type Line = { label: string; amount: number };
     const lines: Line[] = [];
 
-    if (hasLaundry && (atMinimum || laundryPending)) {
-      lines.push({
-        label: laundryPending
-          ? `Minimum order ($${min})`
-          : `Minimum order`,
-        amount: min,
-        note: "incl. delivery",
-      });
-    } else if (hasLaundry) {
-      lines.push({
-        label: `Laundry (${lbs.toFixed(1)} lb)`,
-        amount: laundryRaw,
-      });
-      if (fee > 0) {
-        lines.push({ label: "Delivery fee", amount: fee });
+    if (hasLaundry) {
+      if (atMinimum || laundryPending) {
+        // Show laundry + fee as separate lines that still sum to the $50 min.
+        lines.push({
+          label: laundryPending ? `Laundry (min $${min})` : "Laundry (minimum)",
+          amount: Math.round((min - fee) * 100) / 100,
+        });
+      } else {
+        lines.push({
+          label: `Laundry (${lbs.toFixed(1)} lb)`,
+          amount: laundryRaw,
+        });
       }
-    } else if (fee > 0) {
-      lines.push({ label: "Delivery fee", amount: fee });
+    }
+
+    if (fee > 0) {
+      lines.push({ label: "Service fee", amount: fee });
     }
 
     if (dryTotal > 0) {
