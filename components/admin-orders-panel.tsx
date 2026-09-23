@@ -1364,14 +1364,14 @@ export function AdminOrdersPanel({
                       className="ops-soft-breakdown-row"
                     >
                       <span>{line.label}</span>
-                      <strong style={{ fontSize: 26, fontWeight: 800 }}>
+                      <strong style={{ fontSize: 15, fontWeight: 800 }}>
                         ${line.amount.toFixed(2)}
                       </strong>
                     </div>
                   ))}
                   <div className="ops-soft-breakdown-total">
                     <span>Total</span>
-                    <strong style={{ fontSize: 40, fontWeight: 800 }}>
+                    <strong style={{ fontSize: 15, fontWeight: 800 }}>
                       ${previewBreakdown.total.toFixed(2)}
                     </strong>
                   </div>
@@ -1379,7 +1379,7 @@ export function AdminOrdersPanel({
               ) : (
                 <>
                   <span>Total</span>
-                  <strong style={{ fontSize: 40, fontWeight: 800 }}>
+                  <strong style={{ fontSize: 15, fontWeight: 800 }}>
                     {selected.finalTotal != null
                       ? `$${selected.finalTotal.toFixed(2)}`
                       : "—"}
@@ -1392,7 +1392,13 @@ export function AdminOrdersPanel({
                 <button
                   type="button"
                   className="ops-soft-btn"
-                  style={{ width: 120, minWidth: 120, height: 38 }}
+                  style={{
+                    width: 120,
+                    minWidth: 120,
+                    maxWidth: 120,
+                    height: 38,
+                    boxSizing: "border-box",
+                  }}
                   disabled={saving || uploadingPhoto}
                   onClick={() => void goBackStage()}
                 >
@@ -1404,7 +1410,13 @@ export function AdminOrdersPanel({
                 <button
                   type="button"
                   className="ops-soft-btn is-primary"
-                  style={{ width: 120, minWidth: 120, height: 38 }}
+                  style={{
+                    width: 120,
+                    minWidth: 120,
+                    maxWidth: 120,
+                    height: 38,
+                    boxSizing: "border-box",
+                  }}
                   disabled={saving || uploadingPhoto}
                   onClick={() => void chargeAndCollect()}
                 >
