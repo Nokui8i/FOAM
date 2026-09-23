@@ -244,33 +244,3 @@ export async function cancelFutureWeeklyOrders(
   }
   return { cancelled };
 }
-
-/** When weekly is turned back on, queue the next slot from the latest weekly order. */
-export async function resumeWeeklyFromLatest(
-  uid: string
-): Promise<{ created: boolean; nextDate?: string; reason?: string }> {
-  const db = getFirebaseDb();
-  const snap = await getDocs(
-    query(
-      collection(db, "orders"),
-      where("uid", "==", uid),
-      orderBy("createdAt", "desc"),
-      limit(25)
-    )
-  );
-
-  const sourceDoc = snap.docs.find((row) => {
-    const data = row.data() as Record<string, unknown>;
-    if (data.status === "cancelled") return false;
-    const pickup = data.pickup as { repeat?: boolean } | undefined;
-    return Boolean(pickup?.repeat);
-  });
-
-  if (!sourceDoc) {
-    return { created: false, reason: "no-weekly-history" };
-  }
-
-  return ensureNextWeeklyOrder(
-    mapOrder(sourceDoc.id, sourceDoc.data() as Record<string, unknown>)
-  );
-}

@@ -42,7 +42,6 @@ import {
 } from "@/lib/user-profile";
 import {
   cancelFutureWeeklyOrders,
-  resumeWeeklyFromLatest,
 } from "@/lib/weekly-automation";
 import { BOOKING_PATH, isAdminEmail } from "@/lib/site-config";
 
@@ -213,8 +212,13 @@ function AccountProfile({
     }
   }
 
-  async function toggleWeeklyRepeat() {
-    const nextEnabled = !profile.weeklyRepeatEnabled;
+  async function cancelWeeklyRepeat() {
+    if (!profile.weeklyRepeatEnabled) return;
+    const ok = window.confirm(
+      "Cancel weekly repeat pickup?\n\nThis stops automatic weekly orders and removes the 10% discount on your next automated pickup.\n\nYou can turn weekly back on only when you place a new order."
+    );
+    if (!ok) return;
+
     setWeeklyBusy(true);
     setWeeklyNote("");
     setError("");
@@ -236,30 +240,18 @@ function AccountProfile({
         separateColors: profile.separateColors,
         careNotes: profile.careNotes,
         laundryPrefs: profile.laundryPrefs,
-        weeklyRepeatEnabled: nextEnabled,
+        weeklyRepeatEnabled: false,
       };
       await saveUserProfile(uid, next);
       setProfile({ uid, ...next });
-
-      if (!nextEnabled) {
-        const result = await cancelFutureWeeklyOrders(uid);
-        setWeeklyNote(
-          result.cancelled > 0
-            ? `Weekly off · cancelled ${result.cancelled} future pickup${result.cancelled === 1 ? "" : "s"}.`
-            : "Weekly off · no future automated pickups left."
-        );
-      } else {
-        const resumed = await resumeWeeklyFromLatest(uid);
-        setWeeklyNote(
-          resumed.created && resumed.nextDate
-            ? `Weekly on · next pickup queued for ${resumed.nextDate}.`
-            : resumed.reason === "no-weekly-history"
-              ? "Weekly on · book a pickup once to start the weekly schedule."
-              : "Weekly on · your schedule stays active."
-        );
-      }
+      const result = await cancelFutureWeeklyOrders(uid);
+      setWeeklyNote(
+        result.cancelled > 0
+          ? `Weekly cancelled · ${result.cancelled} future pickup${result.cancelled === 1 ? "" : "s"} removed · 10% off on the next automated order no longer applies.`
+          : "Weekly cancelled · 10% off on the next automated order no longer applies."
+      );
     } catch {
-      setError("Could not update weekly repeat. Try again.");
+      setError("Could not cancel weekly repeat. Try again.");
     } finally {
       setWeeklyBusy(false);
     }
@@ -358,52 +350,50 @@ function AccountProfile({
                   </p>
                   <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
                     {profile.weeklyRepeatEnabled
-                      ? "On — we queue the same day & time every week at $2.35/lb + $5 service fee. Turn off below to stop future automated pickups."
-                      : "Off — enable for automatic weekly pickups at the weekly rate ($2.35/lb). You can cancel anytime."}
+                      ? "Active — same day & time every week at $2.35/lb + $5 service fee. Your next automated pickup includes 10% off."
+                      : "Weekly is only started when you book a pickup and turn on “Make this a repeat pickup”. After that, the next automated order gets 10% off."}
                   </p>
                 </div>
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={profile.weeklyRepeatEnabled}
-                  disabled={weeklyBusy || saving}
-                  className={cn(
-                    "relative h-8 w-14 shrink-0 rounded-full transition disabled:opacity-60",
-                    profile.weeklyRepeatEnabled
-                      ? "bg-(--color-accent-strong)"
-                      : "bg-muted-foreground/35"
-                  )}
-                  onClick={() => void toggleWeeklyRepeat()}
-                >
-                  <span
-                    className={cn(
-                      "absolute top-1 size-6 rounded-full bg-white shadow transition",
-                      profile.weeklyRepeatEnabled ? "left-7" : "left-1"
-                    )}
-                  />
-                  <span className="sr-only">
-                    {profile.weeklyRepeatEnabled
-                      ? "Disable weekly repeat"
-                      : "Enable weekly repeat"}
-                  </span>
-                </button>
-              </div>
-              <p
-                className={cn(
-                  "mt-3 text-xs font-medium",
-                  profile.weeklyRepeatEnabled
-                    ? "text-teal-800"
-                    : "text-muted-foreground"
+                {profile.weeklyRepeatEnabled ? (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="shrink-0 border-teal-300 bg-white text-teal-900 hover:bg-teal-50"
+                    disabled={weeklyBusy || saving}
+                    onClick={() => void cancelWeeklyRepeat()}
+                  >
+                    {weeklyBusy ? "Cancelling…" : "Cancel weekly"}
+                  </Button>
+                ) : (
+                  <Button
+                    type="button"
+                    size="sm"
+                    className="shrink-0"
+                    asChild
+                  >
+                    <Link href={BOOKING_PATH}>Book to enable</Link>
+                  </Button>
                 )}
-              >
-                {weeklyBusy
-                  ? "Updating…"
-                  : weeklyNote
-                    ? weeklyNote
-                    : profile.weeklyRepeatEnabled
-                      ? "Status: Active · tap the switch to cancel anytime (saves immediately)."
-                      : "Status: Off · tap the switch to turn weekly on."}
-              </p>
+              </div>
+              {profile.weeklyRepeatEnabled ? (
+                <p className="mt-3 text-xs font-medium text-amber-800">
+                  Cancelling stops future automated pickups and removes the 10%
+                  discount on the next automated order.
+                </p>
+              ) : null}
+              {weeklyNote || weeklyBusy ? (
+                <p
+                  className={cn(
+                    "mt-2 text-xs font-medium",
+                    profile.weeklyRepeatEnabled
+                      ? "text-teal-800"
+                      : "text-muted-foreground"
+                  )}
+                >
+                  {weeklyBusy ? "Updating…" : weeklyNote}
+                </p>
+              ) : null}
             </div>
             <div className="mt-4 grid gap-x-3 gap-y-3 sm:grid-cols-2">
               <Field label="Full name">
@@ -517,7 +507,7 @@ function AccountProfile({
             />
             <div className="mt-4 rounded-lg border border-border bg-muted/40 p-3 sm:p-4">
               <p className="text-xs text-muted-foreground">
-                To turn weekly pickups on or off, use the switch under{" "}
+                Weekly repeat is managed under{" "}
                 <button
                   type="button"
                   className="font-semibold text-foreground underline-offset-2 hover:underline"
@@ -525,7 +515,8 @@ function AccountProfile({
                 >
                   Details
                 </button>
-                . It saves immediately.
+                . You can cancel there anytime; turning it on only happens when
+                you book a pickup.
               </p>
             </div>
             <div className="mt-4 grid gap-x-3 gap-y-3 sm:grid-cols-2">
