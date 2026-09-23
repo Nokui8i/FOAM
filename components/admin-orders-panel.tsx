@@ -1580,7 +1580,7 @@ export function AdminOrdersPanel({
 
     if (stage === 1) {
       const prefRows = washPreferenceRows(selected.preferences);
-      const notes = selected.orderNotes.trim();
+      const notes = (selected.orderNotes ?? "").trim();
       return (
         <section
           className={cn(
