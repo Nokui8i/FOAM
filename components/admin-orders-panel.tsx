@@ -98,6 +98,25 @@ const FILTERS: { id: Filter; label: string }[] = [
 
 const ROW_FILTERS = FILTERS.filter((item) => item.id !== "all");
 
+const WASH_PREF_ROWS: { key: string; label: string }[] = [
+  { key: "pants", label: "Pants" },
+  { key: "dresses", label: "Dresses" },
+  { key: "detergent", label: "Detergent" },
+  { key: "softener", label: "Softener" },
+  { key: "whitesWashTemp", label: "Whites wash" },
+  { key: "colorsWashTemp", label: "Colors wash" },
+  { key: "whitesDryerHeat", label: "Whites dryer" },
+  { key: "colorsDryerHeat", label: "Colors dryer" },
+];
+
+function washPreferenceRows(prefs?: Record<string, string> | null) {
+  if (!prefs) return [];
+  return WASH_PREF_ROWS.flatMap(({ key, label }) => {
+    const value = String(prefs[key] ?? "").trim();
+    return value ? [{ label, value }] : [];
+  });
+}
+
 const FILTER_IDS = new Set<string>(FILTERS.map((f) => f.id));
 
 function parseFilter(raw: string | null, mode: OrdersMode): Filter {
@@ -1560,8 +1579,15 @@ export function AdminOrdersPanel({
     }
 
     if (stage === 1) {
+      const prefRows = washPreferenceRows(selected.preferences);
+      const notes = selected.orderNotes.trim();
       return (
-        <section className="stage locked-stage">
+        <section
+          className={cn(
+            "stage locked-stage",
+            (prefRows.length > 0 || notes) && "has-prefs"
+          )}
+        >
           <div className="lock-illustration" aria-hidden>
             <div className="machine-dial">
               <Shirt size={30} />
@@ -1593,6 +1619,34 @@ export function AdminOrdersPanel({
               <ArrowRight size={16} />
             </Button>
           </div>
+          {prefRows.length > 0 || notes ? (
+            <div className="ops-wash-prefs">
+              {prefRows.length > 0 ? (
+                <>
+                  <h4>Wash preferences</h4>
+                  <dl>
+                    {prefRows.map((row) => (
+                      <div key={row.label} className="ops-wash-pref-row">
+                        <dt>{row.label}</dt>
+                        <dd>{row.value}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                </>
+              ) : null}
+              {notes ? (
+                <div className="ops-order-notes">
+                  <h4>Order notes</h4>
+                  <p>{notes}</p>
+                </div>
+              ) : null}
+            </div>
+          ) : selected.services.laundry ? (
+            <div className="ops-wash-prefs is-empty">
+              <h4>Wash preferences</h4>
+              <p>No preferences saved on this order.</p>
+            </div>
+          ) : null}
         </section>
       );
     }
