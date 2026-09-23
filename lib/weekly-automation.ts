@@ -7,6 +7,7 @@ import {
   query,
   serverTimestamp,
   setDoc,
+  updateDoc,
   doc,
   where,
 } from "firebase/firestore";
@@ -28,11 +29,57 @@ export function addDaysToYmd(ymd: string, days: number): string {
   return base.toISOString().slice(0, 10);
 }
 
+function todayYmdLasVegas() {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Los_Angeles",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+}
+
 function isOpenWeeklyOrder(data: Record<string, unknown>, date: string) {
   if (data.status === "cancelled") return false;
   const pickup = data.pickup as { date?: string; repeat?: boolean } | undefined;
   if (!pickup?.repeat) return false;
   return pickup.date === date;
+}
+
+function mapOrder(id: string, data: Record<string, unknown>): FoamOrder {
+  const pickup = (data.pickup ?? {}) as Record<string, unknown>;
+  const services = (data.services ?? {}) as Record<string, unknown>;
+  const contact = (data.contact ?? {}) as Record<string, unknown>;
+  return {
+    id,
+    status: (data.status as FoamOrder["status"]) || "new",
+    uid: typeof data.uid === "string" ? data.uid : null,
+    guest: Boolean(data.guest),
+    trackKey: typeof data.trackKey === "string" ? data.trackKey : undefined,
+    services: {
+      laundry: Boolean(services.laundry),
+      dryCleaning: Boolean(services.dryCleaning),
+      bagCount: Number(services.bagCount ?? 0),
+    },
+    contact: {
+      name: String(contact.name ?? ""),
+      email: String(contact.email ?? ""),
+      phone: String(contact.phone ?? ""),
+    },
+    pickup: {
+      address: String(pickup.address ?? ""),
+      unit: String(pickup.unit ?? ""),
+      city: String(pickup.city ?? ""),
+      zip: String(pickup.zip ?? ""),
+      notes: String(pickup.notes ?? ""),
+      date: String(pickup.date ?? ""),
+      slot: String(pickup.slot ?? ""),
+      repeat: Boolean(pickup.repeat),
+      repeatRequested: Boolean(pickup.repeatRequested),
+    },
+    preferences: (data.preferences as FoamOrder["preferences"]) ?? {},
+    pricing: data.pricing as FoamOrder["pricing"],
+    tip: typeof data.tip === "number" ? data.tip : undefined,
+  };
 }
 
 /**
@@ -146,4 +193,84 @@ export async function ensureNextWeeklyOrder(
   });
 
   return { created: true, nextDate };
+}
+
+/** Cancel future not-yet-collected weekly pickups when the customer turns weekly off. */
+export async function cancelFutureWeeklyOrders(
+  uid: string
+): Promise<{ cancelled: number }> {
+  const db = getFirebaseDb();
+  const today = todayYmdLasVegas();
+  const snap = await getDocs(
+    query(
+      collection(db, "orders"),
+      where("uid", "==", uid),
+      orderBy("createdAt", "desc"),
+      limit(40)
+    )
+  );
+
+  let cancelled = 0;
+  for (const row of snap.docs) {
+    const data = row.data() as Record<string, unknown>;
+    const status = String(data.status ?? "");
+    if (status !== "new" && status !== "confirmed") continue;
+    const pickup = (data.pickup ?? {}) as {
+      date?: string;
+      repeat?: boolean;
+    };
+    if (!pickup.repeat) continue;
+    const date = String(pickup.date ?? "");
+    if (!date || date < today) continue;
+
+    await updateDoc(doc(db, "orders", row.id), {
+      status: "cancelled",
+      cancelReason: "Customer turned off weekly repeat",
+      statusUpdatedAt: serverTimestamp(),
+    });
+    const trackKey =
+      typeof data.trackKey === "string" ? data.trackKey : null;
+    if (trackKey) {
+      try {
+        await updateDoc(doc(db, "orderTracks", trackKey), {
+          status: "cancelled",
+          updatedAt: serverTimestamp(),
+        });
+      } catch {
+        /* track update is best-effort */
+      }
+    }
+    cancelled += 1;
+  }
+  return { cancelled };
+}
+
+/** When weekly is turned back on, queue the next slot from the latest weekly order. */
+export async function resumeWeeklyFromLatest(
+  uid: string
+): Promise<{ created: boolean; nextDate?: string; reason?: string }> {
+  const db = getFirebaseDb();
+  const snap = await getDocs(
+    query(
+      collection(db, "orders"),
+      where("uid", "==", uid),
+      orderBy("createdAt", "desc"),
+      limit(25)
+    )
+  );
+
+  const sourceDoc = snap.docs.find((row) => {
+    const data = row.data() as Record<string, unknown>;
+    if (data.status === "cancelled") return false;
+    const pickup = data.pickup as { repeat?: boolean } | undefined;
+    return Boolean(pickup?.repeat);
+  });
+
+  if (!sourceDoc) {
+    return { created: false, reason: "no-weekly-history" };
+  }
+
+  return ensureNextWeeklyOrder(
+    mapOrder(sourceDoc.id, sourceDoc.data() as Record<string, unknown>)
+  );
 }

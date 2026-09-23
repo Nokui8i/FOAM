@@ -79,7 +79,19 @@ service cloud.firestore {
           && resource.data.uid is string
           && resource.data.uid == request.auth.uid);
 
-      allow update, delete: if isAdmin();
+      // Customer may cancel their own future weekly pickups (new/confirmed only).
+      allow update: if isAdmin() || (
+        isSignedIn()
+        && resource.data.uid is string
+        && resource.data.uid == request.auth.uid
+        && resource.data.status in ['new', 'confirmed']
+        && request.resource.data.status == 'cancelled'
+        && request.resource.data.uid == resource.data.uid
+        && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['status', 'statusUpdatedAt', 'cancelReason'])
+      );
+
+      allow delete: if isAdmin();
     }
 
     match /orderTracks/{key} {
@@ -111,7 +123,18 @@ service cloud.firestore {
         && request.resource.data.createdAt == request.time
         && request.resource.data.updatedAt == request.time;
 
-      allow update, delete: if isAdmin();
+      allow update: if isAdmin() || (
+        isSignedIn()
+        && resource.data.orderId is string
+        && get(/databases/$(database)/documents/orders/$(resource.data.orderId)).data.uid
+          == request.auth.uid
+        && resource.data.status in ['new', 'confirmed']
+        && request.resource.data.status == 'cancelled'
+        && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['status', 'updatedAt'])
+      );
+
+      allow delete: if isAdmin();
     }
 
     match /{document=**} {

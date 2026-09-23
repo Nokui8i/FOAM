@@ -35,6 +35,8 @@ type AccountOrderRow = {
   laundry: boolean;
   dryCleaning: boolean;
   bagCount: number;
+  weekly: boolean;
+  automatedWeekly: boolean;
   trackKey?: string;
   photos: OrderPhoto[];
   weightLbs: number | null;
@@ -57,6 +59,8 @@ function mapRow(id: string, data: Record<string, unknown>): AccountOrderRow {
     laundry: Boolean(services.laundry),
     dryCleaning: Boolean(services.dryCleaning),
     bagCount: Number(services.bagCount ?? 0),
+    weekly: Boolean(pickup.repeat),
+    automatedWeekly: Boolean(data.automatedWeekly),
     trackKey: typeof data.trackKey === "string" ? data.trackKey : undefined,
     photos,
     weightLbs: typeof data.weightLbs === "number" ? data.weightLbs : null,
@@ -199,6 +203,11 @@ export function AccountOrders({ uid }: { uid: string }) {
                 <p>Ref {orderRefFromId(order.id)}</p>
               </div>
               <span className="inline-flex items-center gap-2">
+                {order.weekly ? (
+                  <span className="account-order-badge is-weekly">
+                    {order.automatedWeekly ? "Weekly auto" : "Weekly"}
+                  </span>
+                ) : null}
                 <span
                   className={cn(
                     "account-order-badge",
