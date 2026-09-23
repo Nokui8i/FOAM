@@ -7709,6 +7709,7 @@ button.ops-row {
   font-size: 0.84rem;
   font-weight: 700;
   cursor: pointer;
+  box-sizing: border-box;
 }
 .ops-soft-btn:hover:not(:disabled) {
   background: color-mix(in oklab, var(--ops-primary) 6%, #fff);
@@ -7718,7 +7719,7 @@ button.ops-row {
   cursor: not-allowed;
 }
 .ops-soft-btn.is-primary {
-  justify-content: space-between;
+  justify-content: center;
   border-color: transparent;
   background: var(--ops-primary);
   color: #fff;
