@@ -1208,12 +1208,12 @@
 .admin-page .ops-soft-total > strong { color: var(--ops-navy); font: 800 25px/1.1 var(--ops-display); letter-spacing: -.04em; text-transform: none; }
 .admin-page .ops-soft-breakdown {
   display: grid;
-  gap: 6px;
-  min-width: min(320px, 100%);
+  gap: 5px;
+  min-width: min(300px, 100%);
   text-transform: none;
   letter-spacing: 0;
   font-size: 15px;
-  font-weight: 600;
+  font-weight: 800;
   color: var(--ops-ink);
 }
 .admin-page .ops-soft-breakdown-row,
@@ -1221,20 +1221,23 @@
   display: flex;
   justify-content: space-between;
   align-items: baseline;
-  gap: 18px;
-  font-size: 14px;
-  font-weight: 700;
-  color: var(--ops-muted);
+  gap: 16px;
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--ops-ink);
   text-transform: none;
   letter-spacing: 0;
 }
-.admin-page .ops-soft-breakdown-row strong {
+.admin-page .ops-soft-breakdown-row span,
+.admin-page .ops-soft-breakdown-row strong,
+.admin-page .ops-soft-breakdown-total span,
+.admin-page .ops-soft-breakdown-total strong {
   color: var(--ops-ink) !important;
-  font-family: var(--ops-display), "Manrope", sans-serif !important;
-  font-size: 26px !important;
+  font-family: var(--ops-body), "DM Sans", sans-serif !important;
+  font-size: 15px !important;
   font-weight: 800 !important;
-  line-height: 1.1 !important;
-  letter-spacing: -.03em !important;
+  line-height: 1.2 !important;
+  letter-spacing: 0 !important;
   text-transform: none !important;
 }
 .admin-page .ops-soft-breakdown-note {
@@ -1243,23 +1246,9 @@
   color: color-mix(in srgb, var(--ops-muted) 80%, #fff);
 }
 .admin-page .ops-soft-breakdown-total {
-  margin-top: 6px;
-  padding-top: 8px;
+  margin-top: 4px;
+  padding-top: 6px;
   border-top: 1px solid var(--ops-border);
-  color: var(--ops-navy);
-  font-size: 12px;
-  font-weight: 800;
-  letter-spacing: .12em;
-  text-transform: uppercase;
-}
-.admin-page .ops-soft-breakdown-total strong {
-  color: var(--ops-navy) !important;
-  font-family: var(--ops-display), "Manrope", sans-serif !important;
-  font-size: 40px !important;
-  font-weight: 800 !important;
-  line-height: 1 !important;
-  letter-spacing: -.04em !important;
-  text-transform: none !important;
 }
 .admin-page .ops-soft-actions {
   display: flex;
