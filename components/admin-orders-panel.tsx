@@ -1475,7 +1475,7 @@ export function AdminOrdersPanel({
                     title="WhatsApp"
                   >
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src="/ops-icon-whatsapp.png" alt="" width={22} height={22} />
+                    <img src="/ops-icon-whatsapp.png" alt="" width={26} height={26} />
                   </a>
                   <a
                     className="ops-action-btn"

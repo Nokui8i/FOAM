@@ -506,6 +506,10 @@
   object-fit: contain;
   display: block;
 }
+.admin-page .ops-action-btn img[src*="whatsapp"] {
+  width: 26px;
+  height: 26px;
+}
 .admin-page .ops-text-btn {
   min-width: 60px;
   min-height: 42px;
