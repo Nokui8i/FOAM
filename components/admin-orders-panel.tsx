@@ -124,7 +124,7 @@ function formatFutureDayTab(ymd: string) {
   }
   return {
     weekday: d.toLocaleDateString("en-US", { weekday: "short" }),
-    dayNum: d.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+    dayNum: String(d.getDate()),
   };
 }
 
@@ -1675,10 +1675,10 @@ export function AdminOrdersPanel({
                     )}
                     onClick={() => setFutureDay(day)}
                   >
-                    <span className="ops-day-tab-weekday">{label.weekday}</span>
-                    <span className="ops-day-tab-date">{label.dayNum}</span>
-                    <span className="ops-day-tab-count">{count}</span>
-                  </button>
+                  <span className="ops-day-tab-weekday">{label.weekday}</span>
+                  <span className="ops-day-tab-date">{label.dayNum}</span>
+                  <span className="ops-day-tab-count">{count}</span>
+                </button>
                 );
               })}
               {(futureDayCounts.later ?? 0) > 0 ? (
@@ -1691,7 +1691,6 @@ export function AdminOrdersPanel({
                   onClick={() => setFutureDay("later")}
                 >
                   <span className="ops-day-tab-weekday">Later</span>
-                  <span className="ops-day-tab-date">+7d</span>
                   <span className="ops-day-tab-count">
                     {futureDayCounts.later}
                   </span>
@@ -1747,7 +1746,12 @@ export function AdminOrdersPanel({
                     <span className="ops-row-price">
                       {row.finalTotal != null
                         ? `$${row.finalTotal.toFixed(2)}`
-                        : "—"}
+                        : mode === "future" &&
+                            (row.pickup.repeat || row.pickup.repeatRequested)
+                          ? row.pricing?.repeatDiscountEligible
+                            ? "Weekly · 10% off"
+                            : "Weekly"
+                          : "—"}
                     </span>
                   </span>
                 </button>
