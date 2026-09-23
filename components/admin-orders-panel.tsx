@@ -710,16 +710,30 @@ export function AdminOrdersPanel({
       return;
     }
     await setStatus("delivered");
-    try {
-      const next = await ensureNextWeeklyOrder({
-        ...selected,
-        status: "delivered",
-      });
-      if (next.created && next.nextDate) {
-        setOkMsg(`Delivered · next weekly pickup queued for ${next.nextDate}`);
+    if (selected.pickup.repeat || selected.pickup.repeatRequested) {
+      try {
+        const next = await ensureNextWeeklyOrder(
+          { ...selected, status: "delivered" },
+          { linkFromAdmin: true }
+        );
+        if (next.created && next.nextDate) {
+          setOkMsg(
+            `Delivered · next weekly pickup queued for ${next.nextDate} (weekly rate + 10% laundry)`
+          );
+        } else if (next.reason === "weekly-disabled") {
+          setOkMsg("Delivered · weekly cancelled by customer — no next pickup queued.");
+        } else if (next.reason === "already-queued") {
+          setOkMsg(
+            `Delivered · next weekly pickup already queued${next.nextDate ? ` (${next.nextDate})` : ""}.`
+          );
+        }
+      } catch (err) {
+        setError(
+          `Delivered, but failed to queue next weekly pickup: ${
+            err instanceof Error ? err.message : "unknown error"
+          }. Open Support → Alerts later or refresh Ops to reconcile.`
+        );
       }
-    } catch {
-      /* weekly queue is best-effort — delivery already saved */
     }
   }
 
@@ -771,6 +785,27 @@ export function AdminOrdersPanel({
       },
       `Charged · $${finalTotal.toFixed(2)} · At laundry`
     );
+
+    if (selected.pickup.repeat || selected.pickup.repeatRequested) {
+      try {
+        const next = await ensureNextWeeklyOrder(
+          { ...selected, status: "washing" },
+          { linkFromAdmin: true }
+        );
+        if (next.created && next.nextDate) {
+          setOkMsg(
+            `Charged · $${finalTotal.toFixed(2)} · next weekly queued ${next.nextDate}`
+          );
+        }
+      } catch (err) {
+        setError(
+          `Charged, but failed to queue next weekly pickup: ${
+            err instanceof Error ? err.message : "unknown error"
+          }. Refresh Ops to reconcile.`
+        );
+      }
+    }
+
     setFilter("progress");
   }
 

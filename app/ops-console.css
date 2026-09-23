@@ -1142,7 +1142,60 @@
 .admin-page .ops-fields p { margin: 0; font-size: 13px; }
 .admin-page .ops-message-body { max-width: 700px; font-size: 17px; line-height: 1.55; }
 
-/* Catalog — portaled to body under .ops-catalog-root */
+/* Support: Messages + Alerts tabs */
+.admin-page .ops-support-tabs {
+  display: flex;
+  gap: 6px;
+  margin: 0 0 12px;
+}
+.admin-page .ops-support-tab {
+  min-height: 34px;
+  padding: 0 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--ops-border);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--ops-muted);
+  font: 800 12px/1 var(--ops-display);
+  letter-spacing: -.01em;
+  cursor: pointer;
+}
+.admin-page .ops-support-tab.is-active {
+  color: var(--ops-primary);
+  border-color: color-mix(in srgb, var(--ops-primary) 40%, var(--ops-border));
+  background: #e4f4fa;
+}
+.admin-page .ops-support-tab-count {
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--ops-danger);
+  color: #fff;
+  font-size: 10px;
+}
+.admin-page .ops-alert-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: #e7f6f3;
+  color: #0f766e;
+  font-style: normal;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .02em;
+  text-transform: uppercase;
+}
+.admin-page .ops-alert-chip.is-warn {
+  background: #fff7ed;
+  color: #b45309;
+}
 .admin-page.ops-catalog-root {
   position: fixed;
   inset: 0;

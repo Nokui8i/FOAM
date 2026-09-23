@@ -20,7 +20,7 @@ import {
   Truck,
 } from "lucide-react";
 
-import { AdminContactsPanel } from "@/components/admin-contacts-panel";
+import { AdminSupportPanel } from "@/components/admin-support-panel";
 import { AdminOrdersPanel } from "@/components/admin-orders-panel";
 import { Button } from "@/components/ui/button";
 import { getFirebaseAuth, getFirebaseDb } from "@/lib/firebase";
@@ -36,6 +36,10 @@ import {
 import { isAdminEmail } from "@/lib/site-config";
 import { useQueryReplace } from "@/lib/use-query-replace";
 import { cn } from "@/lib/utils";
+import {
+  isInPickupReminderWindow,
+} from "@/lib/admin-alerts";
+import { reconcileWeeklyQueues } from "@/lib/weekly-automation";
 
 type AdminTab = "orders" | "future" | "support";
 type MobileView = "list" | "detail";
@@ -130,6 +134,7 @@ function AdminAppInner() {
   const mobileView: MobileView =
     searchParams.get("view") === "detail" ? "detail" : "list";
   const [openInquiriesCount, setOpenInquiriesCount] = useState(0);
+  const [alertsTodoCount, setAlertsTodoCount] = useState(0);
   const [ordersCount, setOrdersCount] = useState(0);
   const [futureCount, setFutureCount] = useState(0);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
@@ -190,8 +195,17 @@ function AdminAppInner() {
     const unsubOrders = onSnapshot(collection(db, "orders"), (snap) => {
       let todayActive = 0;
       let future = 0;
+      let alertsTodo = 0;
       for (const docSnap of snap.docs) {
-        const order = orderStubFromDoc(docSnap.data() as Record<string, unknown>);
+        const data = docSnap.data() as Record<string, unknown>;
+        const order = orderStubFromDoc(data);
+        const status = order.status;
+        if (status !== "cancelled" && status !== "delivered") {
+          const pickupDate = order.pickup.date;
+          const window = isInPickupReminderWindow(pickupDate);
+          const reminder = (data.opsReminder ?? {}) as { contacted?: boolean };
+          if (window.match && !reminder.contacted) alertsTodo += 1;
+        }
         if (isFuturePickupOrder(order)) {
           future += 1;
           continue;
@@ -206,6 +220,7 @@ function AdminAppInner() {
       }
       setOrdersCount(todayActive);
       setFutureCount(future);
+      setAlertsTodoCount(alertsTodo);
     });
     return () => {
       unsubContacts();
@@ -217,6 +232,17 @@ function AdminAppInner() {
     if (!allowed) return;
     void purgeExpiredOpsDataOncePerSession().catch(() => {
       /* retention is best-effort; do not block ops */
+    });
+    // Money-critical: heal any missing +7 weekly queues whenever ops opens.
+    const key = "foam-weekly-reconcile-v1";
+    try {
+      if (sessionStorage.getItem(key)) return;
+      sessionStorage.setItem(key, "1");
+    } catch {
+      /* private mode */
+    }
+    void reconcileWeeklyQueues().catch(() => {
+      /* reconcile is best-effort on boot; charge/deliver still retry */
     });
   }, [allowed]);
 
@@ -450,7 +476,7 @@ function AdminAppInner() {
             >
               <Headphones size={18} aria-hidden />
               <span>Support</span>
-              <b>{openInquiriesCount}</b>
+              <b>{openInquiriesCount + alertsTodoCount}</b>
             </button>
           </nav>
 
@@ -513,9 +539,12 @@ function AdminAppInner() {
                 onMobileViewChange={setMobileView}
               />
             ) : (
-              <AdminContactsPanel
+              <AdminSupportPanel
+                adminEmail={user.email ?? ""}
                 mobileView={mobileView}
                 onMobileViewChange={setMobileView}
+                alertsTodoCount={alertsTodoCount}
+                onAlertsTodoCountChange={setAlertsTodoCount}
               />
             )}
         </div>

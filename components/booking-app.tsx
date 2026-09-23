@@ -465,7 +465,7 @@ function BookingAppInner() {
 
         if (repeatActive) {
           try {
-            await ensureNextWeeklyOrder({
+            const queued = await ensureNextWeeklyOrder({
               id: ref.id,
               status: "new",
               uid: user.uid,
@@ -478,8 +478,11 @@ function BookingAppInner() {
               pricing: payload.pricing,
               tip,
             } as FoamOrder);
-          } catch {
-            /* first order already placed — next week queue is best-effort */
+            if (!queued.created && queued.reason && queued.reason !== "already-queued") {
+              console.warn("Weekly next pickup not queued:", queued.reason);
+            }
+          } catch (err) {
+            console.error("Weekly next pickup queue failed", err);
           }
         }
       }

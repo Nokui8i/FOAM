@@ -12,7 +12,10 @@ import {
   where,
 } from "firebase/firestore";
 
-import { pricingForOrder, REPEAT_DISCOUNT_PERCENT } from "@/lib/booking";
+import {
+  pricingForOrder,
+  REPEAT_DISCOUNT_PERCENT,
+} from "@/lib/booking";
 import { getFirebaseDb } from "@/lib/firebase";
 import {
   buildOrderTrackDoc,
@@ -29,13 +32,21 @@ export function addDaysToYmd(ymd: string, days: number): string {
   return base.toISOString().slice(0, 10);
 }
 
-function todayYmdLasVegas() {
+export function todayYmdLasVegas() {
   return new Intl.DateTimeFormat("en-CA", {
     timeZone: "America/Los_Angeles",
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
   }).format(new Date());
+}
+
+/** Whole days from today (Las Vegas) until pickup YMD. Negative if past. */
+export function daysUntilPickupYmd(pickupYmd: string, today = todayYmdLasVegas()) {
+  const a = new Date(`${today}T12:00:00Z`).getTime();
+  const b = new Date(`${pickupYmd}T12:00:00Z`).getTime();
+  if (Number.isNaN(a) || Number.isNaN(b)) return null;
+  return Math.round((b - a) / 86_400_000);
 }
 
 function isOpenWeeklyOrder(data: Record<string, unknown>, date: string) {
@@ -45,13 +56,19 @@ function isOpenWeeklyOrder(data: Record<string, unknown>, date: string) {
   return pickup.date === date;
 }
 
+function isActivePickupStatus(status: string) {
+  return status !== "cancelled" && status !== "delivered";
+}
+
 /**
  * After a weekly order is placed or finished, ensure the next same-slot
  * pickup (+7 days) exists while the customer still has weekly enabled.
+ * Money-safe: next automated order always uses weekly $/lb + 10% laundry discount.
  */
 export async function ensureNextWeeklyOrder(
-  source: FoamOrder
-): Promise<{ created: boolean; nextDate?: string; reason?: string }> {
+  source: FoamOrder,
+  opts?: { linkFromAdmin?: boolean }
+): Promise<{ created: boolean; nextDate?: string; reason?: string; orderId?: string }> {
   if (!source.uid) {
     return { created: false, reason: "no-uid" };
   }
@@ -60,7 +77,6 @@ export async function ensureNextWeeklyOrder(
   }
 
   const profile = await getUserProfile(source.uid);
-  // Respect explicit cancel. Missing profile still allows chain if this order is weekly.
   if (profile && !profile.weeklyRepeatEnabled) {
     return { created: false, reason: "weekly-disabled" };
   }
@@ -76,7 +92,7 @@ export async function ensureNextWeeklyOrder(
       collection(db, "orders"),
       where("uid", "==", source.uid),
       orderBy("createdAt", "desc"),
-      limit(25)
+      limit(40)
     )
   );
 
@@ -89,7 +105,7 @@ export async function ensureNextWeeklyOrder(
 
   const pricing = pricingForOrder({ weeklyAutomation: true });
   const trackKey = makeTrackKey();
-  const tip = source.tip ?? source.pricing?.tip ?? 0;
+  const tip = Number(source.tip ?? source.pricing?.tip ?? 0) || 0;
 
   const payload = {
     status: "new" as const,
@@ -126,7 +142,7 @@ export async function ensureNextWeeklyOrder(
       tip,
       promoCode: "",
       finalTotalPending: true,
-      // Next automated pickup after a prior weekly order → 10% off laundry.
+      // Next automated pickup after a prior weekly order → 10% off laundry only.
       repeatDiscountEligible: true,
       repeatDiscountPercent: REPEAT_DISCOUNT_PERCENT,
     },
@@ -155,7 +171,19 @@ export async function ensureNextWeeklyOrder(
     updatedAt: serverTimestamp(),
   });
 
-  return { created: true, nextDate };
+  if (opts?.linkFromAdmin) {
+    try {
+      await updateDoc(doc(db, "orders", source.id), {
+        weeklyNextOrderId: ref.id,
+        weeklyNextDate: nextDate,
+        weeklyNextQueuedAt: serverTimestamp(),
+      });
+    } catch {
+      /* link is audit-only */
+    }
+  }
+
+  return { created: true, nextDate, orderId: ref.id };
 }
 
 /** Cancel future not-yet-collected weekly pickups when the customer turns weekly off. */
@@ -206,4 +234,90 @@ export async function cancelFutureWeeklyOrders(
     cancelled += 1;
   }
   return { cancelled };
+}
+
+/**
+ * Admin reconciliation: for every open weekly order, ensure +7 exists.
+ * Safe to run repeatedly (idempotent).
+ */
+export async function reconcileWeeklyQueues(): Promise<{
+  checked: number;
+  created: number;
+  errors: string[];
+}> {
+  const db = getFirebaseDb();
+  const snap = await getDocs(collection(db, "orders"));
+  let checked = 0;
+  let created = 0;
+  const errors: string[] = [];
+
+  const openWeekly: FoamOrder[] = [];
+  for (const row of snap.docs) {
+    const data = row.data() as Record<string, unknown>;
+    const status = String(data.status ?? "");
+    if (!isActivePickupStatus(status)) continue;
+    const pickup = (data.pickup ?? {}) as Record<string, unknown>;
+    if (!pickup.repeat) continue;
+    const uid = typeof data.uid === "string" ? data.uid : null;
+    if (!uid) continue;
+
+    openWeekly.push({
+      id: row.id,
+      status: status as FoamOrder["status"],
+      guest: Boolean(data.guest),
+      uid,
+      services: {
+        laundry: Boolean((data.services as { laundry?: boolean })?.laundry),
+        dryCleaning: Boolean(
+          (data.services as { dryCleaning?: boolean })?.dryCleaning
+        ),
+        bagCount: Number(
+          (data.services as { bagCount?: number })?.bagCount ?? 0
+        ),
+      },
+      contact: {
+        name: String((data.contact as { name?: string })?.name ?? ""),
+        email: String((data.contact as { email?: string })?.email ?? ""),
+        phone: String((data.contact as { phone?: string })?.phone ?? ""),
+      },
+      pickup: {
+        address: String(pickup.address ?? ""),
+        unit: String(pickup.unit ?? ""),
+        city: String(pickup.city ?? ""),
+        zip: String(pickup.zip ?? ""),
+        notes: String(pickup.notes ?? ""),
+        date: String(pickup.date ?? ""),
+        slot: String(pickup.slot ?? ""),
+        repeat: true,
+        repeatRequested: Boolean(pickup.repeatRequested),
+      },
+      preferences: (data.preferences as FoamOrder["preferences"]) ?? {},
+      pricing: data.pricing as FoamOrder["pricing"],
+      tip: typeof data.tip === "number" ? data.tip : undefined,
+    });
+  }
+
+  // Prefer newest pickup date per uid so we chain from the latest open weekly.
+  const byUid = new Map<string, FoamOrder>();
+  for (const order of openWeekly) {
+    const uid = order.uid!;
+    const prev = byUid.get(uid);
+    if (!prev || order.pickup.date >= prev.pickup.date) {
+      byUid.set(uid, order);
+    }
+  }
+
+  for (const order of byUid.values()) {
+    checked += 1;
+    try {
+      const result = await ensureNextWeeklyOrder(order, { linkFromAdmin: true });
+      if (result.created) created += 1;
+    } catch (err) {
+      errors.push(
+        `${order.id}: ${err instanceof Error ? err.message : "queue failed"}`
+      );
+    }
+  }
+
+  return { checked, created, errors };
 }
