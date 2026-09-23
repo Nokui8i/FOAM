@@ -15,6 +15,7 @@ import {
   Clock,
   MapPin,
   Search,
+  X,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -35,7 +36,7 @@ type AlertFilter = "todo" | "done" | "all";
 
 const FILTERS: { id: AlertFilter; label: string }[] = [
   { id: "todo", label: "To contact" },
-  { id: "done", label: "Contacted" },
+  { id: "done", label: "Confirmed" },
   { id: "all", label: "All" },
 ];
 
@@ -219,16 +220,65 @@ export function AdminAlertsPanel({
               contacted: true,
               contactedAt: serverTimestamp(),
               contactedBy: adminEmail || "admin",
+              outcome: "confirmed",
             }
           : {
               contacted: false,
               contactedAt: null,
               contactedBy: null,
+              outcome: null,
             },
       });
-      setOkMsg(contacted ? "Marked contacted." : "Contacted status cleared.");
+      setOkMsg(
+        contacted
+          ? "Confirmed — pickup stays on the schedule."
+          : "Confirmation cleared."
+      );
     } catch {
       setError("Could not update reminder status.");
+    }
+  }
+
+  async function cancelAlertOrder(alert: PickupReminderAlert) {
+    const ok = window.confirm(
+      `Cancel this pickup for ${alert.name || "the customer"}?\n\n${formatAlertDate(alert.pickupDate)} · ${formatSlotShort(alert.pickupSlot)}\n\nOnly do this if you spoke with the customer and they want to cancel.`
+    );
+    if (!ok) return;
+
+    setError("");
+    setOkMsg("");
+    try {
+      const db = getFirebaseDb();
+      await updateDoc(doc(db, "orders", alert.orderId), {
+        status: "cancelled",
+        cancelReason: "Cancelled after reminder call — customer requested cancel",
+        statusUpdatedAt: serverTimestamp(),
+        opsReminder: {
+          contacted: true,
+          contactedAt: serverTimestamp(),
+          contactedBy: adminEmail || "admin",
+          outcome: "cancelled",
+        },
+      });
+      if (alert.trackKey) {
+        try {
+          await updateDoc(doc(db, "orderTracks", alert.trackKey), {
+            status: "cancelled",
+            updatedAt: serverTimestamp(),
+          });
+        } catch {
+          /* track update best-effort */
+        }
+      }
+      setOkMsg("Order cancelled.");
+      replaceQuery({ id: null, view: null });
+      onMobileViewChange("list");
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Could not cancel this order."
+      );
     }
   }
 
@@ -307,7 +357,7 @@ export function AdminAlertsPanel({
                         row.contacted ? "is-ready" : "is-open"
                       )}
                     >
-                      {row.contacted ? "Contacted" : "Call needed"}
+                      {row.contacted ? "Confirmed" : "Call needed"}
                     </span>
                   </span>
                   <span className="ops-row-when">
@@ -461,19 +511,22 @@ export function AdminAlertsPanel({
             <div className="ops-detail-stack">
               <section className="ops-stage-card">
                 <div className="ops-soft-section-head">
-                  <h3>Reminder</h3>
+                  <h3>After the call</h3>
                 </div>
                 <p className="ops-muted" style={{ margin: "0 0 12px" }}>
                   {replyBody}
                 </p>
                 {selected.contacted ? (
                   <p>
-                    Contacted
+                    Confirmed
                     {selected.contactedBy ? ` by ${selected.contactedBy}` : ""}
                     {selected.contactedAt ? ` · ${selected.contactedAt}` : ""}
                   </p>
                 ) : (
-                  <p>Not contacted yet — reach out 3–4 days before pickup.</p>
+                  <p>
+                    Speak with the customer, then confirm the pickup stays or
+                    cancel it if they asked to cancel.
+                  </p>
                 )}
                 <div className="ops-action-row" style={{ marginTop: 12 }}>
                   {!selected.contacted ? (
@@ -483,7 +536,7 @@ export function AdminAlertsPanel({
                       onClick={() => void markContacted(selected.orderId, true)}
                     >
                       <Check size={15} aria-hidden />
-                      Mark contacted
+                      Confirm pickup
                     </button>
                   ) : (
                     <button
@@ -493,9 +546,17 @@ export function AdminAlertsPanel({
                         void markContacted(selected.orderId, false)
                       }
                     >
-                      Undo contacted
+                      Undo confirm
                     </button>
                   )}
+                  <button
+                    type="button"
+                    className="ops-soft-btn is-danger"
+                    onClick={() => void cancelAlertOrder(selected)}
+                  >
+                    <X size={15} aria-hidden />
+                    Cancel order
+                  </button>
                 </div>
               </section>
             </div>
