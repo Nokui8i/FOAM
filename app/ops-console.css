@@ -880,26 +880,28 @@
 .admin-page .ops-soft-dropzone input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
 .admin-page .ops-soft-add {
   width: fit-content;
-  min-height: 34px;
-  margin: 2px 0 0;
-  padding: 0 12px;
-  display: inline-flex;
+  min-height: 32px;
+  margin: 6px auto 0;
+  padding: 0 14px;
+  display: flex;
   align-items: center;
   justify-content: center;
   gap: 6px;
-  border: 1px solid var(--ops-border);
-  border-radius: 8px;
-  color: var(--ops-ink);
-  background: #fff;
-  box-shadow: 0 8px 18px -14px rgba(22,50,74,.45);
+  border: 1.5px dashed color-mix(in srgb, var(--ops-primary) 45%, var(--ops-border));
+  border-radius: 999px;
+  color: var(--ops-primary);
+  background: color-mix(in srgb, var(--ops-primary) 8%, #fff);
+  box-shadow: none;
   font: 800 12px/1.1 var(--ops-display);
   letter-spacing: -.02em;
   cursor: pointer;
+  transition: background .15s ease, border-color .15s ease, color .15s ease;
 }
 .admin-page .ops-soft-add:hover {
-  border-color: color-mix(in srgb, var(--ops-primary) 40%, var(--ops-border));
-  color: var(--ops-primary);
-  background: #f3fafd;
+  border-color: var(--ops-primary);
+  border-style: solid;
+  color: #0876a8;
+  background: color-mix(in srgb, var(--ops-primary) 14%, #fff);
 }
 .admin-page .ops-soft-items { display: grid; gap: 6px; margin-top: 10px; }
 .admin-page .ops-soft-item { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 7px; background: var(--ops-wash); font-size: 12px; }
