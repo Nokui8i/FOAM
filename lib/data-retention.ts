@@ -60,13 +60,11 @@ async function deleteFolderContents(folderPath: string) {
     const folder = ref(getFirebaseStorage(), folderPath);
     const listed = await listAll(folder);
     await Promise.all(listed.items.map((item) => deleteObject(item)));
-    // Nested prefixes (unlikely for order photos) — recurse once.
     for (const prefix of listed.prefixes) {
       await deleteFolderContents(prefix.fullPath);
     }
     return listed.items.length;
   } catch {
-    // Storage may be unset / CORS — caller still deletes Firestore docs.
     return 0;
   }
 }
@@ -75,12 +73,38 @@ async function deleteOrderPhotos(orderId: string) {
   return deleteFolderContents(`order-photos/${orderId}`);
 }
 
+function shouldPurgeOrder(
+  data: Record<string, unknown>,
+  cutoff: number
+): boolean {
+  const status = String(data.status ?? "");
+  const createdAt = data.createdAt;
+  const closedAt = data.statusUpdatedAt ?? data.createdAt;
+  const pickupDate =
+    typeof (data.pickup as { date?: unknown } | undefined)?.date === "string"
+      ? (data.pickup as { date: string }).date
+      : "";
+
+  // Closed work: keep one year from close (or create).
+  if (status === "delivered" || status === "cancelled") {
+    return isPastRetention(closedAt, cutoff);
+  }
+
+  // Abandoned open pickups older than one year (and not still upcoming).
+  if (!isPastRetention(createdAt, cutoff)) return false;
+  if (pickupDate) {
+    const pickupMs = Date.parse(`${pickupDate}T12:00:00Z`);
+    if (Number.isFinite(pickupMs) && pickupMs >= cutoff) return false;
+  }
+  return true;
+}
+
 /**
- * Deletes delivered/cancelled orders older than one year.
- * Photos live on the order document (inline) today — deleting the order
- * removes them. When Firebase Storage is enabled, photo folders under
- * order-photos/{orderId} are cleared too (including orphans with no order).
- * Also deletes matching orderTracks and contact messages past retention.
+ * Deletes ops data older than one year:
+ * - delivered / cancelled orders (+ photos + tracks)
+ * - abandoned open orders past retention
+ * - contact / Support messages
+ * - orphan orderTracks
  */
 export async function purgeExpiredOpsData(): Promise<RetentionPurgeResult> {
   const cutoff = Date.now() - RETENTION_MS;
@@ -93,21 +117,21 @@ export async function purgeExpiredOpsData(): Promise<RetentionPurgeResult> {
     photoFoldersCleared: 0,
   };
 
+  const keptTrackKeys = new Set<string>();
   const ordersSnap = await getDocs(collection(db, "orders"));
 
   for (const orderDoc of ordersSnap.docs) {
-    const data = orderDoc.data();
-    const status = String(data.status ?? "");
+    const data = orderDoc.data() as Record<string, unknown>;
+    const trackKey =
+      typeof data.trackKey === "string" ? data.trackKey.trim() : "";
 
-    if (status !== "delivered" && status !== "cancelled") continue;
-
-    const closedAt = data.statusUpdatedAt ?? data.createdAt;
-    if (!isPastRetention(closedAt, cutoff)) continue;
+    if (!shouldPurgeOrder(data, cutoff)) {
+      if (trackKey) keptTrackKeys.add(trackKey);
+      continue;
+    }
 
     result.photosCleared += await deleteOrderPhotos(orderDoc.id);
 
-    const trackKey =
-      typeof data.trackKey === "string" ? data.trackKey.trim() : "";
     if (trackKey) {
       try {
         await deleteDoc(doc(db, "orderTracks", trackKey));
@@ -129,7 +153,39 @@ export async function purgeExpiredOpsData(): Promise<RetentionPurgeResult> {
     result.contactsDeleted += 1;
   }
 
-  // Photo folders: drop orphans immediately; drop closed-order folders after 1 year.
+  // Orphan tracks left behind after order deletes.
+  try {
+    const tracksSnap = await getDocs(collection(db, "orderTracks"));
+    for (const trackDoc of tracksSnap.docs) {
+      if (keptTrackKeys.has(trackDoc.id)) continue;
+
+      const data = trackDoc.data() as Record<string, unknown>;
+      const orderId =
+        typeof data.orderId === "string" ? data.orderId.trim() : "";
+
+      let orderStillExists = false;
+      if (orderId) {
+        try {
+          const orderSnap = await getDoc(doc(db, "orders", orderId));
+          orderStillExists = orderSnap.exists();
+        } catch {
+          orderStillExists = false;
+        }
+      }
+
+      if (orderStillExists) continue;
+
+      try {
+        await deleteDoc(doc(db, "orderTracks", trackDoc.id));
+        result.tracksDeleted += 1;
+      } catch {
+        /* ignore */
+      }
+    }
+  } catch {
+    /* list may fail without perms */
+  }
+
   try {
     const root = ref(getFirebaseStorage(), "order-photos");
     const listed = await listAll(root);
@@ -138,11 +194,8 @@ export async function purgeExpiredOpsData(): Promise<RetentionPurgeResult> {
       const snap = await getDoc(doc(db, "orders", orderId));
 
       if (snap.exists()) {
-        const data = snap.data();
-        const status = String(data?.status ?? "");
-        if (status !== "delivered" && status !== "cancelled") continue;
-        const closedAt = data?.statusUpdatedAt ?? data?.createdAt;
-        if (!isPastRetention(closedAt, cutoff)) continue;
+        const data = snap.data() as Record<string, unknown>;
+        if (!shouldPurgeOrder(data, cutoff)) continue;
       }
 
       const removed = await deleteFolderContents(prefix.fullPath);
@@ -150,7 +203,7 @@ export async function purgeExpiredOpsData(): Promise<RetentionPurgeResult> {
       result.photoFoldersCleared += 1;
     }
   } catch {
-    /* storage list may fail for non-storage admins */
+    /* storage list may fail when Storage is off */
   }
 
   return result;
