@@ -13,6 +13,7 @@ import {
 } from "firebase/auth";
 import { collection, onSnapshot } from "firebase/firestore";
 import {
+  Bell,
   CalendarDays,
   ChevronDown,
   Headphones,
@@ -20,7 +21,8 @@ import {
   Truck,
 } from "lucide-react";
 
-import { AdminSupportPanel } from "@/components/admin-support-panel";
+import { AdminAlertsPanel } from "@/components/admin-alerts-panel";
+import { AdminContactsPanel } from "@/components/admin-contacts-panel";
 import { AdminOrdersPanel } from "@/components/admin-orders-panel";
 import { Button } from "@/components/ui/button";
 import { getFirebaseAuth, getFirebaseDb } from "@/lib/firebase";
@@ -41,7 +43,7 @@ import {
 } from "@/lib/admin-alerts";
 import { reconcileWeeklyQueues } from "@/lib/weekly-automation";
 
-type AdminTab = "orders" | "future" | "support";
+type AdminTab = "orders" | "future" | "support" | "alerts";
 type MobileView = "list" | "detail";
 
 const TAB_FROM_PARAM: Record<string, AdminTab> = {
@@ -49,6 +51,7 @@ const TAB_FROM_PARAM: Record<string, AdminTab> = {
   future: "future",
   support: "support",
   contacts: "support",
+  alerts: "alerts",
 };
 
 function parseAdminTab(raw: string | null): AdminTab {
@@ -302,6 +305,7 @@ function AdminAppInner() {
       view: null,
       id: null,
       filter: null,
+      section: null,
     });
   }
 
@@ -476,7 +480,16 @@ function AdminAppInner() {
             >
               <Headphones size={18} aria-hidden />
               <span>Support</span>
-              <b>{openInquiriesCount + alertsTodoCount}</b>
+              <b>{openInquiriesCount}</b>
+            </button>
+            <button
+              type="button"
+              className={cn("nav-button", tab === "alerts" && "active")}
+              onClick={() => setDestination("alerts")}
+            >
+              <Bell size={18} aria-hidden />
+              <span>Alerts</span>
+              <b>{alertsTodoCount}</b>
             </button>
           </nav>
 
@@ -538,13 +551,17 @@ function AdminAppInner() {
                 mobileView={mobileView}
                 onMobileViewChange={setMobileView}
               />
-            ) : (
-              <AdminSupportPanel
+            ) : tab === "alerts" ? (
+              <AdminAlertsPanel
                 adminEmail={user.email ?? ""}
                 mobileView={mobileView}
                 onMobileViewChange={setMobileView}
-                alertsTodoCount={alertsTodoCount}
-                onAlertsTodoCountChange={setAlertsTodoCount}
+                onTodoCountChange={setAlertsTodoCount}
+              />
+            ) : (
+              <AdminContactsPanel
+                mobileView={mobileView}
+                onMobileViewChange={setMobileView}
               />
             )}
         </div>

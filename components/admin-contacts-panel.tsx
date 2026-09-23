@@ -21,7 +21,6 @@ import {
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { SupportSectionNav } from "@/components/support-section-nav";
 import { getFirebaseDb } from "@/lib/firebase";
 import { BUSINESS_WHATSAPP } from "@/lib/site-config";
 import { useQueryReplace } from "@/lib/use-query-replace";
@@ -69,11 +68,9 @@ function waUrl(phone: string, body: string) {
 export function AdminContactsPanel({
   mobileView,
   onMobileViewChange,
-  alertCount = 0,
 }: {
   mobileView: MobileView;
   onMobileViewChange: (view: MobileView) => void;
-  alertCount?: number;
 }) {
   const { searchParams, replaceQuery } = useQueryReplace();
   const [rows, setRows] = useState<ContactRow[]>([]);
@@ -181,7 +178,6 @@ export function AdminContactsPanel({
         )}
       >
         <div className="ops-list-head">
-          <SupportSectionNav alertCount={alertCount} />
           <div className="ops-list-head-row queue-heading">
             <div>
               <span>CUSTOMER CARE</span>

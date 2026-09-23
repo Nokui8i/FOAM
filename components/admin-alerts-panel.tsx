@@ -30,7 +30,6 @@ import { orderRefFromId } from "@/lib/order-tracking";
 import { BUSINESS_WHATSAPP } from "@/lib/site-config";
 import { useQueryReplace } from "@/lib/use-query-replace";
 import { cn } from "@/lib/utils";
-import { SupportSectionNav } from "@/components/support-section-nav";
 
 type MobileView = "list" | "detail";
 type AlertFilter = "todo" | "done" | "all";
@@ -98,13 +97,11 @@ export function AdminAlertsPanel({
   mobileView,
   onMobileViewChange,
   onTodoCountChange,
-  alertCount = 0,
 }: {
   adminEmail: string;
   mobileView: MobileView;
   onMobileViewChange: (view: MobileView) => void;
   onTodoCountChange?: (count: number) => void;
-  alertCount?: number;
 }) {
   const { searchParams, replaceQuery } = useQueryReplace();
   const [rows, setRows] = useState<PickupReminderAlert[]>([]);
@@ -215,11 +212,10 @@ export function AdminAlertsPanel({
         )}
       >
         <div className="ops-list-head">
-          <SupportSectionNav alertCount={alertCount || counts.todo} />
           <div className="ops-list-head-row queue-heading">
             <div>
               <span>CUSTOMER CARE</span>
-              <h1 className="ops-list-title">Pickup alerts</h1>
+              <h1 className="ops-list-title">Alerts</h1>
               <p className="ops-muted" style={{ margin: "6px 0 0", fontSize: 12 }}>
                 Contact customers 3–4 days before pickup.
               </p>
