@@ -1073,28 +1073,34 @@
   height: 100%;
   display: flex;
   justify-content: center;
-  align-items: baseline;
+  align-items: center;
   gap: 4px;
   padding-inline: 6px;
   border-inline: 1px solid var(--ops-border);
   background: #fff;
 }
 .admin-page .ops-soft-stepper-value input {
-  width: 72px;
+  width: 56px;
   height: 100%;
   border: 0;
   outline: 0;
   color: var(--ops-ink);
   background: transparent;
   text-align: center;
-  font: 800 28px/1 var(--ops-display);
-  letter-spacing: -.03em;
+  font-family: var(--ops-body), "DM Sans", sans-serif !important;
+  font-size: 15px !important;
+  font-weight: 800 !important;
+  line-height: 1.2 !important;
+  letter-spacing: 0 !important;
 }
 .admin-page .ops-soft-stepper-value span {
   margin-left: 0;
-  color: var(--ops-muted);
-  font-size: 13px;
-  font-weight: 700;
+  color: var(--ops-ink);
+  font-family: var(--ops-body), "DM Sans", sans-serif !important;
+  font-size: 15px !important;
+  font-weight: 800 !important;
+  line-height: 1.2 !important;
+  letter-spacing: 0 !important;
 }
 .admin-page .ops-soft-dropzone {
   position: relative;
