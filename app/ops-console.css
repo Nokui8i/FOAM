@@ -1185,11 +1185,20 @@
   font: 800 12px/1 var(--ops-display);
   letter-spacing: -.02em;
 }
-.admin-page .ops-soft-footer { margin-top: 12px; padding: 13px 1px 0; display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; border-top: 1px solid var(--ops-border); }
+.admin-page .ops-soft-footer {
+  margin-top: 12px;
+  padding: 13px 1px 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  border-top: 1px solid var(--ops-border);
+}
 .admin-page .ops-soft-total {
   display: grid;
   gap: 4px;
   min-width: 0;
+  flex: 1 1 auto;
   color: color-mix(in srgb, var(--ops-ink) 70%, var(--ops-muted));
   font-size: 10px;
   font-weight: 800;
@@ -1199,8 +1208,8 @@
 .admin-page .ops-soft-total > strong { color: var(--ops-navy); font: 800 25px/1.1 var(--ops-display); letter-spacing: -.04em; text-transform: none; }
 .admin-page .ops-soft-breakdown {
   display: grid;
-  gap: 3px;
-  min-width: min(260px, 100%);
+  gap: 4px;
+  min-width: min(280px, 100%);
   text-transform: none;
   letter-spacing: 0;
 }
@@ -1216,7 +1225,7 @@
 }
 .admin-page .ops-soft-breakdown-row strong {
   color: var(--ops-ink);
-  font: 800 16px/1.2 var(--ops-display);
+  font: 800 18px/1.15 var(--ops-display);
   letter-spacing: -.02em;
 }
 .admin-page .ops-soft-breakdown-note {
@@ -1236,17 +1245,29 @@
 }
 .admin-page .ops-soft-breakdown-total strong {
   color: var(--ops-navy);
-  font: 800 26px/1.1 var(--ops-display);
+  font: 800 30px/1.05 var(--ops-display);
   letter-spacing: -.04em;
   text-transform: none;
 }
-.admin-page .ops-soft-actions { display: flex; gap: 8px; align-items: center; }
+.admin-page .ops-soft-actions {
+  display: flex;
+  flex: 0 0 auto;
+  width: auto;
+  max-width: none;
+  min-width: 0;
+  gap: 8px;
+  align-items: center;
+  justify-content: center;
+}
 .admin-page .ops-soft-btn {
+  width: auto !important;
+  min-width: 0;
   min-height: 34px;
   height: 34px;
-  padding: 0 12px;
+  padding: 0 14px;
   display: inline-flex;
   align-items: center;
+  justify-content: center !important;
   gap: 6px;
   border: 1px solid var(--ops-border);
   border-radius: 8px;
@@ -1262,6 +1283,7 @@
   flex-shrink: 0;
 }
 .admin-page .ops-soft-btn.is-primary {
+  justify-content: center !important;
   color: #fff;
   border: 0;
   background: linear-gradient(180deg, #19a0d5, var(--ops-primary));
@@ -1638,8 +1660,15 @@
   .admin-page .ops-soft-grid,
   .admin-page .ops-fields { grid-template-columns: 1fr; }
   .admin-page .ops-soft-footer { align-items: stretch; gap: 12px; flex-direction: column; }
-  .admin-page .ops-soft-actions { flex-direction: column-reverse; }
-  .admin-page .ops-soft-btn { width: 100%; justify-content: center; }
+  .admin-page .ops-soft-actions {
+    flex-direction: row;
+    justify-content: center;
+    width: 100%;
+  }
+  .admin-page .ops-soft-btn {
+    width: auto !important;
+    justify-content: center !important;
+  }
   .admin-page .ops-action-row.is-pair {
     flex-direction: row;
     flex-wrap: nowrap;
