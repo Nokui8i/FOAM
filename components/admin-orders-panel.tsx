@@ -1463,7 +1463,8 @@ export function AdminOrdersPanel({
                     aria-label="Call"
                     title="Call"
                   >
-                    <Phone size={18} aria-hidden />
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src="/ops-icon-call.png" alt="" width={22} height={22} />
                   </a>
                   <a
                     className="ops-action-btn"
@@ -1473,7 +1474,8 @@ export function AdminOrdersPanel({
                     aria-label="WhatsApp"
                     title="WhatsApp"
                   >
-                    <MessageCircle size={18} aria-hidden className="ops-wa-icon" />
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src="/ops-icon-whatsapp.png" alt="" width={22} height={22} />
                   </a>
                   <a
                     className="ops-action-btn"
@@ -1483,7 +1485,8 @@ export function AdminOrdersPanel({
                     aria-label="Maps"
                     title="Maps"
                   >
-                    <MapPin size={18} aria-hidden />
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src="/ops-icon-maps.png" alt="" width={22} height={22} />
                   </a>
                   <button
                     type="button"

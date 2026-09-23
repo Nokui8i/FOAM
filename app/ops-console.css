@@ -500,6 +500,12 @@
   height: 18px;
   flex-shrink: 0;
 }
+.admin-page .ops-action-btn img {
+  width: 22px;
+  height: 22px;
+  object-fit: contain;
+  display: block;
+}
 .admin-page .ops-text-btn {
   min-width: 60px;
   min-height: 42px;
