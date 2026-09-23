@@ -1364,18 +1364,22 @@ export function AdminOrdersPanel({
                       className="ops-soft-breakdown-row"
                     >
                       <span>{line.label}</span>
-                      <strong>${line.amount.toFixed(2)}</strong>
+                      <strong style={{ fontSize: 26, fontWeight: 800 }}>
+                        ${line.amount.toFixed(2)}
+                      </strong>
                     </div>
                   ))}
                   <div className="ops-soft-breakdown-total">
                     <span>Total</span>
-                    <strong>${previewBreakdown.total.toFixed(2)}</strong>
+                    <strong style={{ fontSize: 40, fontWeight: 800 }}>
+                      ${previewBreakdown.total.toFixed(2)}
+                    </strong>
                   </div>
                 </div>
               ) : (
                 <>
                   <span>Total</span>
-                  <strong>
+                  <strong style={{ fontSize: 40, fontWeight: 800 }}>
                     {selected.finalTotal != null
                       ? `$${selected.finalTotal.toFixed(2)}`
                       : "—"}
@@ -1388,6 +1392,7 @@ export function AdminOrdersPanel({
                 <button
                   type="button"
                   className="ops-soft-btn"
+                  style={{ width: 120, minWidth: 120, height: 38 }}
                   disabled={saving || uploadingPhoto}
                   onClick={() => void goBackStage()}
                 >
@@ -1399,6 +1404,7 @@ export function AdminOrdersPanel({
                 <button
                   type="button"
                   className="ops-soft-btn is-primary"
+                  style={{ width: 120, minWidth: 120, height: 38 }}
                   disabled={saving || uploadingPhoto}
                   onClick={() => void chargeAndCollect()}
                 >
