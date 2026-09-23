@@ -598,22 +598,17 @@ export function AdminAlertsPanel({
                 <div className="ops-soft-section-head">
                   <h3>After the call</h3>
                 </div>
-                <p className="ops-muted" style={{ margin: "0 0 12px" }}>
-                  {replyBody}
-                </p>
                 {selected.contacted ? (
-                  <p>
+                  <p className="ops-call-note">
                     Confirmed
                     {selected.contactedBy ? ` by ${selected.contactedBy}` : ""}
                     {selected.contactedAt ? ` · ${selected.contactedAt}` : ""}
                   </p>
                 ) : (
-                  <p>
-                    Speak with the customer, then confirm the pickup stays or
-                    cancel it if they asked to cancel.
+                  <p className="ops-call-note">
                     {selected.weekly
-                      ? " Cancel also stops weekly automation and the 10% discount for future pickups."
-                      : ""}
+                      ? "Confirm to keep it. Cancel stops this pickup, weekly automation, and the 10% off."
+                      : "Confirm to keep it. Cancel only if they asked to cancel."}
                   </p>
                 )}
                 <div className="ops-action-row" style={{ marginTop: 12 }}>
