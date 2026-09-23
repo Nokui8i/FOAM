@@ -99,10 +99,11 @@
   color: #fff;
   font-size: 1.7rem;
 }
-.admin-page .ops-foam-mark.is-rail .site-header-o,
+.admin-page .ops-foam-mark.is-rail .site-header-o {
+  color: #7ad7ef;
+}
 .admin-page .ops-foam-mark.is-rail .site-header-bubbles i {
-  color: #00a8d8;
-  background: #00a8d8;
+  background: #7ad7ef;
 }
 .admin-page .ops-login-card > .ops-foam-mark {
   display: block;
@@ -837,14 +838,16 @@
   position: relative;
   display: flex;
   flex-direction: column;
+  align-items: center;
   justify-content: space-between;
   gap: 28px;
   min-height: 100dvh;
-  padding: 48px 52px 56px;
+  padding: 48px 40px 56px;
   color: #fff;
+  text-align: center;
   background:
-    radial-gradient(ellipse 70% 55% at 38% 42%, rgba(0, 168, 216, .22), transparent 62%),
-    radial-gradient(ellipse 50% 40% at 78% 78%, rgba(90, 200, 230, .12), transparent 55%),
+    radial-gradient(ellipse 70% 55% at 50% 42%, rgba(0, 168, 216, .22), transparent 62%),
+    radial-gradient(ellipse 50% 40% at 50% 78%, rgba(90, 200, 230, .12), transparent 55%),
     linear-gradient(155deg, #0b2a3d 0%, var(--ops-navy) 42%, #145477 100%);
   overflow: hidden;
   order: 1;
@@ -855,13 +858,16 @@
   pointer-events: none;
   opacity: .55;
   background:
-    radial-gradient(circle at 18% 22%, rgba(255,255,255,.08), transparent 18%),
-    radial-gradient(circle at 86% 18%, rgba(255,255,255,.05), transparent 14%),
-    radial-gradient(circle at 70% 68%, rgba(0,168,216,.16), transparent 22%);
+    radial-gradient(circle at 28% 22%, rgba(255,255,255,.08), transparent 18%),
+    radial-gradient(circle at 72% 18%, rgba(255,255,255,.05), transparent 14%),
+    radial-gradient(circle at 50% 58%, rgba(0,168,216,.16), transparent 24%);
 }
 .admin-page .ops-login-brand-top {
   position: relative;
   z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 .admin-page .ops-login-brand-top small {
   display: block;
@@ -877,6 +883,7 @@
   flex: 1;
   display: grid;
   place-items: center;
+  width: 100%;
   min-height: 220px;
   pointer-events: none;
 }
@@ -910,7 +917,12 @@
 .admin-page .ops-login-bubble-a { width: 18px; height: 18px; top: 18%; left: 22%; animation-delay: 0s; }
 .admin-page .ops-login-bubble-b { width: 28px; height: 28px; top: 28%; right: 18%; animation-delay: -2.2s; }
 .admin-page .ops-login-bubble-c { width: 14px; height: 14px; bottom: 22%; left: 30%; animation-delay: -4.1s; }
-.admin-page .ops-login-brand-copy { position: relative; z-index: 2; max-width: 22rem; }
+.admin-page .ops-login-brand-copy {
+  position: relative;
+  z-index: 2;
+  max-width: 22rem;
+  margin-inline: auto;
+}
 .admin-page .ops-login-brand-title { margin: 0; font: 800 clamp(35px,4vw,58px)/1.02 var(--ops-display); letter-spacing: -.05em; }
 .admin-page .ops-login-brand-sub { margin: 18px 0 0; color: rgba(255,255,255,.58); font-size: 1rem; line-height: 1.5; }
 
