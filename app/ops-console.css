@@ -579,11 +579,14 @@
 .admin-page .ops-empty { color: var(--ops-muted); font-size: 12px; }
 .admin-page .ops-muted { color: var(--ops-muted); }
 .admin-page .ops-call-note {
-  margin: 0 0 4px;
+  margin: 0 0 10px;
+  max-width: 46ch;
   color: var(--ops-ink);
-  font-size: 16px;
-  font-weight: 650;
-  line-height: 1.45;
+  font-family: var(--ops-body);
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 1.55;
+  letter-spacing: 0.01em;
 }
 .admin-page .ops-stage-card .ops-soft-section-head h3 {
   font-size: 18px !important;
