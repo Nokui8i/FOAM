@@ -80,7 +80,15 @@
   pointer-events: none;
   background: linear-gradient(115deg, transparent 42%, rgba(0,168,216,.07) 50%, transparent 58%);
 }
-.admin-page .brand { position: relative; z-index: 1; padding: 0 7px; }
+.admin-page .brand {
+  position: relative;
+  z-index: 1;
+  padding: 0 7px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
 .admin-page .ops-foam-mark {
   position: relative;
   z-index: 1;
@@ -89,17 +97,19 @@
   width: auto;
   height: 34px;
   object-fit: contain;
-  object-position: left center;
+  object-position: center;
 }
 .admin-page .ops-foam-mark.is-compact { height: 28px; }
 .admin-page .ops-foam-mark.is-rail {
   height: 32px;
+  margin-inline: auto;
 }
 .admin-page .ops-login-card > .ops-foam-mark {
   height: 42px;
   margin: 0.15rem 0 1.1rem;
   padding-top: 0;
   overflow: visible;
+  object-position: left center;
 }
 .admin-page .ops-login-brand-top .ops-foam-mark {
   height: 40px;
@@ -115,6 +125,7 @@
   font-size: 9px;
   font-weight: 700;
   letter-spacing: .18em;
+  text-align: center;
 }
 .admin-page .primary-nav {
   position: relative;
