@@ -37,7 +37,7 @@ type MobileView = "list" | "detail";
 type AlertFilter = "todo" | "done" | "all";
 
 const FILTERS: { id: AlertFilter; label: string }[] = [
-  { id: "todo", label: "To contact" },
+  { id: "todo", label: "New" },
   { id: "done", label: "Confirmed" },
   { id: "all", label: "All" },
 ];
