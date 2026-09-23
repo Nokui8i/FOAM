@@ -124,7 +124,7 @@ function formatFutureDayTab(ymd: string) {
   }
   return {
     weekday: d.toLocaleDateString("en-US", { weekday: "short" }),
-    dayNum: String(d.getDate()),
+    dayNum: d.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
   };
 }
 
@@ -1691,6 +1691,7 @@ export function AdminOrdersPanel({
                   onClick={() => setFutureDay("later")}
                 >
                   <span className="ops-day-tab-weekday">Later</span>
+                  <span className="ops-day-tab-date">+7 days</span>
                   <span className="ops-day-tab-count">
                     {futureDayCounts.later}
                   </span>
