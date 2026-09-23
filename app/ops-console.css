@@ -770,14 +770,16 @@
   background: color-mix(in oklab, var(--ops-primary) 14%, #fff);
 }
 .admin-page .ops-soft-stepper {
-  height: 56px;
-  margin: 12px 0 14px;
+  height: 44px;
+  width: fit-content;
+  max-width: 100%;
+  margin: 10px 0 12px;
   display: grid;
-  grid-template-columns: 48px 1fr 48px;
+  grid-template-columns: 40px minmax(96px, 132px) 40px;
   align-items: center;
   gap: 0;
   border: 1px solid var(--ops-border);
-  border-radius: 10px;
+  border-radius: 9px;
   color: var(--ops-ink);
   background: var(--ops-wash);
   box-shadow: none;
@@ -808,11 +810,12 @@
   justify-content: center;
   align-items: baseline;
   gap: 4px;
+  padding-inline: 6px;
   border-inline: 1px solid var(--ops-border);
   background: #fff;
 }
 .admin-page .ops-soft-stepper-value input {
-  width: 88px;
+  width: 72px;
   height: 100%;
   border: 0;
   outline: 0;
