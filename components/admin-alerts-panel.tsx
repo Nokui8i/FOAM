@@ -235,11 +235,18 @@ export function AdminAlertsPanel({
               outcome: null,
             },
       });
-      setOkMsg(
-        contacted
-          ? "Confirmed — pickup stays on the schedule."
-          : "Confirmation cleared."
-      );
+      if (contacted) {
+        setOkMsg(
+          "Confirmed — pickup stays on the schedule in Future / Orders by date."
+        );
+        replaceQuery({
+          filter: "done",
+          id: orderId,
+          view: "detail",
+        });
+      } else {
+        setOkMsg("Confirmation cleared.");
+      }
     } catch {
       setError("Could not update reminder status.");
     }
@@ -350,7 +357,11 @@ export function AdminAlertsPanel({
             />
           </label>
 
-          <div className="ops-filter-row" role="group" aria-label="Alert filters">
+          <div
+            className="ops-filter-row is-alerts"
+            role="group"
+            aria-label="Alert filters"
+          >
             {FILTERS.map((item) => (
               <button
                 key={item.id}
@@ -611,7 +622,7 @@ export function AdminAlertsPanel({
                       : "Call the customer — make sure they know the date & time and are ready. Confirm if yes. Cancel only if they asked to cancel."}
                   </p>
                 )}
-                <div className="ops-action-row" style={{ marginTop: 12 }}>
+                <div className="ops-action-row is-pair" style={{ marginTop: 12 }}>
                   {!selected.contacted ? (
                     <button
                       type="button"
@@ -619,7 +630,7 @@ export function AdminAlertsPanel({
                       onClick={() => void markContacted(selected.orderId, true)}
                     >
                       <Check size={15} aria-hidden />
-                      Confirm pickup
+                      Confirm
                     </button>
                   ) : (
                     <button
@@ -629,7 +640,7 @@ export function AdminAlertsPanel({
                         void markContacted(selected.orderId, false)
                       }
                     >
-                      Undo confirm
+                      Undo
                     </button>
                   )}
                   <button
@@ -638,7 +649,7 @@ export function AdminAlertsPanel({
                     onClick={() => void cancelAlertOrder(selected)}
                   >
                     <X size={15} aria-hidden />
-                    Cancel order
+                    Cancel
                   </button>
                 </div>
               </section>
