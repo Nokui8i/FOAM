@@ -1018,16 +1018,32 @@
 .admin-page .ops-fields p { margin: 0; font-size: 13px; }
 .admin-page .ops-message-body { max-width: 700px; font-size: 17px; line-height: 1.55; }
 
-/* Catalog */
+/* Catalog — portaled to body under .ops-catalog-root */
+.admin-page.ops-catalog-root {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  min-height: 0;
+  height: auto;
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  overflow: visible;
+  background: transparent;
+  pointer-events: none;
+}
+.admin-page.ops-catalog-root .ops-catalog-overlay {
+  pointer-events: auto;
+}
 .admin-page .ops-catalog-overlay {
   position: fixed;
-  z-index: 100;
+  z-index: 200;
   inset: 0;
   padding: 20px;
   display: grid;
   place-items: center;
-  background: rgba(22,50,74,.7);
-  backdrop-filter: blur(7px);
+  background: rgba(15, 23, 42, 0.28);
+  backdrop-filter: blur(2px);
 }
 .admin-page .ops-catalog-modal { width: min(520px,100%); max-height: 82dvh; padding: 20px; border-radius: 14px; background: #fff; box-shadow: 0 35px 70px -25px var(--ops-navy); }
 .admin-page .ops-catalog-modal-head { display: flex; justify-content: space-between; }
