@@ -9,24 +9,23 @@ import {
   updateDoc,
 } from "firebase/firestore";
 import {
-  Bell,
+  ArrowLeft,
+  CalendarDays,
   Check,
-  Mail,
-  MessageCircle,
-  Phone,
+  Clock,
+  MapPin,
   Search,
 } from "lucide-react";
 
+import { Button } from "@/components/ui/button";
 import {
   buildReminderMessage,
   isInPickupReminderWindow,
   reminderSortKey,
   type PickupReminderAlert,
 } from "@/lib/admin-alerts";
-import { formatPickupDate } from "@/lib/booking";
 import { getFirebaseDb } from "@/lib/firebase";
-import { normalizeOrderStatus, ORDER_STATUS_LABELS } from "@/lib/orders";
-import { orderRefFromId } from "@/lib/order-tracking";
+import { normalizeOrderStatus, orderDisplayId } from "@/lib/orders";
 import { BUSINESS_WHATSAPP } from "@/lib/site-config";
 import { useQueryReplace } from "@/lib/use-query-replace";
 import { cn } from "@/lib/utils";
@@ -40,10 +39,35 @@ const FILTERS: { id: AlertFilter; label: string }[] = [
   { id: "all", label: "All" },
 ];
 
+function formatSlotShort(slot: string) {
+  if (!slot) return "—";
+  return slot
+    .replace(/\s*-\s*/g, " – ")
+    .replace(/\bam\b/gi, "am")
+    .replace(/\bpm\b/gi, "pm");
+}
+
+function formatAlertDate(date: string, withYear = false) {
+  if (!date) return "—";
+  const d = new Date(`${date}T12:00:00`);
+  if (Number.isNaN(d.getTime())) return date;
+  return d.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    ...(withYear ? { year: "numeric" as const } : {}),
+  });
+}
+
 function waUrl(phone: string, body: string) {
   const digits = phone.replace(/\D/g, "");
   const to = digits || BUSINESS_WHATSAPP;
   return `https://wa.me/${to}?text=${encodeURIComponent(body)}`;
+}
+
+function mapsUrl(address: string) {
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+    address
+  )}`;
 }
 
 function mapAlert(
@@ -106,6 +130,7 @@ export function AdminAlertsPanel({
   const { searchParams, replaceQuery } = useQueryReplace();
   const [rows, setRows] = useState<PickupReminderAlert[]>([]);
   const [error, setError] = useState("");
+  const [okMsg, setOkMsg] = useState("");
   const [queryText, setQueryText] = useState("");
   const selectedId = searchParams.get("id");
   const filter = (searchParams.get("filter") as AlertFilter) || "todo";
@@ -180,8 +205,13 @@ export function AdminAlertsPanel({
     });
   }
 
+  function selectAlert(id: string) {
+    replaceQuery({ id, view: "detail" });
+  }
+
   async function markContacted(orderId: string, contacted: boolean) {
     setError("");
+    setOkMsg("");
     try {
       await updateDoc(doc(getFirebaseDb(), "orders", orderId), {
         opsReminder: contacted
@@ -196,6 +226,7 @@ export function AdminAlertsPanel({
               contactedBy: null,
             },
       });
+      setOkMsg(contacted ? "Marked contacted." : "Contacted status cleared.");
     } catch {
       setError("Could not update reminder status.");
     }
@@ -216,9 +247,6 @@ export function AdminAlertsPanel({
             <div>
               <span>CUSTOMER CARE</span>
               <h1 className="ops-list-title">Alerts</h1>
-              <p className="ops-muted" style={{ margin: "6px 0 0", fontSize: 12 }}>
-                Contact customers 3–4 days before pickup.
-              </p>
             </div>
             <b>{counts[safeFilter]}</b>
           </div>
@@ -232,32 +260,22 @@ export function AdminAlertsPanel({
             />
           </label>
 
-          <fieldset className="ops-radio-filters">
-            <legend>Status</legend>
-            <div className="ops-radio-filters-row">
-              {FILTERS.map((item) => (
-                <label
-                  key={item.id}
-                  className={cn(
-                    "ops-radio-label",
-                    safeFilter === item.id && "is-active"
-                  )}
-                >
-                  <input
-                    type="radio"
-                    name="alerts-status"
-                    value={item.id}
-                    checked={safeFilter === item.id}
-                    onChange={() => setFilter(item.id)}
-                  />
-                  <span>
-                    {item.label}
-                    <span className="ops-radio-count">{counts[item.id]}</span>
-                  </span>
-                </label>
-              ))}
-            </div>
-          </fieldset>
+          <div className="ops-filter-row" role="group" aria-label="Alert filters">
+            {FILTERS.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                className={cn(
+                  "ops-filter-chip",
+                  safeFilter === item.id && "is-active"
+                )}
+                onClick={() => setFilter(item.id)}
+              >
+                {item.label}
+                <span className="ops-radio-count">{counts[item.id]}</span>
+              </button>
+            ))}
+          </div>
         </div>
 
         {error ? <p className="ops-error ops-pad">{error}</p> : null}
@@ -275,31 +293,43 @@ export function AdminAlertsPanel({
                   type="button"
                   className={cn(
                     "ops-row",
-                    selectedId === row.orderId && "is-active",
-                    !row.contacted && "is-unread"
+                    selectedId === row.orderId && "is-active"
                   )}
-                  onClick={() =>
-                    replaceQuery({ id: row.orderId, view: "detail" })
-                  }
+                  onClick={() => selectAlert(row.orderId)}
                 >
-                  <span className="ops-row-main">
-                    <strong>{row.name || "Customer"}</strong>
-                    <span>
-                      {formatPickupDate(row.pickupDate)}
-                      {row.pickupSlot ? ` · ${row.pickupSlot}` : ""}
-                      {" · "}
-                      in {row.daysUntil} day{row.daysUntil === 1 ? "" : "s"}
+                  <span className="ops-row-top">
+                    <span className="ops-row-name">
+                      {row.name || "Customer"}
+                    </span>
+                    <span
+                      className={cn(
+                        "ops-status-pill",
+                        row.contacted ? "is-ready" : "is-open"
+                      )}
+                    >
+                      {row.contacted ? "Contacted" : "Call needed"}
                     </span>
                   </span>
-                  <span className="ops-row-meta">
-                    {row.weekly ? (
-                      <em className="ops-alert-chip">Weekly</em>
-                    ) : null}
-                    {row.contacted ? (
-                      <em>Contacted</em>
-                    ) : (
-                      <em className="ops-alert-chip is-warn">Call needed</em>
-                    )}
+                  <span className="ops-row-when">
+                    {formatAlertDate(row.pickupDate)},{" "}
+                    {formatSlotShort(row.pickupSlot)}
+                    {" · "}
+                    in {row.daysUntil} day{row.daysUntil === 1 ? "" : "s"}
+                  </span>
+                  <span className="ops-row-address">
+                    {row.address || "No address on file"}
+                  </span>
+                  <span className="ops-row-foot">
+                    <span className="ops-row-ref">
+                      {orderDisplayId(row.orderId)}
+                    </span>
+                    <span className="ops-row-price">
+                      {row.weekly
+                        ? row.hasDiscount
+                          ? "Weekly · 10% off"
+                          : "Weekly"
+                        : "Pickup"}
+                    </span>
                   </span>
                 </button>
               ))
@@ -315,124 +345,161 @@ export function AdminAlertsPanel({
         )}
       >
         {!selected ? (
-          <div className="ops-empty-detail">
-            <Bell size={28} aria-hidden />
-            <h2>Pickup alerts</h2>
-            <p>Select a reminder to call or WhatsApp the customer.</p>
-          </div>
+          <p className="ops-empty ops-pad">
+            Select an alert to view details.
+          </p>
         ) : (
-          <div className="ops-detail-scroll">
-            <button
-              type="button"
-              className="ops-back-mobile"
-              onClick={() => {
-                replaceQuery({ id: null, view: null });
-                onMobileViewChange("list");
-              }}
-            >
-              Back to alerts
-            </button>
+          <article className="ops-detail">
+            <div className="ops-detail-head">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="ops-back ops-back-labeled"
+                onClick={() => {
+                  replaceQuery({ id: null, view: null });
+                  onMobileViewChange("list");
+                }}
+              >
+                <ArrowLeft size={16} />
+                Back
+              </Button>
 
-            <header className="ops-detail-head">
-              <div>
-                <h2>{selected.name || "Customer"}</h2>
-                <p>
-                  Ref {orderRefFromId(selected.orderId)} ·{" "}
-                  {ORDER_STATUS_LABELS[normalizeOrderStatus(selected.status)]}
-                </p>
-              </div>
-            </header>
+              <div className="ops-detail-top">
+                <div className="ops-detail-top-main">
+                  <p className="ops-breadcrumb">
+                    <span>Alerts</span>
+                    <span aria-hidden>›</span>
+                    <span>{orderDisplayId(selected.orderId)}</span>
+                  </p>
+                  <h2 className="ops-detail-title">
+                    {selected.name || "Customer"}
+                  </h2>
+                  <p className="ops-detail-address">
+                    <MapPin size={16} aria-hidden />
+                    <span>{selected.address || "No address on file"}</span>
+                  </p>
+                  <div className="ops-detail-meta">
+                    <span>
+                      <CalendarDays size={14} aria-hidden />
+                      {formatAlertDate(selected.pickupDate, true)}
+                    </span>
+                    <span>
+                      <Clock size={14} aria-hidden />
+                      {formatSlotShort(selected.pickupSlot)}
+                    </span>
+                    <span>
+                      In {selected.daysUntil} day
+                      {selected.daysUntil === 1 ? "" : "s"}
+                    </span>
+                    {selected.weekly ? (
+                      <span>
+                        Weekly
+                        {selected.hasDiscount ? " · 10% off" : ""}
+                      </span>
+                    ) : null}
+                  </div>
+                </div>
 
-            <div className="ops-support-block">
-              <h3 className="ops-support-block-title">Pickup</h3>
-              <p>
-                <strong>
-                  {formatPickupDate(selected.pickupDate)}
-                  {selected.pickupSlot ? ` · ${selected.pickupSlot}` : ""}
-                </strong>
-              </p>
-              <p>
-                Reminder window: <strong>{selected.daysUntil} days</strong> out
-              </p>
-              <p>{selected.address || "No address on file"}</p>
-              {selected.weekly ? (
-                <p>
-                  Weekly
-                  {selected.automatedWeekly ? " auto" : ""}
-                  {selected.hasDiscount ? " · 10% off laundry" : ""}
-                </p>
-              ) : null}
-            </div>
-
-            <div className="ops-support-block">
-              <h3 className="ops-support-block-title">Contact customer</h3>
-              <div className="ops-action-row">
-                <a
-                  className="ops-soft-btn"
-                  href={`tel:${selected.phone.replace(/\D/g, "")}`}
-                >
-                  <Phone size={15} aria-hidden />
-                  Call
-                </a>
-                <a
-                  className="ops-soft-btn"
-                  href={waUrl(selected.phone, replyBody)}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  <MessageCircle size={15} aria-hidden />
-                  WhatsApp
-                </a>
-                {selected.email ? (
+                <div className="ops-icon-row">
                   <a
-                    className="ops-soft-btn"
-                    href={`mailto:${selected.email}?subject=${encodeURIComponent(
-                      "FOAM pickup reminder"
-                    )}&body=${encodeURIComponent(replyBody)}`}
+                    className="ops-action-btn"
+                    href={`tel:${selected.phone}`}
+                    aria-label="Call"
+                    title="Call"
                   >
-                    <Mail size={15} aria-hidden />
-                    Email
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src="/ops-icon-call.png"
+                      alt=""
+                      width={22}
+                      height={22}
+                    />
                   </a>
-                ) : null}
+                  <a
+                    className="ops-action-btn"
+                    href={waUrl(selected.phone, replyBody)}
+                    target="_blank"
+                    rel="noreferrer"
+                    aria-label="WhatsApp"
+                    title="WhatsApp"
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src="/ops-icon-whatsapp.png"
+                      alt=""
+                      width={26}
+                      height={26}
+                    />
+                  </a>
+                  <a
+                    className="ops-action-btn"
+                    href={mapsUrl(selected.address)}
+                    target="_blank"
+                    rel="noreferrer"
+                    aria-label="Maps"
+                    title="Maps"
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src="/ops-icon-maps.png"
+                      alt=""
+                      width={22}
+                      height={22}
+                    />
+                  </a>
+                </div>
               </div>
-              <p className="ops-muted" style={{ marginTop: 10, fontSize: 13 }}>
-                {replyBody}
-              </p>
             </div>
 
-            <div className="ops-support-block">
-              <h3 className="ops-support-block-title">Admin status</h3>
-              {selected.contacted ? (
-                <p>
-                  Contacted
-                  {selected.contactedBy ? ` by ${selected.contactedBy}` : ""}
-                  {selected.contactedAt ? ` · ${selected.contactedAt}` : ""}
+            {(okMsg || error) && (
+              <p className={cn("ops-flash", error ? "is-error" : "is-ok")}>
+                {error || okMsg}
+              </p>
+            )}
+
+            <div className="ops-detail-stack">
+              <section className="ops-stage-card">
+                <div className="ops-soft-section-head">
+                  <h3>Reminder</h3>
+                </div>
+                <p className="ops-muted" style={{ margin: "0 0 12px" }}>
+                  {replyBody}
                 </p>
-              ) : (
-                <p>Not contacted yet — call the customer 3–4 days before pickup.</p>
-              )}
-              <div className="ops-action-row" style={{ marginTop: 10 }}>
-                {!selected.contacted ? (
-                  <button
-                    type="button"
-                    className="ops-soft-btn is-primary"
-                    onClick={() => void markContacted(selected.orderId, true)}
-                  >
-                    <Check size={15} aria-hidden />
-                    Mark contacted
-                  </button>
+                {selected.contacted ? (
+                  <p>
+                    Contacted
+                    {selected.contactedBy ? ` by ${selected.contactedBy}` : ""}
+                    {selected.contactedAt ? ` · ${selected.contactedAt}` : ""}
+                  </p>
                 ) : (
-                  <button
-                    type="button"
-                    className="ops-soft-btn"
-                    onClick={() => void markContacted(selected.orderId, false)}
-                  >
-                    Undo contacted
-                  </button>
+                  <p>Not contacted yet — reach out 3–4 days before pickup.</p>
                 )}
-              </div>
+                <div className="ops-action-row" style={{ marginTop: 12 }}>
+                  {!selected.contacted ? (
+                    <button
+                      type="button"
+                      className="ops-soft-btn is-primary"
+                      onClick={() => void markContacted(selected.orderId, true)}
+                    >
+                      <Check size={15} aria-hidden />
+                      Mark contacted
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      className="ops-soft-btn"
+                      onClick={() =>
+                        void markContacted(selected.orderId, false)
+                      }
+                    >
+                      Undo contacted
+                    </button>
+                  )}
+                </div>
+              </section>
             </div>
-          </div>
+          </article>
         )}
       </section>
     </>
