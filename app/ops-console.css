@@ -816,7 +816,7 @@
 .admin-page .ops-login {
   min-height: 100dvh;
   display: grid;
-  grid-template-columns: 1.15fr .85fr;
+  grid-template-columns: .78fr 1.22fr;
   background: var(--ops-wash);
 }
 .admin-page .ops-login-form-pane { display: grid; place-items: center; padding: 40px; order: 2; }
@@ -882,8 +882,8 @@
 }
 .admin-page .ops-login-brand-glow {
   position: absolute;
-  width: min(58vw, 420px);
-  height: min(58vw, 420px);
+  width: min(42vw, 300px);
+  height: min(42vw, 300px);
   border-radius: 50%;
   background: radial-gradient(circle, rgba(120, 210, 235, .35) 0%, rgba(0, 168, 216, .12) 42%, transparent 68%);
   filter: blur(8px);
@@ -892,7 +892,7 @@
 .admin-page .ops-login-koala {
   position: relative;
   z-index: 1;
-  width: min(52vw, 380px);
+  width: min(36vw, 260px);
   height: auto;
   mix-blend-mode: screen;
   filter: drop-shadow(0 28px 48px rgba(4, 24, 40, .35));
