@@ -781,22 +781,14 @@ export function AdminOrdersPanel({
       return (
         <section className="stage pickup-stage">
           <div className="bag-delight" aria-hidden="true">
-            <div className="bag-handle" />
-            <div className="bag-body">
-              <span className="ops-foam-mark ops-bag-mark" aria-hidden="true">
-                F
-                <span className="site-header-o" aria-hidden="true">
-                  <span className="site-header-bubbles">
-                    <i />
-                    <i />
-                    <i />
-                  </span>
-                  O
-                </span>
-                AM.
-              </span>
-            </div>
-            <div className="bag-shadow" />
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              className="ops-pickup-bag"
+              src="/foam-ops-bag.png"
+              alt=""
+              width={640}
+              height={640}
+            />
           </div>
           <div className="stage-copy">
             <small>NEXT MOVE</small>
