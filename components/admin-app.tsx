@@ -358,15 +358,13 @@ function AdminAppInner() {
           </div>
         </section>
 
-        <section className="ops-login-brand" aria-hidden>
-          <div className="ops-login-brand-pattern" />
-          <div className="ops-login-brand-ring" />
+        <section className="ops-login-brand">
+          <div className="ops-login-brand-pattern" aria-hidden />
+          <div className="ops-login-brand-top">
+            <FoamMark rail />
+            <small>OPS · LAS VEGAS</small>
+          </div>
           <div className="ops-login-brand-copy">
-            <div className="ops-login-dots">
-              <span />
-              <span />
-              <span />
-            </div>
             <p className="ops-login-brand-title">
               Every pickup.
               <br />
