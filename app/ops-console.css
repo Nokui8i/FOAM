@@ -536,6 +536,13 @@
 }
 .admin-page .ops-empty { color: var(--ops-muted); font-size: 12px; }
 .admin-page .ops-muted { color: var(--ops-muted); }
+.admin-page .ops-call-note {
+  margin: 0 0 4px;
+  color: var(--ops-ink);
+  font-size: 13px;
+  font-weight: 650;
+  line-height: 1.4;
+}
 .admin-page .ops-error { color: var(--ops-danger); font-weight: 700; }
 
 /* Task */
