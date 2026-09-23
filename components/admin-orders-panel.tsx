@@ -1438,8 +1438,8 @@ export function AdminOrdersPanel({
                   </p>
                   <h2 className="ops-detail-title">{selected.contact.name}</h2>
                   <p className="ops-detail-address">
-                    <MapPin size={14} aria-hidden />
-                    {formatOrderAddress(selected)}
+                    <MapPin size={16} aria-hidden />
+                    <span>{formatOrderAddress(selected)}</span>
                   </p>
                   <div className="ops-detail-meta">
                     <span>
@@ -1466,27 +1466,30 @@ export function AdminOrdersPanel({
                   <a
                     className="ops-action-btn"
                     href={`tel:${selected.contact.phone}`}
+                    aria-label="Call"
+                    title="Call"
                   >
-                    <Phone size={15} aria-hidden />
-                    Call
+                    <Phone size={18} aria-hidden />
                   </a>
                   <a
                     className="ops-action-btn"
                     href={waUrl(selected.contact.phone, customerMsg)}
                     target="_blank"
                     rel="noreferrer"
+                    aria-label="WhatsApp"
+                    title="WhatsApp"
                   >
-                    <MessageCircle size={15} aria-hidden className="ops-wa-icon" />
-                    WhatsApp
+                    <MessageCircle size={18} aria-hidden className="ops-wa-icon" />
                   </a>
                   <a
                     className="ops-action-btn"
                     href={mapsUrl(selected)}
                     target="_blank"
                     rel="noreferrer"
+                    aria-label="Maps"
+                    title="Maps"
                   >
-                    <MapPin size={15} aria-hidden />
-                    Maps
+                    <MapPin size={18} aria-hidden />
                   </a>
                   <button
                     type="button"
@@ -1498,7 +1501,7 @@ export function AdminOrdersPanel({
                         : "More"
                     }
                   >
-                    <MoreHorizontal size={16} aria-hidden />
+                    <MoreHorizontal size={18} aria-hidden />
                   </button>
                 </div>
               </div>

@@ -465,14 +465,37 @@
 .admin-page .ops-detail-title {
   margin: 6px 0 3px;
   color: var(--ops-ink);
-  font: 800 clamp(23px,2.2vw,34px)/1.05 var(--ops-display);
+  font-family: var(--ops-display);
+  font-size: clamp(23px,2.2vw,34px);
+  font-weight: 800;
+  line-height: 1.05;
   letter-spacing: -.04em;
 }
 .admin-page .ops-detail-address { display: none; }
 .admin-page .ops-detail-meta { display: flex; gap: 10px; color: var(--ops-muted); font-size: 11px; }
 .admin-page .ops-detail-meta span { display: inline-flex; align-items: center; gap: 4px; }
 .admin-page .ops-icon-row { display: flex; gap: 5px; }
-.admin-page .ops-action-btn,
+.admin-page .ops-action-btn {
+  width: 44px;
+  min-width: 44px;
+  height: 44px;
+  min-height: 44px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 8px;
+  color: var(--ops-primary);
+  background: #fff;
+  box-shadow: 0 12px 25px -18px rgba(22,50,74,.55), inset 0 0 0 1px var(--ops-border);
+  text-decoration: none;
+}
+.admin-page .ops-action-btn svg {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
 .admin-page .ops-text-btn {
   min-width: 60px;
   min-height: 42px;
@@ -569,12 +592,30 @@
   position: absolute;
   z-index: 1;
   left: 13px;
-  bottom: 18px;
-  max-width: calc(100% - 250px);
+  top: auto;
+  bottom: 0;
+  height: 65px;
+  max-width: calc(100% - 180px);
   display: flex;
-  color: var(--ops-muted);
-  font-size: 11px;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  color: var(--ops-ink);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.25;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.admin-page .ops-detail-address svg {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  color: var(--ops-primary);
+}
+.admin-page .ops-detail-address span {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
 }
@@ -582,7 +623,9 @@
   position: absolute;
   z-index: 2;
   right: 12px;
-  bottom: 11px;
+  bottom: 0;
+  height: 65px;
+  align-items: center;
 }
 
 /* Stage surfaces */
@@ -1027,7 +1070,7 @@
   .admin-page .ops-detail-top { flex-direction: column; }
   .admin-page .ops-detail-meta { flex-wrap: wrap; }
   .admin-page .ops-detail-address { max-width: calc(100% - 200px); }
-  .admin-page .ops-action-btn { min-width: 52px; }
+  .admin-page .ops-action-btn { min-width: 44px; width: 44px; }
   .admin-page .pickup-stage,
   .admin-page .locked-stage,
   .admin-page .future-stage { grid-template-columns: 1fr; padding: 20px; }
