@@ -81,29 +81,24 @@ function FoamMark({
   compact?: boolean;
   rail?: boolean;
 }) {
-  /* Same mark as the customer site header: F + bubbly O + AM. */
+  /* Exact FOAM logo asset for ops rail + login. */
   return (
-    <div
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
       className={cn(
-        "wordmark",
-        "site-header-logo",
         "ops-foam-mark",
         compact && "is-compact",
         rail && "is-rail"
       )}
-      aria-label="FOAM"
-    >
-      F
-      <span className="site-header-o" aria-hidden="true">
-        <span className="site-header-bubbles">
-          <i />
-          <i />
-          <i />
-        </span>
-        O
-      </span>
-      AM.
-    </div>
+      src={
+        rail
+          ? "/foam-ops-logo-on-dark.png"
+          : encodeURI("/ChatGPT Image Sep 23, 2026, 03_30_38 PM.png")
+      }
+      alt="FOAM"
+      width={217}
+      height={72}
+    />
   );
 }
 

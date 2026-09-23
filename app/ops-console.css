@@ -84,33 +84,26 @@
 .admin-page .ops-foam-mark {
   position: relative;
   z-index: 1;
-  display: inline-block;
+  display: block;
   flex-shrink: 0;
-  color: #16324a;
-  font-family: var(--ops-display);
-  font-weight: 800;
-  font-size: 1.85rem;
-  letter-spacing: -0.02em;
-  line-height: 1;
-  text-decoration: none;
+  width: auto;
+  height: 34px;
+  object-fit: contain;
+  object-position: left center;
 }
-.admin-page .ops-foam-mark.is-compact { font-size: 1.35rem; }
+.admin-page .ops-foam-mark.is-compact { height: 28px; }
 .admin-page .ops-foam-mark.is-rail {
-  color: #fff;
-  font-size: 1.7rem;
-}
-.admin-page .ops-foam-mark.is-rail .site-header-o {
-  color: #7ad7ef;
-}
-.admin-page .ops-foam-mark.is-rail .site-header-bubbles i {
-  background: #7ad7ef;
+  height: 32px;
 }
 .admin-page .ops-login-card > .ops-foam-mark {
-  display: block;
-  margin: 0.35rem 0 1.25rem;
-  padding-top: 0.55rem;
-  font-size: 2.15rem;
+  height: 42px;
+  margin: 0.15rem 0 1.1rem;
+  padding-top: 0;
   overflow: visible;
+}
+.admin-page .ops-login-brand-top .ops-foam-mark {
+  height: 40px;
+  margin-inline: auto;
 }
 .admin-page .ops-login-form-pane {
   overflow: visible;
@@ -975,7 +968,7 @@
   .admin-page .ops-frame { grid-template-columns: 78px 330px minmax(460px,1fr); }
   .admin-page .command-rail { padding-inline: 11px; }
   .admin-page .brand { padding-inline: 2px; }
-  .admin-page .ops-foam-mark.is-rail { font-size: 1.15rem; }
+  .admin-page .ops-foam-mark.is-rail { height: 26px; }
   .admin-page .brand small,
   .admin-page .nav-button span,
   .admin-page .nav-button b,
