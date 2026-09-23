@@ -81,57 +81,38 @@
   background: linear-gradient(115deg, transparent 42%, rgba(0,168,216,.07) 50%, transparent 58%);
 }
 .admin-page .brand { position: relative; z-index: 1; padding: 0 7px; }
-.admin-page .ops-wordmark {
+.admin-page .ops-foam-mark {
   position: relative;
-  width: fit-content;
-  color: var(--ops-navy);
-  font: 800 28px/1 var(--ops-display);
-  letter-spacing: -.04em;
-}
-.admin-page .ops-wordmark.is-compact { font-size: 22px; }
-.admin-page .ops-wordmark.is-rail {
-  color: #fff;
-  font-size: 27px;
-}
-.admin-page .ops-wordmark-o {
-  position: relative;
+  z-index: 1;
   display: inline-block;
-  color: var(--ops-sky);
+  flex-shrink: 0;
+  color: #16324a;
+  font-family: var(--ops-display);
+  font-weight: 800;
+  font-size: 1.85rem;
+  letter-spacing: -0.02em;
+  line-height: 1;
+  text-decoration: none;
 }
-.admin-page .ops-wordmark.is-rail .ops-wordmark-o { color: var(--ops-sky); }
-.admin-page .ops-wordmark-bubbles {
-  position: absolute;
-  left: 50%;
-  bottom: 78%;
+.admin-page .ops-foam-mark.is-compact { font-size: 1.35rem; }
+.admin-page .ops-foam-mark.is-rail {
+  color: #fff;
+  font-size: 1.7rem;
+}
+.admin-page .ops-foam-mark.is-rail .site-header-o,
+.admin-page .ops-foam-mark.is-rail .site-header-bubbles i {
+  color: #00a8d8;
+  background: #00a8d8;
+}
+.admin-page .ops-login-card > .ops-foam-mark {
   display: block;
-  width: 1.1em;
-  height: 0.7em;
-  transform: translateX(-50%);
-  pointer-events: none;
+  margin: 0.35rem 0 1.25rem;
+  padding-top: 0.55rem;
+  font-size: 2.15rem;
+  overflow: visible;
 }
-.admin-page .ops-wordmark-bubbles i {
-  position: absolute;
-  display: block;
-  border-radius: 999px;
-  background: var(--ops-sky);
-}
-.admin-page .ops-wordmark-bubbles i:nth-child(1) {
-  left: 0.15em;
-  bottom: 0;
-  width: 0.28em;
-  height: 0.28em;
-}
-.admin-page .ops-wordmark-bubbles i:nth-child(2) {
-  left: 0.42em;
-  bottom: 0.22em;
-  width: 0.2em;
-  height: 0.2em;
-}
-.admin-page .ops-wordmark-bubbles i:nth-child(3) {
-  left: 0.68em;
-  bottom: 0.08em;
-  width: 0.16em;
-  height: 0.16em;
+.admin-page .ops-login-form-pane {
+  overflow: visible;
 }
 .admin-page .brand small {
   display: block;
@@ -839,8 +820,7 @@
   background: var(--ops-wash);
 }
 .admin-page .ops-login-form-pane { display: grid; place-items: center; padding: 40px; order: 2; }
-.admin-page .ops-login-card { width: min(410px,100%); padding: 0; border: 0; background: transparent; box-shadow: none; }
-.admin-page .ops-wordmark { color: var(--ops-navy); font: 800 28px/1 var(--ops-display); }
+.admin-page .ops-login-card { width: min(410px,100%); padding: 0; border: 0; background: transparent; box-shadow: none; overflow: visible; }
 .admin-page .ops-login-title { margin: 5px 0 8px; font: 800 30px/1.05 var(--ops-display); letter-spacing: -.04em; }
 .admin-page .ops-login-intro { margin: 25px 0; }
 .admin-page .ops-login-google,
@@ -873,7 +853,7 @@
   .admin-page .ops-frame { grid-template-columns: 78px 330px minmax(460px,1fr); }
   .admin-page .command-rail { padding-inline: 11px; }
   .admin-page .brand { padding-inline: 2px; }
-  .admin-page .ops-wordmark.is-rail { font-size: 18px; }
+  .admin-page .ops-foam-mark.is-rail { font-size: 1.15rem; }
   .admin-page .brand small,
   .admin-page .nav-button span,
   .admin-page .nav-button b,

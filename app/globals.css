@@ -5959,7 +5959,8 @@
     align-items: center;
     text-align: center;
   }
-  .ops-login-card > .ops-wordmark {
+  .ops-login-card > .ops-wordmark,
+  .ops-login-card > .ops-foam-mark {
     align-self: center;
   }
   .ops-login-intro {

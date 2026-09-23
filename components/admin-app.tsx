@@ -81,18 +81,21 @@ function FoamMark({
   compact?: boolean;
   rail?: boolean;
 }) {
+  /* Same mark as the customer site header: F + bubbly O + AM. */
   return (
     <div
       className={cn(
-        "ops-wordmark",
+        "wordmark",
+        "site-header-logo",
+        "ops-foam-mark",
         compact && "is-compact",
         rail && "is-rail"
       )}
       aria-label="FOAM"
     >
       F
-      <span className="ops-wordmark-o" aria-hidden="true">
-        <span className="ops-wordmark-bubbles">
+      <span className="site-header-o" aria-hidden="true">
+        <span className="site-header-bubbles">
           <i />
           <i />
           <i />
