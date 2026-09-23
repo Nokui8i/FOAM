@@ -1309,12 +1309,9 @@ export function AdminOrdersPanel({
       >
         <div className="ops-list-head">
           <div className="queue-heading">
-            <div>
-              <span>{mode === "future" ? "UPCOMING PICKUPS" : "TODAY’S ROUTE"}</span>
-              <h1 className="ops-list-title">
-                {mode === "future" ? "Future" : "Orders"}
-              </h1>
-            </div>
+            <h1 className="ops-list-title">
+              {mode === "future" ? "Future" : "Orders"}
+            </h1>
             {mode === "today" ? (
               <button
                 type="button"
@@ -1333,7 +1330,7 @@ export function AdminOrdersPanel({
             <input
               value={queryText}
               onChange={(e) => setQueryText(e.target.value)}
-              placeholder="Search name, phone, or order #"
+              aria-label="Search orders"
             />
           </label>
 
