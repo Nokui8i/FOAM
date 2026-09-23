@@ -836,11 +836,15 @@
 .admin-page .stage-actions,
 .admin-page .ops-action-row { display: flex; gap: 8px; flex-wrap: wrap; }
 .admin-page .ops-action-row.is-pair {
+  display: flex;
+  flex-direction: row;
   flex-wrap: nowrap;
   align-items: stretch;
+  gap: 8px;
 }
 .admin-page .ops-action-row.is-pair .ops-soft-btn {
   flex: 1 1 0;
+  width: auto;
   min-width: 0;
   min-height: 38px;
   justify-content: center;
@@ -1563,6 +1567,14 @@
   .admin-page .ops-soft-footer { align-items: stretch; gap: 12px; flex-direction: column; }
   .admin-page .ops-soft-actions { flex-direction: column-reverse; }
   .admin-page .ops-soft-btn { width: 100%; justify-content: center; }
+  .admin-page .ops-action-row.is-pair {
+    flex-direction: row;
+    flex-wrap: nowrap;
+  }
+  .admin-page .ops-action-row.is-pair .ops-soft-btn {
+    width: auto;
+    flex: 1 1 0;
+  }
   .admin-page .ops-inquiry-head { flex-direction: column; }
   .admin-page .ops-inquiry-head .ops-icon-row { width: 100%; align-self: auto; }
   .admin-page .ops-inquiry-head .ops-text-btn { flex: 1; padding-inline: 6px; }
