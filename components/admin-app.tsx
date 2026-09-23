@@ -12,7 +12,13 @@ import {
   type User,
 } from "firebase/auth";
 import { collection, onSnapshot } from "firebase/firestore";
-import { CalendarDays, Headphones, LogOut, Truck } from "lucide-react";
+import {
+  CalendarDays,
+  ChevronDown,
+  Headphones,
+  LogOut,
+  Truck,
+} from "lucide-react";
 
 import { AdminContactsPanel } from "@/components/admin-contacts-panel";
 import { AdminOrdersPanel } from "@/components/admin-orders-panel";
@@ -405,66 +411,58 @@ function AdminAppInner() {
 
   return (
     <div className="ops-shell">
-      <aside className="ops-nav" aria-label="Ops sections">
-        <div className="ops-nav-brand">
-          <FoamMark rail />
-        </div>
+      <div className="ops-frame">
+        <aside className="command-rail" aria-label="Ops sections">
+          <div className="brand">
+            <FoamMark rail />
+            <small>OPS · LAS VEGAS</small>
+          </div>
 
-        <nav className="ops-nav-links">
-          <button
-            type="button"
-            className={cn("ops-nav-btn", tab === "orders" && "is-active")}
-            onClick={() => setDestination("orders")}
-          >
-            <Truck size={20} aria-hidden />
-            <span>Orders</span>
-            {ordersCount > 0 ? (
-              <span className="ops-nav-badge">{ordersCount}</span>
-            ) : null}
-          </button>
-          <button
-            type="button"
-            className={cn("ops-nav-btn", tab === "future" && "is-active")}
-            onClick={() => setDestination("future")}
-          >
-            <CalendarDays size={20} aria-hidden />
-            <span>Future</span>
-            {futureCount > 0 ? (
-              <span className="ops-nav-badge">{futureCount}</span>
-            ) : null}
-          </button>
-          <button
-            type="button"
-            className={cn("ops-nav-btn", tab === "support" && "is-active")}
-            onClick={() => setDestination("support")}
-          >
-            <Headphones size={20} aria-hidden />
-            <span>Support</span>
-            {openInquiriesCount > 0 ? (
-              <span className="ops-nav-badge">{openInquiriesCount}</span>
-            ) : null}
-          </button>
-        </nav>
-
-        <div className="ops-nav-foot">
-          <div className="ops-account-menu" ref={accountMenuRef}>
+          <nav className="primary-nav">
             <button
               type="button"
-              className={cn("ops-nav-avatar", accountMenuOpen && "is-open")}
-              title={user.email ?? "Account"}
-              aria-label="Account menu"
-              aria-expanded={accountMenuOpen}
-              aria-haspopup="menu"
-              onClick={() => setAccountMenuOpen((open) => !open)}
+              className={cn("nav-button", tab === "orders" && "active")}
+              onClick={() => setDestination("orders")}
             >
-              {avatar}
+              <Truck size={18} aria-hidden />
+              <span>Orders</span>
+              <b>{ordersCount}</b>
             </button>
+            <button
+              type="button"
+              className={cn("nav-button", tab === "future" && "active")}
+              onClick={() => setDestination("future")}
+            >
+              <CalendarDays size={18} aria-hidden />
+              <span>Future</span>
+              <b>{futureCount}</b>
+            </button>
+            <button
+              type="button"
+              className={cn("nav-button", tab === "support" && "active")}
+              onClick={() => setDestination("support")}
+            >
+              <Headphones size={18} aria-hidden />
+              <span>Support</span>
+              <b>{openInquiriesCount}</b>
+            </button>
+          </nav>
+
+          <div className="rail-status">
+            <span className="status-light" />
+            <div>
+              <strong>FOAM Ops</strong>
+              <small>Las Vegas workspace</small>
+            </div>
+          </div>
+
+          <div className="account-wrap" ref={accountMenuRef}>
             {accountMenuOpen ? (
-              <div className="ops-account-popover" role="menu">
-                <p className="ops-account-email">{user.email}</p>
+              <div className="account-menu" role="menu">
+                <strong>Operations</strong>
+                <span>{user.email}</span>
                 <button
                   type="button"
-                  className="ops-account-signout"
                   role="menuitem"
                   onClick={() => {
                     setAccountMenuOpen(false);
@@ -476,38 +474,30 @@ function AdminAppInner() {
                 </button>
               </div>
             ) : null}
-          </div>
-        </div>
-      </aside>
-
-      <div className="ops-workspace">
-        <header className="ops-topbar">
-          <div className="ops-topbar-mobile-brand">
-            <FoamMark compact />
-          </div>
-          <div className="ops-topbar-end">
-            <Button
+            <button
               type="button"
-              variant="ghost"
-              size="sm"
-              className="ops-topbar-signout-mobile"
-              onClick={() => void signOut(getFirebaseAuth())}
+              className="account-button"
+              aria-label="Account menu"
+              aria-expanded={accountMenuOpen}
+              aria-haspopup="menu"
+              onClick={() => setAccountMenuOpen((open) => !open)}
             >
-              <LogOut size={16} />
-            </Button>
-            <span className="ops-avatar" aria-hidden>
-              {avatar}
-            </span>
+              <span className="avatar">{avatar}</span>
+              <span className="account-copy">
+                <strong>Operations</strong>
+                <small>Admin team</small>
+              </span>
+              <ChevronDown size={15} />
+            </button>
           </div>
-        </header>
+        </aside>
 
-        <main className="ops-main">
-          <div
-            className={cn(
-              "ops-panel",
-              mobileView === "detail" && "is-detail-open"
-            )}
-          >
+        <div
+          className={cn(
+            "ops-panel",
+            mobileView === "detail" && "is-detail-open"
+          )}
+        >
             {tab === "orders" || tab === "future" ? (
               <AdminOrdersPanel
                 key={tab}
@@ -522,8 +512,7 @@ function AdminAppInner() {
                 onMobileViewChange={setMobileView}
               />
             )}
-          </div>
-        </main>
+        </div>
       </div>
     </div>
   );

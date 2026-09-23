@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
 import { AdminApp } from "@/components/admin-app";
+import "../ops-console.css";
 
 export const metadata: Metadata = {
   title: "Ops | FOAM",

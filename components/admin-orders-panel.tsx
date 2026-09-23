@@ -19,6 +19,7 @@ import {
   Check,
   ClipboardList,
   Clock,
+  LockKeyhole,
   MapPin,
   MessageCircle,
   Minus,
@@ -776,39 +777,40 @@ export function AdminOrdersPanel({
 
     if (selected.status === "new") {
       return (
-        <>
-          <div className="ops-action-row">
-            {stageBackLabel ? (
-              <button
-                type="button"
-                className="ops-stage-back"
-                disabled={saving || uploadingPhoto}
-                onClick={() => void goBackStage()}
-              >
-                <ArrowLeft size={14} aria-hidden />
-                {stageBackLabel}
-              </button>
-            ) : null}
-            <Button
-              type="button"
-              className="ops-btn-lg"
-              disabled={saving || uploadingPhoto}
-              onClick={() => void markLeftForPickup(selected)}
-            >
-              <Truck size={16} />
-              I’m on the way
-            </Button>
-            <a
-              className="ops-btn-secondary ops-btn-lg"
-              href={waUrl(selected.contact.phone, customerMsg)}
-              target="_blank"
-              rel="noreferrer"
-            >
-              <MessageCircle size={16} aria-hidden />
-              Message customer
-            </a>
+        <section className="stage pickup-stage">
+          <div className="bag-delight" aria-hidden="true">
+            <div className="bag-handle" />
+            <div className="bag-body">
+              <span>FOAM<i /></span>
+            </div>
+            <div className="bag-shadow" />
           </div>
-        </>
+          <div className="stage-copy">
+            <small>NEXT MOVE</small>
+            <h3>Head to the pickup</h3>
+            <p>The customer’s window is active. Start the route when you leave.</p>
+            <div className="stage-actions">
+              <a
+                className="secondary-action"
+                href={waUrl(selected.contact.phone, customerMsg)}
+                target="_blank"
+                rel="noreferrer"
+              >
+                <MessageCircle size={16} aria-hidden />
+                Message customer
+              </a>
+              <Button
+                type="button"
+                className="primary-action"
+                disabled={saving || uploadingPhoto}
+                onClick={() => void markLeftForPickup(selected)}
+              >
+                I’m on the way
+                <ArrowRight size={16} />
+              </Button>
+            </div>
+          </div>
+        </section>
       );
     }
 
@@ -1097,6 +1099,26 @@ export function AdminOrdersPanel({
   function renderWorkspaceBody() {
     if (!selected) return null;
 
+    if (mode === "future") {
+      return (
+        <section className="stage future-stage">
+          <CalendarDays size={38} aria-hidden />
+          <div className="stage-copy">
+            <small>SCHEDULED PICKUP</small>
+            <h3>{formatPickupDate(selected.pickup.date, true)}</h3>
+            <p>
+              {formatSlotShort(selected.pickup.slot)} · This order will move
+              into today’s Orders queue on its pickup date.
+            </p>
+            <div className="calm-lock">
+              <LockKeyhole size={16} />
+              Scheduled order · read only
+            </div>
+          </div>
+        </section>
+      );
+    }
+
     if (selected.status === "cancelled") {
       return (
         <div className="ops-cancelled-note">
@@ -1114,32 +1136,39 @@ export function AdminOrdersPanel({
 
     if (stage === 1) {
       return (
-        <>
-          <p className="ops-muted" style={{ margin: 0 }}>
-            {servicesSummary(selected)}
-            {selected.weightLbs != null ? ` · ${selected.weightLbs} lb` : ""}
-            {selected.finalTotal != null
-              ? ` · $${selected.finalTotal.toFixed(2)}`
-              : ""}
-          </p>
-          {isOrderCharged(selected) ? (
-            <p className="ops-charged-lock" role="status">
-              Charged at pickup — cannot undo to the stop. Refunds need
-              management approval.
+        <section className="stage locked-stage">
+          <div className="lock-illustration" aria-hidden>
+            <div className="machine-dial">
+              <Shirt size={30} />
+            </div>
+          </div>
+          <div className="stage-copy">
+            <small>
+              CHARGED
+              {selected.finalTotal != null
+                ? ` · $${selected.finalTotal.toFixed(2)}`
+                : ""}
+            </small>
+            <h3>At the laundry</h3>
+            <p>
+              {servicesSummary(selected)}
+              {selected.weightLbs != null ? ` · ${selected.weightLbs} lb` : ""}
             </p>
-          ) : null}
-          <div className="ops-action-row">
+            <div className="calm-lock" role="status">
+              <LockKeyhole size={16} />
+              Billing is locked after charge
+            </div>
             <Button
               type="button"
-              className="ops-btn-lg"
+              className="primary-action"
               disabled={saving || uploadingPhoto}
               onClick={() => void setStatus("out_for_delivery")}
             >
-              <Truck size={16} />
-              On delivery today
+              Move to On delivery
+              <ArrowRight size={16} />
             </Button>
           </div>
-        </>
+        </section>
       );
     }
 
@@ -1261,14 +1290,20 @@ export function AdminOrdersPanel({
     <>
       <section
         className={cn(
-          "ops-list-pane",
+          "ops-list-pane queue-plane",
           mobileView === "detail" && "is-hidden-mobile"
         )}
       >
         <div className="ops-list-head">
-          <h1 className="ops-list-title">
-            {mode === "future" ? "Future" : "Orders"}
-          </h1>
+          <div className="queue-heading">
+            <div>
+              <span>{mode === "future" ? "UPCOMING PICKUPS" : "TODAY’S ROUTE"}</span>
+              <h1 className="ops-list-title">
+                {mode === "future" ? "Future" : "Orders"}
+              </h1>
+            </div>
+            <b>{filtered.length}</b>
+          </div>
           <label className="ops-search">
             <Search size={15} aria-hidden />
             <input
@@ -1350,7 +1385,7 @@ export function AdminOrdersPanel({
 
       <section
         className={cn(
-          "ops-detail-pane",
+          "ops-detail-pane task-plane",
           mobileView === "list" && "is-hidden-mobile"
         )}
       >

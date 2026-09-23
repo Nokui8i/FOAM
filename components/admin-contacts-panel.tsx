@@ -173,17 +173,17 @@ export function AdminContactsPanel({
     <>
       <section
         className={cn(
-          "ops-list-pane",
+          "ops-list-pane queue-plane",
           mobileView === "detail" && "is-hidden-mobile"
         )}
       >
         <div className="ops-list-head">
-          <div className="ops-list-head-row">
+          <div className="ops-list-head-row queue-heading">
             <div>
-              <p className="ops-eyebrow">Current queue</p>
+              <span>CUSTOMER CARE</span>
               <h1 className="ops-list-title">Support</h1>
             </div>
-            <span className="ops-count-chip">{counts[filter]}</span>
+            <b>{counts[filter]}</b>
           </div>
 
           <label className="ops-search">
@@ -265,7 +265,7 @@ export function AdminContactsPanel({
 
       <section
         className={cn(
-          "ops-detail-pane",
+          "ops-detail-pane task-plane",
           mobileView === "list" && "is-hidden-mobile"
         )}
       >
