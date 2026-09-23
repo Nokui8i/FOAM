@@ -629,7 +629,7 @@ export function AdminAlertsPanel({
                       className="ops-soft-btn is-primary"
                       onClick={() => void markContacted(selected.orderId, true)}
                     >
-                      <Check size={15} aria-hidden />
+                      <Check size={17} aria-hidden />
                       Confirm
                     </button>
                   ) : (
@@ -648,7 +648,7 @@ export function AdminAlertsPanel({
                     className="ops-soft-btn is-danger"
                     onClick={() => void cancelAlertOrder(selected)}
                   >
-                    <X size={15} aria-hidden />
+                    <X size={17} aria-hidden />
                     Cancel
                   </button>
                 </div>
