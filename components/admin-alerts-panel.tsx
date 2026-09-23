@@ -338,14 +338,21 @@ export function AdminAlertsPanel({
               </p>
             ) : (
               filtered.map((row) => (
-                <button
+                <div
                   key={row.orderId}
-                  type="button"
+                  role="button"
+                  tabIndex={0}
                   className={cn(
                     "ops-row",
                     selectedId === row.orderId && "is-active"
                   )}
                   onClick={() => selectAlert(row.orderId)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      selectAlert(row.orderId);
+                    }
+                  }}
                 >
                   <span className="ops-row-top">
                     <span className="ops-row-name">
@@ -381,7 +388,39 @@ export function AdminAlertsPanel({
                         : "Pickup"}
                     </span>
                   </span>
-                </button>
+                  <span
+                    className="ops-row-actions"
+                    onClick={(e) => e.stopPropagation()}
+                    onKeyDown={(e) => e.stopPropagation()}
+                  >
+                    {!row.contacted ? (
+                      <button
+                        type="button"
+                        className="ops-soft-btn is-primary"
+                        onClick={() => void markContacted(row.orderId, true)}
+                      >
+                        <Check size={14} aria-hidden />
+                        Confirm
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        className="ops-soft-btn"
+                        onClick={() => void markContacted(row.orderId, false)}
+                      >
+                        Undo
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      className="ops-soft-btn is-danger"
+                      onClick={() => void cancelAlertOrder(row)}
+                    >
+                      <X size={14} aria-hidden />
+                      Cancel
+                    </button>
+                  </span>
+                </div>
               ))
             )}
           </div>

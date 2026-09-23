@@ -429,15 +429,15 @@
   box-shadow: inset 3px 0 0 var(--ops-sky), 0 12px 25px -18px rgba(22,50,74,.55);
 }
 .admin-page .ops-row-top { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-.admin-page .ops-row-name { color: var(--ops-ink); font-size: 15px; font-weight: 800; }
+.admin-page .ops-row-name { color: var(--ops-ink); font-size: 16px; font-weight: 800; }
 .admin-page .ops-row-when,
 .admin-page .ops-row-meta,
 .admin-page .ops-row-address,
 .admin-page .ops-row-foot {
-  margin-top: 4px;
+  margin-top: 5px;
   color: var(--ops-muted);
-  font-size: 13px;
-  line-height: 1.35;
+  font-size: 14px;
+  line-height: 1.4;
 }
 .admin-page .ops-row-address {
   display: block;
@@ -445,10 +445,21 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  color: color-mix(in srgb, var(--ops-ink) 72%, var(--ops-muted));
-  font-weight: 600;
+  color: color-mix(in srgb, var(--ops-ink) 78%, var(--ops-muted));
+  font-weight: 650;
 }
-.admin-page .ops-row-when { font-weight: 650; }
+.admin-page .ops-row-when { font-weight: 700; color: color-mix(in srgb, var(--ops-ink) 70%, var(--ops-muted)); }
+.admin-page .ops-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+.admin-page .ops-row-actions .ops-soft-btn {
+  min-height: 36px;
+  padding: 0 12px;
+  font-size: 12px;
+}
 .admin-page .ops-row-foot { width: 100%; display: flex; justify-content: space-between; align-items: center; }
 .admin-page .ops-row-ref { font-size: 12px; font-weight: 700; }
 .admin-page .ops-row-price { color: var(--ops-success); font-size: 13px; font-weight: 800; }
