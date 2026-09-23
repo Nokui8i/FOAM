@@ -824,6 +824,23 @@ export function AdminOrdersPanel({
     return (
       <>
         <div className="ops-soft-card">
+          <div className="ops-order-services" aria-label="Customer selected services">
+            {selected.services.laundry ? (
+              <span className="ops-service-chip is-on">
+                Laundry
+                {selected.services.bagCount
+                  ? ` · ${selected.services.bagCount} bag${selected.services.bagCount === 1 ? "" : "s"}`
+                  : ""}
+              </span>
+            ) : (
+              <span className="ops-service-chip">No laundry</span>
+            )}
+            {selected.services.dryCleaning ? (
+              <span className="ops-service-chip is-on">Dry cleaning</span>
+            ) : (
+              <span className="ops-service-chip">No dry cleaning</span>
+            )}
+          </div>
           <div className="ops-soft-grid">
             <section className="ops-soft-col" aria-label="Scale">
               <div className="ops-soft-section-head">

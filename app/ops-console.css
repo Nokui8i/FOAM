@@ -751,6 +751,30 @@
 
 /* At-stop workspace */
 .admin-page .ops-soft-card { padding: 14px; }
+.admin-page .ops-order-services {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 12px;
+}
+.admin-page .ops-service-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 0 10px;
+  border-radius: 999px;
+  border: 1px solid var(--ops-border);
+  color: var(--ops-muted);
+  background: #fff;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: -.01em;
+}
+.admin-page .ops-service-chip.is-on {
+  color: var(--ops-primary);
+  border-color: color-mix(in srgb, var(--ops-primary) 35%, var(--ops-border));
+  background: #e4f4fa;
+}
 .admin-page .ops-soft-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .admin-page .ops-soft-col {
   min-width: 0;
@@ -855,21 +879,27 @@
 }
 .admin-page .ops-soft-dropzone input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
 .admin-page .ops-soft-add {
-  min-height: 44px;
+  width: fit-content;
+  min-height: 34px;
   margin: 2px 0 0;
-  padding: 0 16px;
+  padding: 0 12px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  border: 0;
-  border-radius: 9px;
-  color: #fff;
-  background: linear-gradient(180deg, #19a0d5, var(--ops-primary));
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.35), 0 11px 20px -10px rgba(11,142,200,.8), 0 3px 0 #0876a8;
-  font: 800 13px/1.1 var(--ops-display);
+  gap: 6px;
+  border: 1px solid var(--ops-border);
+  border-radius: 8px;
+  color: var(--ops-ink);
+  background: #fff;
+  box-shadow: 0 8px 18px -14px rgba(22,50,74,.45);
+  font: 800 12px/1.1 var(--ops-display);
   letter-spacing: -.02em;
   cursor: pointer;
+}
+.admin-page .ops-soft-add:hover {
+  border-color: color-mix(in srgb, var(--ops-primary) 40%, var(--ops-border));
+  color: var(--ops-primary);
+  background: #f3fafd;
 }
 .admin-page .ops-soft-items { display: grid; gap: 6px; margin-top: 10px; }
 .admin-page .ops-soft-item { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 7px; background: var(--ops-wash); font-size: 12px; }
@@ -909,7 +939,7 @@
 .admin-page .ops-soft-thumbs {
   display: flex;
   justify-content: center;
-  margin-top: 6px;
+  margin-top: 2px;
 }
 .admin-page .ops-soft-thumb {
   position: relative;
