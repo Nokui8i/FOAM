@@ -109,11 +109,48 @@ const WASH_PREF_ROWS: { key: string; label: string }[] = [
   { key: "colorsDryerHeat", label: "Colors dryer" },
 ];
 
+const WASH_PREF_DEFAULTS: Record<string, string> = {
+  pants: "Folded",
+  dresses: "Folded",
+  detergent: "Persil",
+  softener: "No softener",
+  whitesWashTemp: "Cold wash",
+  colorsWashTemp: "Cold wash",
+  whitesDryerHeat: "Low",
+  colorsDryerHeat: "Low",
+};
+
+function normalizeWashPrefValue(key: string, raw: string) {
+  const value = raw.trim();
+  if (!value) return "";
+  if (key === "detergent" && value === "Free & Clear") return "All Free and Clear";
+  if (key === "softener" && (value === "None" || value === "none")) {
+    return "No softener";
+  }
+  return value;
+}
+
+/** Always return the full booking wash-preference list (8 rows). */
 function washPreferenceRows(prefs?: Record<string, string> | null) {
   return WASH_PREF_ROWS.map(({ key, label }) => {
-    const value = String(prefs?.[key] ?? "").trim();
-    return { label, value: value || "—" };
+    const stored = normalizeWashPrefValue(key, String(prefs?.[key] ?? ""));
+    return {
+      label,
+      value: stored || WASH_PREF_DEFAULTS[key] || "—",
+    };
   });
+}
+
+function completeWashPreferences(prefs?: Record<string, string> | null) {
+  const next: Record<string, string> = {};
+  let changed = false;
+  for (const { key } of WASH_PREF_ROWS) {
+    const stored = normalizeWashPrefValue(key, String(prefs?.[key] ?? ""));
+    const value = stored || WASH_PREF_DEFAULTS[key] || "";
+    next[key] = value;
+    if (value !== String(prefs?.[key] ?? "").trim()) changed = true;
+  }
+  return { next, changed };
 }
 
 const FILTER_IDS = new Set<string>(FILTERS.map((f) => f.id));
@@ -469,6 +506,18 @@ export function AdminOrdersPanel({
     setOkMsg("");
     setError("");
   }, [selected?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Ensure laundry orders keep the full wash-preference list staff need at plant.
+  useEffect(() => {
+    if (!selected?.id || !selected.services.laundry) return;
+    const { next, changed } = completeWashPreferences(selected.preferences);
+    if (!changed) return;
+    void updateDoc(doc(getFirebaseDb(), "orders", selected.id), {
+      preferences: next,
+    }).catch(() => {
+      /* non-blocking — UI already shows the completed list */
+    });
+  }, [selected?.id, selected?.services.laundry, selected?.preferences]);
 
   // Backfill customer tracking with scale/delivery photos + totals.
   useEffect(() => {
