@@ -773,7 +773,7 @@
   height: 44px;
   width: fit-content;
   max-width: 100%;
-  margin: 10px 0 12px;
+  margin: 10px auto 12px;
   display: grid;
   grid-template-columns: 40px minmax(96px, 132px) 40px;
   align-items: center;
