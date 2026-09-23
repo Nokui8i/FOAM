@@ -529,14 +529,38 @@ export function AdminOrdersPanel({
     );
   }, [dryQuery]);
 
-  function addDryItem(item: DryCleanCatalogItem) {
-    setDryItems((current) => [...current, { name: item.name, price: item.price }]);
-    setOpenCatalog(true);
+  function setDryItemQty(item: DryCleanCatalogItem, qty: number) {
+    const nextQty = Math.max(0, Math.floor(qty));
+    setDryItems((current) => {
+      const others = current.filter((dry) => dry.name !== item.name);
+      if (nextQty === 0) return others;
+      return [
+        ...others,
+        ...Array.from({ length: nextQty }, () => ({
+          name: item.name,
+          price: item.price,
+        })),
+      ];
+    });
   }
 
-  function removeDryItem(index: number) {
-    setDryItems((current) => current.filter((_, i) => i !== index));
+  function nudgeDryItem(item: DryCleanCatalogItem, delta: number) {
+    const count = dryItems.filter((dry) => dry.name === item.name).length;
+    setDryItemQty(item, count + delta);
   }
+
+  const dryGroups = useMemo(() => {
+    const groups = new Map<
+      string,
+      { name: string; price: number; qty: number }
+    >();
+    for (const item of dryItems) {
+      const existing = groups.get(item.name);
+      if (existing) existing.qty += 1;
+      else groups.set(item.name, { name: item.name, price: item.price, qty: 1 });
+    }
+    return [...groups.values()];
+  }, [dryItems]);
 
   function nudgeWeight(delta: number) {
     const current = Number(weightInput);
@@ -957,27 +981,52 @@ export function AdminOrdersPanel({
                 </p>
               ) : null}
 
-              {dryItems.length ? (
+              {dryGroups.length ? (
                 <div className="ops-soft-items">
-                  {dryItems.map((item, itemIndex) => (
-                    <div
-                      key={`${item.name}-${itemIndex}`}
-                      className="ops-soft-item"
-                    >
+                  {dryGroups.map((item) => (
+                    <div key={item.name} className="ops-soft-item">
                       <span className="ops-soft-item-mark" aria-hidden>
                         <Shirt size={14} />
                       </span>
                       <span className="ops-soft-item-copy">
                         <span>{item.name}</span>
-                        <strong>${item.price.toFixed(2)}</strong>
+                        <strong>
+                          ${(item.price * item.qty).toFixed(2)}
+                        </strong>
                       </span>
-                      <button
-                        type="button"
-                        aria-label={`Remove ${item.name}`}
-                        onClick={() => removeDryItem(itemIndex)}
+                      <div
+                        className="ops-qty-pill"
+                        role="group"
+                        aria-label={`${item.name} quantity`}
                       >
-                        <X size={14} />
-                      </button>
+                        <button
+                          type="button"
+                          className="ops-qty-pill-btn"
+                          aria-label={`Increase ${item.name}`}
+                          onClick={() =>
+                            nudgeDryItem(
+                              { name: item.name, price: item.price },
+                              1
+                            )
+                          }
+                        >
+                          <Plus size={14} />
+                        </button>
+                        <span className="ops-qty-pill-value">{item.qty}</span>
+                        <button
+                          type="button"
+                          className="ops-qty-pill-btn"
+                          aria-label={`Decrease ${item.name}`}
+                          onClick={() =>
+                            nudgeDryItem(
+                              { name: item.name, price: item.price },
+                              -1
+                            )
+                          }
+                        >
+                          <Minus size={14} />
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -1035,38 +1084,46 @@ export function AdminOrdersPanel({
                                   (dry) => dry.name === item.name
                                 ).length;
                                 return (
-                                  <button
+                                  <div
                                     key={item.name}
-                                    type="button"
                                     role="option"
                                     aria-selected={selectedCount > 0}
                                     className={cn(
                                       "ops-catalog-item",
                                       selectedCount > 0 && "is-selected"
                                     )}
-                                    onClick={() => addDryItem(item)}
                                   >
                                     <span className="ops-catalog-item-main">
-                                      <span
-                                        className={cn(
-                                          "ops-catalog-check",
-                                          selectedCount > 0 && "is-on"
-                                        )}
-                                        aria-hidden
-                                      >
-                                        {selectedCount > 0 ? (
-                                          <Check size={12} />
-                                        ) : null}
-                                      </span>
                                       <span>{item.name}</span>
-                                      {selectedCount > 1 ? (
-                                        <span className="ops-catalog-qty">
-                                          ×{selectedCount}
-                                        </span>
-                                      ) : null}
+                                      <strong>${item.price.toFixed(2)}</strong>
                                     </span>
-                                    <strong>${item.price.toFixed(2)}</strong>
-                                  </button>
+                                    <div
+                                      className="ops-qty-pill"
+                                      role="group"
+                                      aria-label={`${item.name} quantity`}
+                                    >
+                                      <button
+                                        type="button"
+                                        className="ops-qty-pill-btn"
+                                        aria-label={`Increase ${item.name}`}
+                                        onClick={() => nudgeDryItem(item, 1)}
+                                      >
+                                        <Plus size={14} />
+                                      </button>
+                                      <span className="ops-qty-pill-value">
+                                        {selectedCount}
+                                      </span>
+                                      <button
+                                        type="button"
+                                        className="ops-qty-pill-btn"
+                                        aria-label={`Decrease ${item.name}`}
+                                        disabled={selectedCount === 0}
+                                        onClick={() => nudgeDryItem(item, -1)}
+                                      >
+                                        <Minus size={14} />
+                                      </button>
+                                    </div>
+                                  </div>
                                 );
                               })
                             )}
