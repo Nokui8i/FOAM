@@ -323,7 +323,8 @@
   border-radius: 7px;
   color: var(--ops-muted);
   background: transparent;
-  font-size: 9px;
+  font-size: 12px;
+  font-weight: 700;
   line-height: 1.15;
   cursor: pointer;
 }
@@ -379,22 +380,30 @@
 .admin-page .ops-row-name { color: var(--ops-ink); font-size: 14px; font-weight: 800; }
 .admin-page .ops-row-when,
 .admin-page .ops-row-meta,
+.admin-page .ops-row-address,
 .admin-page .ops-row-foot {
   margin-top: 7px;
   color: var(--ops-muted);
-  font-size: 10px;
+  font-size: 11px;
+}
+.admin-page .ops-row-address {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .admin-page .ops-row-foot { width: 100%; display: flex; justify-content: space-between; }
 .admin-page .ops-row-price { color: var(--ops-success); font-weight: 800; }
 .admin-page .ops-status-pill {
-  min-height: 22px;
+  min-height: 24px;
   display: inline-flex;
   align-items: center;
-  padding: 3px 7px;
+  padding: 4px 9px;
   border-radius: 6px;
   color: var(--ops-primary);
   background: #e4f4fa;
-  font-size: 9px;
+  font-size: 12px;
   font-weight: 800;
   white-space: nowrap;
 }

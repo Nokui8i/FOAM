@@ -407,9 +407,12 @@ export function normalizeOrderStatus(raw: unknown): OrderStatus {
 
 export function formatOrderAddress(order: FoamOrder) {
   const unit = order.pickup.unit?.trim();
-  const line = unit
-    ? `${order.pickup.address}, ${unit}`
-    : order.pickup.address;
+  const street = order.pickup.address?.trim() ?? "";
+  if (!street) {
+    const cityZip = `${order.pickup.city || "Las Vegas"} ${order.pickup.zip}`.trim();
+    return cityZip || "Address missing";
+  }
+  const line = unit ? `${street}, ${unit}` : street;
   return `${line}, ${order.pickup.city || "Las Vegas"} ${order.pickup.zip}`.trim();
 }
 

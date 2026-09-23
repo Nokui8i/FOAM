@@ -1313,7 +1313,6 @@ export function AdminOrdersPanel({
                 {mode === "future" ? "Future" : "Orders"}
               </h1>
             </div>
-            <b>{filtered.length}</b>
           </div>
           <label className="ops-search">
             <Search size={15} aria-hidden />
@@ -1378,6 +1377,9 @@ export function AdminOrdersPanel({
                   <span className="ops-row-when">
                     {formatPickupDate(row.pickup.date)},{" "}
                     {formatSlotShort(row.pickup.slot)}
+                  </span>
+                  <span className="ops-row-address">
+                    {formatOrderAddress(row)}
                   </span>
                   <span className="ops-row-foot">
                     <span className="ops-row-ref">{orderDisplayId(row.id)}</span>
