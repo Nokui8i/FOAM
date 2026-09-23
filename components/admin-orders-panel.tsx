@@ -38,6 +38,12 @@ import {
 
 import { Button } from "@/components/ui/button";
 import {
+  DELIVERY_FEE_USD,
+  MIN_ORDER_USD,
+  RATE_STANDARD_PER_LB_USD,
+  RATE_WEEKLY_PER_LB_USD,
+} from "@/lib/booking";
+import {
   DRY_CLEAN_CATALOG,
   type DryCleanCatalogItem,
 } from "@/lib/dry-clean-catalog";
@@ -756,26 +762,84 @@ export function AdminOrdersPanel({
     setFilter("progress");
   }
 
-  const previewTotal = useMemo(() => {
+  const previewBreakdown = useMemo(() => {
     if (!selected) return null;
-    const hasLaundry = selected.services.laundry;
-    const lbs = Number(weightInput);
-    if (hasLaundry && !(lbs > 0)) return null;
-    const laundryPortion = computeFinalTotal({
+
+    const hasLaundry = Boolean(selected.services.laundry);
+    const lbsRaw = Number(weightInput);
+    const lbs = Number.isFinite(lbsRaw) && lbsRaw > 0 ? lbsRaw : 0;
+    const rate =
+      selected.pricing?.laundryRatePerLb ??
+      (selected.pricing?.tier === "weekly"
+        ? RATE_WEEKLY_PER_LB_USD
+        : RATE_STANDARD_PER_LB_USD);
+    const wantsDelivery =
+      hasLaundry || Boolean(selected.services.dryCleaning) || dryItems.length > 0;
+    const fee = wantsDelivery
+      ? selected.pricing?.deliveryFee ?? DELIVERY_FEE_USD
+      : 0;
+    const min = selected.pricing?.minimumOrder ?? MIN_ORDER_USD;
+    const tip = selected.tip ?? selected.pricing?.tip ?? 0;
+    const discountPct = selected.pricing?.repeatDiscountEligible
+      ? selected.pricing?.repeatDiscountPercent ?? 0
+      : 0;
+
+    let laundryRaw = 0;
+    if (hasLaundry) {
+      laundryRaw = lbs * rate;
+      if (discountPct > 0) laundryRaw *= 1 - discountPct / 100;
+      laundryRaw = Math.round(laundryRaw * 100) / 100;
+    }
+
+    const dryTotal = dryCleanItemsTotal(dryItems);
+    const laundryPlusFee = computeFinalTotal({
       weightLbs: hasLaundry ? lbs : 0,
       tier: selected.pricing?.tier,
       ratePerLb: selected.pricing?.laundryRatePerLb,
-      deliveryFee: selected.pricing?.deliveryFee,
-      minimumOrder: selected.pricing?.minimumOrder,
-      tip: selected.tip ?? selected.pricing?.tip ?? 0,
-      repeatDiscountPercent: selected.pricing?.repeatDiscountEligible
-        ? selected.pricing?.repeatDiscountPercent ?? 0
-        : 0,
+      deliveryFee: fee,
+      minimumOrder: min,
+      tip: 0,
+      repeatDiscountPercent: discountPct,
       hasLaundry,
     });
-    return (
-      Math.round((laundryPortion + dryCleanItemsTotal(dryItems)) * 100) / 100
-    );
+
+    const laundryPending = hasLaundry && !(lbs > 0);
+    const atMinimum =
+      hasLaundry && Math.round((laundryRaw + fee) * 100) / 100 < min;
+
+    type Line = { label: string; amount: number; note?: string };
+    const lines: Line[] = [];
+
+    if (hasLaundry && (atMinimum || laundryPending)) {
+      lines.push({
+        label: laundryPending
+          ? `Minimum order ($${min})`
+          : `Minimum order`,
+        amount: min,
+        note: "incl. delivery",
+      });
+    } else if (hasLaundry) {
+      lines.push({
+        label: `Laundry (${lbs.toFixed(1)} lb)`,
+        amount: laundryRaw,
+      });
+      if (fee > 0) {
+        lines.push({ label: "Delivery fee", amount: fee });
+      }
+    } else if (fee > 0) {
+      lines.push({ label: "Delivery fee", amount: fee });
+    }
+
+    if (dryTotal > 0) {
+      lines.push({ label: "Dry cleaning", amount: dryTotal });
+    }
+    if (tip > 0) {
+      lines.push({ label: "Tip", amount: tip });
+    }
+
+    const total = Math.round((laundryPlusFee + dryTotal + tip) * 100) / 100;
+
+    return { lines, total };
   }, [selected, weightInput, dryItems]);
 
   const stageBackLabel = selected
@@ -1146,14 +1210,40 @@ export function AdminOrdersPanel({
 
           <div className="ops-soft-footer">
             <div className="ops-soft-total">
-              <span>Total</span>
-              <strong>
-                {previewTotal != null
-                  ? `$${previewTotal.toFixed(2)}`
-                  : selected.finalTotal != null
-                    ? `$${selected.finalTotal.toFixed(2)}`
-                    : "—"}
-              </strong>
+              {previewBreakdown ? (
+                <div className="ops-soft-breakdown" aria-label="Price preview">
+                  {previewBreakdown.lines.map((line) => (
+                    <div
+                      key={line.label}
+                      className="ops-soft-breakdown-row"
+                    >
+                      <span>
+                        {line.label}
+                        {line.note ? (
+                          <em className="ops-soft-breakdown-note">
+                            {" "}
+                            · {line.note}
+                          </em>
+                        ) : null}
+                      </span>
+                      <strong>${line.amount.toFixed(2)}</strong>
+                    </div>
+                  ))}
+                  <div className="ops-soft-breakdown-total">
+                    <span>Total</span>
+                    <strong>${previewBreakdown.total.toFixed(2)}</strong>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <span>Total</span>
+                  <strong>
+                    {selected.finalTotal != null
+                      ? `$${selected.finalTotal.toFixed(2)}`
+                      : "—"}
+                  </strong>
+                </>
+              )}
             </div>
             <div className="ops-soft-actions">
               {stageBackLabel ? (

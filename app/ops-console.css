@@ -971,16 +971,61 @@
   font: 800 12px/1 var(--ops-display);
   letter-spacing: -.02em;
 }
-.admin-page .ops-soft-footer { margin-top: 12px; padding: 13px 1px 0; display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--ops-border); }
+.admin-page .ops-soft-footer { margin-top: 12px; padding: 13px 1px 0; display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; border-top: 1px solid var(--ops-border); }
 .admin-page .ops-soft-total {
   display: grid;
+  gap: 4px;
+  min-width: 0;
   color: color-mix(in srgb, var(--ops-ink) 70%, var(--ops-muted));
   font-size: 10px;
   font-weight: 800;
   letter-spacing: .14em;
   text-transform: uppercase;
 }
-.admin-page .ops-soft-total strong { color: var(--ops-navy); font: 800 25px/1.1 var(--ops-display); letter-spacing: -.04em; text-transform: none; }
+.admin-page .ops-soft-total > strong { color: var(--ops-navy); font: 800 25px/1.1 var(--ops-display); letter-spacing: -.04em; text-transform: none; }
+.admin-page .ops-soft-breakdown {
+  display: grid;
+  gap: 3px;
+  min-width: min(260px, 100%);
+  text-transform: none;
+  letter-spacing: 0;
+}
+.admin-page .ops-soft-breakdown-row,
+.admin-page .ops-soft-breakdown-total {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 16px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ops-muted);
+}
+.admin-page .ops-soft-breakdown-row strong {
+  color: var(--ops-ink);
+  font: 800 12px/1.2 var(--ops-display);
+  letter-spacing: -.02em;
+}
+.admin-page .ops-soft-breakdown-note {
+  font-style: normal;
+  font-weight: 600;
+  color: color-mix(in srgb, var(--ops-muted) 80%, #fff);
+}
+.admin-page .ops-soft-breakdown-total {
+  margin-top: 4px;
+  padding-top: 6px;
+  border-top: 1px solid var(--ops-border);
+  color: var(--ops-navy);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+.admin-page .ops-soft-breakdown-total strong {
+  color: var(--ops-navy);
+  font: 800 22px/1.1 var(--ops-display);
+  letter-spacing: -.04em;
+  text-transform: none;
+}
 .admin-page .ops-soft-actions { display: flex; gap: 8px; }
 .admin-page .ops-soft-btn {
   min-height: 44px;
