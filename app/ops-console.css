@@ -798,6 +798,21 @@
   border-color: color-mix(in srgb, var(--ops-primary) 35%, var(--ops-border));
   background: #e4f4fa;
 }
+.admin-page .ops-service-chip.is-weekly {
+  color: #0f766e;
+  border-color: color-mix(in srgb, #0f766e 35%, var(--ops-border));
+  background: #e7f6f3;
+}
+.admin-page .ops-service-chip.is-on-demand {
+  color: var(--ops-navy);
+  border-color: color-mix(in srgb, var(--ops-navy) 22%, var(--ops-border));
+  background: #eef3f8;
+}
+.admin-page .ops-service-chip.is-discount {
+  color: #b45309;
+  border-color: color-mix(in srgb, #b45309 30%, var(--ops-border));
+  background: #fff7ed;
+}
 .admin-page .ops-soft-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .admin-page .ops-soft-col {
   min-width: 0;
