@@ -14,7 +14,6 @@ import {
   Check,
   Clock,
   MapPin,
-  MoreHorizontal,
   Search,
   X,
 } from "lucide-react";
@@ -136,9 +135,6 @@ export function AdminAlertsPanel({
   const [error, setError] = useState("");
   const [okMsg, setOkMsg] = useState("");
   const [queryText, setQueryText] = useState("");
-  const [expandedAddressId, setExpandedAddressId] = useState<string | null>(
-    null
-  );
   const selectedId = searchParams.get("id");
   const filter = (searchParams.get("filter") as AlertFilter) || "todo";
   const safeFilter: AlertFilter = ["todo", "done", "all"].includes(filter)
@@ -388,97 +384,52 @@ export function AdminAlertsPanel({
                 No pickups in the 3–4 day reminder window.
               </p>
             ) : (
-              filtered.map((row) => {
-                const addressOpen = expandedAddressId === row.orderId;
-                return (
-                  <div
-                    key={row.orderId}
-                    role="button"
-                    tabIndex={0}
-                    className={cn(
-                      "ops-row",
-                      selectedId === row.orderId && "is-active"
-                    )}
-                    onClick={() => selectAlert(row.orderId)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" || e.key === " ") {
-                        e.preventDefault();
-                        selectAlert(row.orderId);
-                      }
-                    }}
-                  >
-                    <span className="ops-row-top">
-                      <span className="ops-row-name">
-                        {row.name || "Customer"}
-                      </span>
-                      <span
-                        className={cn(
-                          "ops-status-pill",
-                          row.contacted ? "is-ready" : "is-open"
-                        )}
-                      >
-                        {row.contacted ? "Confirmed" : "Call needed"}
-                      </span>
-                    </span>
-                    <span className="ops-row-when">
-                      {formatAlertDate(row.pickupDate)},{" "}
-                      {formatSlotShort(row.pickupSlot)}
-                      {" · "}
-                      in {row.daysUntil} day{row.daysUntil === 1 ? "" : "s"}
+              filtered.map((row) => (
+                <button
+                  key={row.orderId}
+                  type="button"
+                  className={cn(
+                    "ops-row",
+                    selectedId === row.orderId && "is-active"
+                  )}
+                  onClick={() => selectAlert(row.orderId)}
+                >
+                  <span className="ops-row-top">
+                    <span className="ops-row-name">
+                      {row.name || "Customer"}
                     </span>
                     <span
-                      className="ops-row-address-line"
-                      onClick={(e) => e.stopPropagation()}
-                      onKeyDown={(e) => e.stopPropagation()}
+                      className={cn(
+                        "ops-status-pill",
+                        row.contacted ? "is-ready" : "is-open"
+                      )}
                     >
-                      <span
-                        className={cn(
-                          "ops-row-address",
-                          addressOpen && "is-expanded"
-                        )}
-                      >
-                        {row.address || "No address on file"}
-                      </span>
-                      {row.address ? (
-                        <button
-                          type="button"
-                          className={cn(
-                            "ops-row-expand",
-                            addressOpen && "is-open"
-                          )}
-                          aria-label={
-                            addressOpen ? "Collapse address" : "Expand address"
-                          }
-                          aria-expanded={addressOpen}
-                          title={
-                            addressOpen ? "Collapse address" : "Expand address"
-                          }
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setExpandedAddressId(
-                              addressOpen ? null : row.orderId
-                            );
-                          }}
-                        >
-                          <MoreHorizontal size={16} aria-hidden />
-                        </button>
-                      ) : null}
+                      {row.contacted ? "Confirmed" : "Call needed"}
                     </span>
-                    <span className="ops-row-foot">
-                      <span className="ops-row-ref">
-                        {orderDisplayId(row.orderId)}
-                      </span>
-                      <span className="ops-row-price">
-                        {row.weekly
-                          ? row.hasDiscount
-                            ? "Weekly · 10% off"
-                            : "Weekly"
-                          : "Pickup"}
-                      </span>
+                  </span>
+                  <span className="ops-row-when">
+                    {formatAlertDate(row.pickupDate)},{" "}
+                    {formatSlotShort(row.pickupSlot)}
+                    {" · "}
+                    in {row.daysUntil} day{row.daysUntil === 1 ? "" : "s"}
+                  </span>
+                  <span className="ops-row-address">
+                    {row.address || "No address on file"}
+                  </span>
+                  <span className="ops-row-foot">
+                    <span className="ops-row-ref">
+                      {orderDisplayId(row.orderId)}
                     </span>
-                  </div>
-                );
-              })
+                    <span className="ops-row-price">
+                      {row.weekly
+                        ? row.hasDiscount
+                          ? "Weekly · 10% off"
+                          : "Weekly"
+                        : "Pickup"}
+                    </span>
+                  </span>
+                </button>
+              ))
             )}
           </div>
         </div>

@@ -549,6 +549,7 @@
 }
 .admin-page .ops-row-when,
 .admin-page .ops-row-meta,
+.admin-page .ops-row-address,
 .admin-page .ops-row-foot {
   margin-top: 4px;
   color: var(--ops-muted);
@@ -559,50 +560,15 @@
   font-weight: 650;
   color: color-mix(in srgb, var(--ops-ink) 68%, var(--ops-muted));
 }
-.admin-page .ops-row-address-line {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  margin-top: 4px;
-  min-width: 0;
-  width: 100%;
-}
 .admin-page .ops-row-address {
   display: block;
-  flex: 1;
+  max-width: 100%;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   color: color-mix(in srgb, var(--ops-ink) 72%, var(--ops-muted));
-  font-size: 13px;
   font-weight: 600;
-  line-height: 1.35;
-}
-.admin-page .ops-row-address.is-expanded {
-  white-space: normal;
-  overflow: visible;
-  text-overflow: unset;
-}
-.admin-page .ops-row-expand {
-  flex: 0 0 auto;
-  width: 28px;
-  height: 28px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  margin: 0;
-  padding: 0;
-  border: 0;
-  border-radius: 8px;
-  color: var(--ops-muted);
-  background: transparent;
-  cursor: pointer;
-}
-.admin-page .ops-row-expand:hover,
-.admin-page .ops-row-expand.is-open {
-  color: var(--ops-ink);
-  background: color-mix(in srgb, var(--ops-navy) 8%, #fff);
 }
 .admin-page .ops-row-foot {
   width: 100%;
