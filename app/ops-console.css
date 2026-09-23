@@ -770,20 +770,64 @@
   background: color-mix(in oklab, var(--ops-primary) 14%, #fff);
 }
 .admin-page .ops-soft-stepper {
-  height: 86px;
-  margin: 13px 0;
+  height: 56px;
+  margin: 12px 0 14px;
   display: grid;
-  grid-template-columns: 44px 1fr 44px;
+  grid-template-columns: 48px 1fr 48px;
   align-items: center;
+  gap: 0;
+  border: 1px solid var(--ops-border);
   border-radius: 10px;
-  color: #fff;
-  background: var(--ops-navy);
-  box-shadow: inset 0 5px 13px rgba(0,0,0,.25),0 7px 12px -9px var(--ops-navy);
+  color: var(--ops-ink);
+  background: var(--ops-wash);
+  box-shadow: none;
+  overflow: hidden;
 }
-.admin-page .ops-soft-stepper-btn { width: 36px; height: 44px; margin: auto; display: grid; place-items: center; border: 1px solid rgba(255,255,255,.15); border-radius: 7px; color: var(--ops-sky); background: rgba(255,255,255,.08); }
-.admin-page .ops-soft-stepper-value { display: flex; justify-content: center; align-items: baseline; }
-.admin-page .ops-soft-stepper-value input { width: 100px; border: 0; outline: 0; color: #fff; background: transparent; text-align: right; font: 800 35px/1 var(--ops-display); }
-.admin-page .ops-soft-stepper-value span { margin-left: 4px; color: rgba(255,255,255,.55); }
+.admin-page .ops-soft-stepper-btn {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 0;
+  color: var(--ops-primary);
+  background: transparent;
+  cursor: pointer;
+}
+.admin-page .ops-soft-stepper-btn:hover:not(:disabled) {
+  background: #e4f4fa;
+}
+.admin-page .ops-soft-stepper-btn:disabled {
+  opacity: .45;
+  cursor: not-allowed;
+}
+.admin-page .ops-soft-stepper-value {
+  height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: baseline;
+  gap: 4px;
+  border-inline: 1px solid var(--ops-border);
+  background: #fff;
+}
+.admin-page .ops-soft-stepper-value input {
+  width: 88px;
+  height: 100%;
+  border: 0;
+  outline: 0;
+  color: var(--ops-ink);
+  background: transparent;
+  text-align: center;
+  font: 800 28px/1 var(--ops-display);
+  letter-spacing: -.03em;
+}
+.admin-page .ops-soft-stepper-value span {
+  margin-left: 0;
+  color: var(--ops-muted);
+  font-size: 13px;
+  font-weight: 700;
+}
 .admin-page .ops-soft-dropzone {
   position: relative;
   min-height: 44px;
