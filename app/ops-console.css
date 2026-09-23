@@ -375,10 +375,10 @@
 .admin-page .ops-row {
   position: relative;
   width: 100%;
-  min-height: 80px;
+  min-height: 72px;
   display: flex;
   flex-direction: column;
-  padding: 12px 13px;
+  padding: 10px 13px;
   border: 1px solid transparent;
   border-radius: 11px;
   color: var(--ops-ink);
@@ -399,7 +399,7 @@
 .admin-page .ops-row-meta,
 .admin-page .ops-row-address,
 .admin-page .ops-row-foot {
-  margin-top: 7px;
+  margin-top: 3px;
   color: var(--ops-muted);
   font-size: 11px;
 }
