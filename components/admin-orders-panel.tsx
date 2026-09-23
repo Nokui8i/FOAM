@@ -784,7 +784,9 @@ export function AdminOrdersPanel({
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               className="ops-pickup-bag"
-              src="/foam-ops-bag.png"
+              src={encodeURI(
+                "/ChatGPT Image Sep 23, 2026, 03_28_44 PM.png"
+              )}
               alt=""
               width={640}
               height={640}
