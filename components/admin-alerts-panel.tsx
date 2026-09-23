@@ -31,6 +31,7 @@ import { normalizeOrderStatus, orderDisplayId } from "@/lib/orders";
 import { BUSINESS_WHATSAPP } from "@/lib/site-config";
 import { useQueryReplace } from "@/lib/use-query-replace";
 import { cn } from "@/lib/utils";
+import { cancelFutureWeeklyOrders } from "@/lib/weekly-automation";
 
 type MobileView = "list" | "detail";
 type AlertFilter = "todo" | "done" | "all";
@@ -89,6 +90,7 @@ function mapAlert(
 
   return {
     orderId: id,
+    uid: typeof data.uid === "string" ? data.uid : undefined,
     trackKey: typeof data.trackKey === "string" ? data.trackKey : undefined,
     name: String(contact.name ?? ""),
     phone: String(contact.phone ?? ""),
@@ -134,7 +136,6 @@ export function AdminAlertsPanel({
   const [error, setError] = useState("");
   const [okMsg, setOkMsg] = useState("");
   const [queryText, setQueryText] = useState("");
-  const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
   const [expandedAddressId, setExpandedAddressId] = useState<string | null>(
     null
   );
@@ -245,8 +246,11 @@ export function AdminAlertsPanel({
   }
 
   async function cancelAlertOrder(alert: PickupReminderAlert) {
+    const weeklyNote = alert.weekly
+      ? "\n\nThis also turns OFF weekly automation for this customer — future auto pickups and the 10% weekly discount will stop."
+      : "";
     const ok = window.confirm(
-      `Cancel this pickup for ${alert.name || "the customer"}?\n\n${formatAlertDate(alert.pickupDate)} · ${formatSlotShort(alert.pickupSlot)}\n\nOnly do this if you spoke with the customer and they want to cancel.`
+      `Cancel this pickup for ${alert.name || "the customer"}?\n\n${formatAlertDate(alert.pickupDate)} · ${formatSlotShort(alert.pickupSlot)}${weeklyNote}\n\nOnly continue if you spoke with the customer and they asked to cancel.`
     );
     if (!ok) return;
 
@@ -256,7 +260,8 @@ export function AdminAlertsPanel({
       const db = getFirebaseDb();
       await updateDoc(doc(db, "orders", alert.orderId), {
         status: "cancelled",
-        cancelReason: "Cancelled after reminder call — customer requested cancel",
+        cancelReason:
+          "Cancelled after reminder call — customer requested cancel",
         statusUpdatedAt: serverTimestamp(),
         opsReminder: {
           contacted: true,
@@ -275,7 +280,37 @@ export function AdminAlertsPanel({
           /* track update best-effort */
         }
       }
-      setOkMsg("Order cancelled.");
+
+      let weeklyStopped = false;
+      let futureCancelled = 0;
+      if (alert.weekly && alert.uid) {
+        try {
+          await updateDoc(doc(db, "users", alert.uid), {
+            weeklyRepeatEnabled: false,
+            updatedAt: serverTimestamp(),
+          });
+          weeklyStopped = true;
+        } catch {
+          /* profile update best-effort; still try future cancels */
+        }
+        try {
+          const result = await cancelFutureWeeklyOrders(alert.uid, {
+            cancelReason:
+              "Admin cancelled after reminder call — weekly automation stopped",
+          });
+          futureCancelled = result.cancelled;
+        } catch {
+          /* future cancel best-effort after this order already cancelled */
+        }
+      }
+
+      setOkMsg(
+        weeklyStopped
+          ? futureCancelled > 1
+            ? `Order cancelled · weekly automation off · ${futureCancelled} future pickups removed · 10% off stopped.`
+            : "Order cancelled · weekly automation and 10% off stopped."
+          : "Order cancelled."
+      );
       replaceQuery({ id: null, view: null });
       onMobileViewChange("list");
     } catch (err) {
@@ -344,7 +379,6 @@ export function AdminAlertsPanel({
             ) : (
               filtered.map((row) => {
                 const addressOpen = expandedAddressId === row.orderId;
-                const menuOpen = menuOpenId === row.orderId;
                 return (
                   <div
                     key={row.orderId}
@@ -354,14 +388,10 @@ export function AdminAlertsPanel({
                       "ops-row",
                       selectedId === row.orderId && "is-active"
                     )}
-                    onClick={() => {
-                      setMenuOpenId(null);
-                      selectAlert(row.orderId);
-                    }}
+                    onClick={() => selectAlert(row.orderId)}
                     onKeyDown={(e) => {
                       if (e.key === "Enter" || e.key === " ") {
                         e.preventDefault();
-                        setMenuOpenId(null);
                         selectAlert(row.orderId);
                       }
                     }}
@@ -398,24 +428,30 @@ export function AdminAlertsPanel({
                       >
                         {row.address || "No address on file"}
                       </span>
-                      <button
-                        type="button"
-                        className={cn(
-                          "ops-row-expand",
-                          (addressOpen || menuOpen) && "is-open"
-                        )}
-                        aria-label="More options"
-                        aria-expanded={menuOpen || addressOpen}
-                        title="Expand address & actions"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          const closing = menuOpenId === row.orderId;
-                          setMenuOpenId(closing ? null : row.orderId);
-                          setExpandedAddressId(closing ? null : row.orderId);
-                        }}
-                      >
-                        <MoreHorizontal size={16} aria-hidden />
-                      </button>
+                      {row.address ? (
+                        <button
+                          type="button"
+                          className={cn(
+                            "ops-row-expand",
+                            addressOpen && "is-open"
+                          )}
+                          aria-label={
+                            addressOpen ? "Collapse address" : "Expand address"
+                          }
+                          aria-expanded={addressOpen}
+                          title={
+                            addressOpen ? "Collapse address" : "Expand address"
+                          }
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setExpandedAddressId(
+                              addressOpen ? null : row.orderId
+                            );
+                          }}
+                        >
+                          <MoreHorizontal size={16} aria-hidden />
+                        </button>
+                      ) : null}
                     </span>
                     <span className="ops-row-foot">
                       <span className="ops-row-ref">
@@ -429,47 +465,6 @@ export function AdminAlertsPanel({
                           : "Pickup"}
                       </span>
                     </span>
-                    {menuOpen ? (
-                      <div
-                        className="ops-row-menu"
-                        onClick={(e) => e.stopPropagation()}
-                        onKeyDown={(e) => e.stopPropagation()}
-                      >
-                        {!row.contacted ? (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setMenuOpenId(null);
-                              void markContacted(row.orderId, true);
-                            }}
-                          >
-                            <Check size={14} aria-hidden />
-                            Confirm pickup
-                          </button>
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setMenuOpenId(null);
-                              void markContacted(row.orderId, false);
-                            }}
-                          >
-                            Undo confirm
-                          </button>
-                        )}
-                        <button
-                          type="button"
-                          className="is-danger"
-                          onClick={() => {
-                            setMenuOpenId(null);
-                            void cancelAlertOrder(row);
-                          }}
-                        >
-                          <X size={14} aria-hidden />
-                          Cancel order
-                        </button>
-                      </div>
-                    ) : null}
                   </div>
                 );
               })
@@ -616,6 +611,9 @@ export function AdminAlertsPanel({
                   <p>
                     Speak with the customer, then confirm the pickup stays or
                     cancel it if they asked to cancel.
+                    {selected.weekly
+                      ? " Cancel also stops weekly automation and the 10% discount for future pickups."
+                      : ""}
                   </p>
                 )}
                 <div className="ops-action-row" style={{ marginTop: 12 }}>

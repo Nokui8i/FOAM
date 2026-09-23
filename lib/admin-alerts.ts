@@ -5,6 +5,7 @@ export const PICKUP_REMINDER_DAYS = [3, 4] as const;
 
 export type PickupReminderAlert = {
   orderId: string;
+  uid?: string;
   trackKey?: string;
   name: string;
   phone: string;

@@ -186,12 +186,15 @@ export async function ensureNextWeeklyOrder(
   return { created: true, nextDate, orderId: ref.id };
 }
 
-/** Cancel future not-yet-collected weekly pickups when the customer turns weekly off. */
+/** Cancel future not-yet-collected weekly pickups when weekly is turned off. */
 export async function cancelFutureWeeklyOrders(
-  uid: string
+  uid: string,
+  opts?: { cancelReason?: string }
 ): Promise<{ cancelled: number }> {
   const db = getFirebaseDb();
   const today = todayYmdLasVegas();
+  const cancelReason =
+    opts?.cancelReason ?? "Customer turned off weekly repeat";
   const snap = await getDocs(
     query(
       collection(db, "orders"),
@@ -216,7 +219,7 @@ export async function cancelFutureWeeklyOrders(
 
     await updateDoc(doc(db, "orders", row.id), {
       status: "cancelled",
-      cancelReason: "Customer turned off weekly repeat",
+      cancelReason,
       statusUpdatedAt: serverTimestamp(),
     });
     const trackKey =

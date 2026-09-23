@@ -424,7 +424,6 @@
   cursor: pointer;
   transition: transform .16s ease, box-shadow .16s ease;
 }
-.admin-page .ops-row:has(.ops-row-menu) { z-index: 3; }
 .admin-page .ops-row:hover { transform: translateY(-1px); box-shadow: 0 12px 25px -18px rgba(22,50,74,.55); }
 .admin-page .ops-row.is-active {
   border-color: rgba(11,142,200,.35);
@@ -498,36 +497,6 @@
   color: var(--ops-ink);
   background: color-mix(in srgb, var(--ops-navy) 8%, #fff);
 }
-.admin-page .ops-row-menu {
-  position: absolute;
-  right: 10px;
-  top: calc(100% - 6px);
-  z-index: 5;
-  min-width: 168px;
-  padding: 6px;
-  border: 1px solid var(--ops-border);
-  border-radius: 10px;
-  background: #fff;
-  box-shadow: 0 16px 32px -18px rgba(22,50,74,.55);
-}
-.admin-page .ops-row-menu button {
-  width: 100%;
-  min-height: 36px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin: 0;
-  padding: 0 10px;
-  border: 0;
-  border-radius: 7px;
-  background: transparent;
-  color: var(--ops-ink);
-  font: 700 12px/1.1 var(--ops-display);
-  cursor: pointer;
-  text-align: left;
-}
-.admin-page .ops-row-menu button:hover { background: var(--ops-wash); }
-.admin-page .ops-row-menu button.is-danger { color: var(--ops-danger); }
 .admin-page .ops-row-foot {
   width: 100%;
   display: flex;
