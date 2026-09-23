@@ -4215,6 +4215,12 @@
     color: var(--color-accent-strong);
   }
 
+  .account-order-badge.is-weekly {
+    border-color: color-mix(in oklch, #0f766e 30%, white);
+    background: #e7f6f3;
+    color: #0f766e;
+  }
+
   .account-order-body {
     margin-top: 0.85rem;
     padding-top: 0.85rem;
