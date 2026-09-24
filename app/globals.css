@@ -3698,6 +3698,9 @@
   }
 
   .book-slot {
+    display: grid;
+    gap: 0.15rem;
+    justify-items: start;
     border: 1px solid var(--color-border);
     border-radius: 0.65rem;
     background: #fff;
@@ -3705,12 +3708,25 @@
     font-size: 0.82rem;
     font-weight: 650;
     cursor: pointer;
+    text-align: left;
   }
 
   .book-slot.is-active {
     border-color: var(--color-accent-strong);
     background: var(--color-accent-strong);
     color: #fff;
+  }
+
+  .book-slot.is-disabled {
+    opacity: 0.48;
+    cursor: not-allowed;
+    background: color-mix(in oklch, var(--color-border) 35%, white);
+  }
+
+  .book-slot-meta {
+    font-size: 0.7rem;
+    font-weight: 600;
+    opacity: 0.88;
   }
 
   .book-summary {

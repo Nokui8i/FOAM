@@ -157,14 +157,14 @@ function completeWashPreferences(prefs?: Record<string, string> | null) {
 
 function DriverNotesBlock({
   accessNotes,
-  orderNotes,
+  washingNotes,
 }: {
   accessNotes?: string;
-  orderNotes?: string;
+  washingNotes?: string;
 }) {
   const access = (accessNotes ?? "").trim();
-  const order = (orderNotes ?? "").trim();
-  if (!access && !order) return null;
+  const washing = (washingNotes ?? "").trim();
+  if (!access && !washing) return null;
   return (
     <div className="ops-driver-notes">
       {access ? (
@@ -173,10 +173,10 @@ function DriverNotesBlock({
           <p>{access}</p>
         </div>
       ) : null}
-      {order ? (
+      {washing ? (
         <div className="ops-driver-note">
-          <h4>Order notes</h4>
-          <p>{order}</p>
+          <h4>Washing notes</h4>
+          <p>{washing}</p>
         </div>
       ) : null}
     </div>
@@ -1169,10 +1169,7 @@ export function AdminOrdersPanel({
           <div className="stage-copy">
             <small>NEXT MOVE</small>
             <h3>Head to the pickup</h3>
-            <DriverNotesBlock
-              accessNotes={selected.pickup.notes}
-              orderNotes={selected.orderNotes}
-            />
+            <DriverNotesBlock accessNotes={selected.pickup.notes} />
             <div className="stage-actions">
               <a
                 className="secondary-action"
@@ -1245,10 +1242,7 @@ export function AdminOrdersPanel({
               </span>
             ) : null}
           </div>
-          <DriverNotesBlock
-            accessNotes={selected.pickup.notes}
-            orderNotes={selected.orderNotes}
-          />
+          <DriverNotesBlock accessNotes={selected.pickup.notes} />
           <div className="ops-soft-grid">
             <section className="ops-soft-col" aria-label="Scale">
               <div className="ops-soft-section-head">
@@ -1919,12 +1913,11 @@ export function AdminOrdersPanel({
         ? washPreferenceRows(selected.preferences)
         : [];
       const notes = (selected.orderNotes ?? "").trim();
-      const access = (selected.pickup.notes ?? "").trim();
       return (
         <section
           className={cn(
             "stage locked-stage",
-            (showPrefs || notes || access) && "has-prefs"
+            (showPrefs || notes) && "has-prefs"
           )}
         >
           <div className="lock-illustration" aria-hidden>
@@ -1958,7 +1951,7 @@ export function AdminOrdersPanel({
               <ArrowRight size={16} />
             </Button>
           </div>
-          {showPrefs || notes || access ? (
+          {showPrefs || notes ? (
             <div className="ops-wash-prefs">
               {showPrefs ? (
                 <>
@@ -1973,11 +1966,8 @@ export function AdminOrdersPanel({
                   </dl>
                 </>
               ) : null}
-              {access || notes ? (
-                <DriverNotesBlock
-                  accessNotes={access}
-                  orderNotes={notes}
-                />
+              {notes ? (
+                <DriverNotesBlock washingNotes={notes} />
               ) : null}
             </div>
           ) : null}
@@ -2315,8 +2305,12 @@ export function AdminOrdersPanel({
                     <span>{formatOrderAddress(selected)}</span>
                   </p>
                   <DriverNotesBlock
-                    accessNotes={selected.pickup.notes}
-                    orderNotes={selected.orderNotes}
+                    accessNotes={
+                      stage === 0 ? selected.pickup.notes : undefined
+                    }
+                    washingNotes={
+                      stage >= 1 ? selected.orderNotes : undefined
+                    }
                   />
                   <div className="ops-detail-meta">
                     <span>

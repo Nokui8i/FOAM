@@ -31,6 +31,7 @@ import { BUSINESS_WHATSAPP } from "@/lib/site-config";
 import { useQueryReplace } from "@/lib/use-query-replace";
 import { cn } from "@/lib/utils";
 import { cancelFutureWeeklyOrders } from "@/lib/weekly-automation";
+import { releasePickupSlot } from "@/lib/pickup-availability";
 
 type MobileView = "list" | "detail";
 type AlertFilter = "todo" | "done" | "all";
@@ -278,6 +279,7 @@ export function AdminAlertsPanel({
           outcome: "cancelled",
         },
       });
+      await releasePickupSlot(alert.pickupDate, alert.pickupSlot);
       if (alert.trackKey) {
         try {
           await updateDoc(doc(db, "orderTracks", alert.trackKey), {

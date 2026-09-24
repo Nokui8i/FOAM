@@ -22,6 +22,10 @@ import {
   makeTrackKey,
 } from "@/lib/order-tracking";
 import type { FoamOrder } from "@/lib/orders";
+import {
+  releasePickupSlot,
+  reservePickupSlot,
+} from "@/lib/pickup-availability";
 import { getUserProfile } from "@/lib/user-profile";
 
 /** Add calendar days to a YYYY-MM-DD string (UTC noon to avoid DST edge cases). */
@@ -154,6 +158,11 @@ export async function ensureNextWeeklyOrder(
   };
 
   const ref = await addDoc(collection(db, "orders"), payload);
+  try {
+    await reservePickupSlot(nextDate, source.pickup.slot);
+  } catch {
+    /* capacity soft — still keep the weekly order */
+  }
   await setDoc(doc(db, "orderTracks", trackKey), {
     ...buildOrderTrackDoc({
       orderId: ref.id,
@@ -222,6 +231,10 @@ export async function cancelFutureWeeklyOrders(
       cancelReason,
       statusUpdatedAt: serverTimestamp(),
     });
+    const pickupSlot = String(
+      (data.pickup as { slot?: string } | undefined)?.slot ?? ""
+    );
+    await releasePickupSlot(date, pickupSlot);
     const trackKey =
       typeof data.trackKey === "string" ? data.trackKey : null;
     if (trackKey) {

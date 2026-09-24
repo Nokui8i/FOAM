@@ -40,6 +40,7 @@ import {
   TIME_SLOTS,
   TIP_PRESETS,
   WASH_TEMP_BOOKING_OPTIONS,
+  SLOT_CAPACITY,
   clearBookingDraft,
   draftFromProfile,
   earliestPickupDate,
@@ -47,6 +48,7 @@ import {
   formatPickupDate,
   hasService,
   isPickupDateAllowed,
+  isPickupSlotStillOpen,
   latestPickupDate,
   loadBookingDraft,
   nextPickupDates,
@@ -59,6 +61,12 @@ import {
   type BookingDraft,
   type BookingStep,
 } from "@/lib/booking";
+import {
+  releasePickupSlot,
+  reservePickupSlot,
+  subscribePickupSlotCounts,
+  type SlotCounts,
+} from "@/lib/pickup-availability";
 import {
   LAS_VEGAS_CITY,
   hasHouseNumber,
@@ -130,6 +138,12 @@ function BookingAppInner() {
   const [repeatDiscountEligible, setRepeatDiscountEligible] = useState(false);
   const [guestGateOpen, setGuestGateOpen] = useState(false);
   const [draftHydrated, setDraftHydrated] = useState(false);
+  const [slotCounts, setSlotCounts] = useState<SlotCounts>({
+    "7am - 10am": 0,
+    "10am - 1pm": 0,
+    "1pm - 4pm": 0,
+    "4pm - 7pm": 0,
+  });
   const dates = useMemo(() => nextPickupDates(7), []);
   const estimate = useMemo(
     () =>
@@ -168,6 +182,22 @@ function BookingAppInner() {
       setDraft((d) => ({ ...d, pickupDate: dates[0] }));
     }
   }, [dates, draft.pickupDate]);
+
+  useEffect(() => {
+    if (!draft.pickupDate) return;
+    return subscribePickupSlotCounts(draft.pickupDate, setSlotCounts);
+  }, [draft.pickupDate]);
+
+  useEffect(() => {
+    if (!draft.pickupDate || !draft.pickupSlot) return;
+    if (slotIsBookable(draft.pickupDate, draft.pickupSlot, slotCounts)) return;
+    const next = TIME_SLOTS.find((slot) =>
+      slotIsBookable(draft.pickupDate, slot, slotCounts)
+    );
+    if (next && next !== draft.pickupSlot) {
+      setDraft((d) => ({ ...d, pickupSlot: next }));
+    }
+  }, [draft.pickupDate, draft.pickupSlot, slotCounts]);
 
   useEffect(() => {
     if (!ready || !user || !draftHydrated) return;
@@ -245,6 +275,10 @@ function BookingAppInner() {
         setError("Choose a pickup day and time.");
         return;
       }
+      if (!slotIsBookable(draft.pickupDate, draft.pickupSlot, slotCounts)) {
+        setError("That time window is closed or full. Pick another.");
+        return;
+      }
       setStep("address");
       return;
     }
@@ -320,6 +354,11 @@ function BookingAppInner() {
     setBusy(true);
     setError("");
     try {
+      if (!slotIsBookable(draft.pickupDate, draft.pickupSlot, slotCounts)) {
+        throw new Error("That time window is closed or full. Pick another.");
+      }
+      await reservePickupSlot(draft.pickupDate, draft.pickupSlot);
+
       const wantsRepeat = draft.repeatPickup;
       const repeatActive = Boolean(user) && wantsRepeat;
       const pricing = pricingForOrder({ weeklyAutomation: repeatActive });
@@ -378,7 +417,13 @@ function BookingAppInner() {
         createdAt: serverTimestamp(),
       };
 
-      const ref = await addDoc(collection(getFirebaseDb(), "orders"), payload);
+      let ref;
+      try {
+        ref = await addDoc(collection(getFirebaseDb(), "orders"), payload);
+      } catch (err) {
+        await releasePickupSlot(draft.pickupDate, draft.pickupSlot);
+        throw err;
+      }
 
       await setDoc(doc(getFirebaseDb(), "orderTracks", trackKey), {
         ...buildOrderTrackDoc({
@@ -660,19 +705,42 @@ function BookingAppInner() {
             <section className="book-block">
               <h2 className="book-block-title">Time window</h2>
               <div className="book-slots">
-                {TIME_SLOTS.map((slot) => (
-                  <button
-                    key={slot}
-                    type="button"
-                    onClick={() => patch({ pickupSlot: slot })}
-                    className={cn(
-                      "book-slot",
-                      draft.pickupSlot === slot && "is-active"
-                    )}
-                  >
-                    {slot}
-                  </button>
-                ))}
+                {TIME_SLOTS.map((slot) => {
+                  const open = slotIsBookable(
+                    draft.pickupDate,
+                    slot,
+                    slotCounts
+                  );
+                  const count = slotCounts[slot] ?? 0;
+                  const full = count >= SLOT_CAPACITY;
+                  const past =
+                    Boolean(draft.pickupDate) &&
+                    !isPickupSlotStillOpen(draft.pickupDate, slot);
+                  return (
+                    <button
+                      key={slot}
+                      type="button"
+                      disabled={!open}
+                      onClick={() => patch({ pickupSlot: slot })}
+                      className={cn(
+                        "book-slot",
+                        draft.pickupSlot === slot && open && "is-active",
+                        !open && "is-disabled"
+                      )}
+                    >
+                      <span>{slot}</span>
+                      {!open ? (
+                        <span className="book-slot-meta">
+                          {past ? "Passed" : full ? "Full" : "Unavailable"}
+                        </span>
+                      ) : count > 0 ? (
+                        <span className="book-slot-meta">
+                          {SLOT_CAPACITY - count} left
+                        </span>
+                      ) : null}
+                    </button>
+                  );
+                })}
               </div>
             </section>
 
@@ -854,7 +922,7 @@ function BookingAppInner() {
               </p>
             </div>
 
-            <Field label="Notes for this order">
+            <Field label="Washing notes">
               <input
                 className={fieldClass}
                 placeholder="Stains, mud, delicate items…"
@@ -1268,6 +1336,17 @@ function OptionSheet({
       </div>
     </div>
   );
+}
+
+function slotIsBookable(
+  dateIso: string,
+  slot: string,
+  counts: SlotCounts
+) {
+  if (!dateIso || !slot) return false;
+  if (!isPickupSlotStillOpen(dateIso, slot)) return false;
+  if ((counts[slot as keyof SlotCounts] ?? 0) >= SLOT_CAPACITY) return false;
+  return true;
 }
 
 function PickupCalendar({

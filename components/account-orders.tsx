@@ -27,6 +27,7 @@ import {
   type OrderStatus,
 } from "@/lib/orders";
 import { orderRefFromId, trackPath } from "@/lib/order-tracking";
+import { releasePickupSlot } from "@/lib/pickup-availability";
 import { BOOKING_PATH } from "@/lib/site-config";
 import { cn } from "@/lib/utils";
 
@@ -126,6 +127,7 @@ export function AccountOrders({ uid }: { uid: string }) {
         cancelReason: "Cancelled by customer from account",
         statusUpdatedAt: serverTimestamp(),
       });
+      await releasePickupSlot(order.pickupDate, order.pickupSlot);
       if (order.trackKey) {
         try {
           await updateDoc(doc(db, "orderTracks", order.trackKey), {

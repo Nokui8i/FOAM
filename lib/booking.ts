@@ -35,6 +35,18 @@ export const DRYER_HEAT_OPTIONS = ["Low", "Regular", "Air-Fluff"] as const;
 
 export const TIP_PRESETS = [0, 3, 5, 10] as const;
 export const TIME_SLOTS = ["7am - 10am", "10am - 1pm", "1pm - 4pm", "4pm - 7pm"] as const;
+export type TimeSlot = (typeof TIME_SLOTS)[number];
+
+/** Max active pickups per date + time window. */
+export const SLOT_CAPACITY = 5;
+
+/** Slot closes once this Las Vegas clock time is reached (end of window). */
+export const TIME_SLOT_END_MINUTES: Record<TimeSlot, number> = {
+  "7am - 10am": 10 * 60,
+  "10am - 1pm": 13 * 60,
+  "1pm - 4pm": 16 * 60,
+  "4pm - 7pm": 19 * 60,
+};
 
 export const MIN_ORDER_USD = 50;
 export const DELIVERY_FEE_USD = 5;
@@ -281,12 +293,31 @@ export function toIsoDate(d: Date) {
   return `${y}-${m}-${day}`;
 }
 
-/** Earliest bookable day (tomorrow). */
+/** Today in Las Vegas (service city), YYYY-MM-DD. */
+export function bookingTodayIso(now = new Date()): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Los_Angeles",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(now);
+}
+
+function lasVegasMinutesNow(now = new Date()): number {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/Los_Angeles",
+    hour: "numeric",
+    minute: "numeric",
+    hourCycle: "h23",
+  }).formatToParts(now);
+  const hour = Number(parts.find((p) => p.type === "hour")?.value ?? 0);
+  const minute = Number(parts.find((p) => p.type === "minute")?.value ?? 0);
+  return hour * 60 + minute;
+}
+
+/** Earliest bookable day (today in Las Vegas). */
 export function earliestPickupDate() {
-  const d = new Date();
-  d.setHours(12, 0, 0, 0);
-  d.setDate(d.getDate() + 1);
-  return d;
+  return new Date(`${bookingTodayIso()}T12:00:00`);
 }
 
 /** Latest bookable day (~6 weeks out). */
@@ -302,6 +333,17 @@ export function isPickupDateAllowed(iso: string) {
   const min = earliestPickupDate();
   const max = latestPickupDate();
   return d >= min && d <= max;
+}
+
+/** True when this date+slot is still open by clock (ignores capacity). */
+export function isPickupSlotStillOpen(dateIso: string, slot: string, now = new Date()) {
+  if (!isPickupDateAllowed(dateIso)) return false;
+  if (!(TIME_SLOTS as readonly string[]).includes(slot)) return false;
+  const today = bookingTodayIso(now);
+  if (dateIso > today) return true;
+  if (dateIso < today) return false;
+  const end = TIME_SLOT_END_MINUTES[slot as TimeSlot];
+  return lasVegasMinutesNow(now) < end;
 }
 
 export function nextPickupDates(count = 7): string[] {
