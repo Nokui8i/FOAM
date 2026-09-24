@@ -21,10 +21,10 @@ import {
   ClipboardList,
   Clock,
   LockKeyhole,
+  Mail,
   MapPin,
   MessageCircle,
   Minus,
-  MoreHorizontal,
   PackageCheck,
   Phone,
   Plus,
@@ -44,7 +44,9 @@ import {
   RATE_WEEKLY_PER_LB_USD,
 } from "@/lib/booking";
 import {
-  DRY_CLEAN_CATALOG,
+  DRY_CLEAN_CATALOG_DEFAULT,
+  saveDryCleanCatalog,
+  subscribeDryCleanCatalog,
   type DryCleanCatalogItem,
 } from "@/lib/dry-clean-catalog";
 import { getFirebaseDb } from "@/lib/firebase";
@@ -151,6 +153,34 @@ function completeWashPreferences(prefs?: Record<string, string> | null) {
     if (value !== String(prefs?.[key] ?? "").trim()) changed = true;
   }
   return { next, changed };
+}
+
+function DriverNotesBlock({
+  accessNotes,
+  orderNotes,
+}: {
+  accessNotes?: string;
+  orderNotes?: string;
+}) {
+  const access = (accessNotes ?? "").trim();
+  const order = (orderNotes ?? "").trim();
+  if (!access && !order) return null;
+  return (
+    <div className="ops-driver-notes">
+      {access ? (
+        <div className="ops-driver-note">
+          <h4>Access notes</h4>
+          <p>{access}</p>
+        </div>
+      ) : null}
+      {order ? (
+        <div className="ops-driver-note">
+          <h4>Order notes</h4>
+          <p>{order}</p>
+        </div>
+      ) : null}
+    </div>
+  );
 }
 
 const FILTER_IDS = new Set<string>(FILTERS.map((f) => f.id));
@@ -349,6 +379,14 @@ export function AdminOrdersPanel({
   const [dryItems, setDryItems] = useState<DryCleanItem[]>([]);
   const [dryQuery, setDryQuery] = useState("");
   const [openCatalog, setOpenCatalog] = useState(false);
+  const [catalogMode, setCatalogMode] = useState<"add" | "edit">("add");
+  const [catalog, setCatalog] = useState<DryCleanCatalogItem[]>(
+    DRY_CLEAN_CATALOG_DEFAULT
+  );
+  const [catalogDraft, setCatalogDraft] = useState<DryCleanCatalogItem[]>([]);
+  const [catalogSaving, setCatalogSaving] = useState(false);
+  const [newCatalogName, setNewCatalogName] = useState("");
+  const [newCatalogPrice, setNewCatalogPrice] = useState("");
   const [saving, setSaving] = useState(false);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const catalogRef = useRef<HTMLDivElement>(null);
@@ -382,6 +420,10 @@ export function AdminOrdersPanel({
       view: null,
     });
   }
+
+  useEffect(() => {
+    return subscribeDryCleanCatalog(setCatalog);
+  }, []);
 
   useEffect(() => {
     if (!openCatalog) return;
@@ -693,11 +735,37 @@ export function AdminOrdersPanel({
 
   const dryMatches = useMemo(() => {
     const q = dryQuery.trim().toLowerCase();
-    if (!q) return DRY_CLEAN_CATALOG;
-    return DRY_CLEAN_CATALOG.filter((item) =>
+    if (!q) return catalog;
+    return catalog.filter((item) =>
       item.name.toLowerCase().includes(q)
     );
-  }, [dryQuery]);
+  }, [dryQuery, catalog]);
+
+  function openDryCatalog(mode: "add" | "edit" = "add") {
+    setCatalogMode(mode);
+    setDryQuery("");
+    setCatalogDraft(catalog.map((item) => ({ ...item })));
+    setNewCatalogName("");
+    setNewCatalogPrice("");
+    setOpenCatalog(true);
+  }
+
+  async function persistCatalogDraft() {
+    setCatalogSaving(true);
+    setError("");
+    try {
+      const saved = await saveDryCleanCatalog(catalogDraft, adminEmail);
+      setCatalog(saved);
+      setOkMsg("Dry clean catalog saved.");
+      setCatalogMode("add");
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Could not save catalog."
+      );
+    } finally {
+      setCatalogSaving(false);
+    }
+  }
 
   function setDryItemQty(item: DryCleanCatalogItem, qty: number) {
     const nextQty = Math.max(0, Math.floor(qty));
@@ -1101,6 +1169,10 @@ export function AdminOrdersPanel({
           <div className="stage-copy">
             <small>NEXT MOVE</small>
             <h3>Head to the pickup</h3>
+            <DriverNotesBlock
+              accessNotes={selected.pickup.notes}
+              orderNotes={selected.orderNotes}
+            />
             <div className="stage-actions">
               <a
                 className="secondary-action"
@@ -1173,6 +1245,10 @@ export function AdminOrdersPanel({
               </span>
             ) : null}
           </div>
+          <DriverNotesBlock
+            accessNotes={selected.pickup.notes}
+            orderNotes={selected.orderNotes}
+          />
           <div className="ops-soft-grid">
             <section className="ops-soft-col" aria-label="Scale">
               <div className="ops-soft-section-head">
@@ -1273,14 +1349,23 @@ export function AdminOrdersPanel({
                 <h3>Dry cleaning catalog</h3>
               </div>
 
-              <button
-                type="button"
-                className="ops-soft-add"
-                onClick={() => setOpenCatalog(true)}
-              >
-                <Plus size={16} aria-hidden />
-                Add more items
-              </button>
+              <div className="ops-soft-catalog-actions">
+                <button
+                  type="button"
+                  className="ops-soft-add"
+                  onClick={() => openDryCatalog("add")}
+                >
+                  <Plus size={16} aria-hidden />
+                  Add more items
+                </button>
+                <button
+                  type="button"
+                  className="ops-soft-add is-secondary"
+                  onClick={() => openDryCatalog("edit")}
+                >
+                  Edit catalog
+                </button>
+              </div>
 
               {selected.services.dryCleaning && dryItems.length === 0 ? (
                 <p className="ops-dry-warn" role="status">
@@ -1356,7 +1441,11 @@ export function AdminOrdersPanel({
                           onClick={(e) => e.stopPropagation()}
                         >
                           <div className="ops-catalog-modal-head">
-                            <h4>Add dry clean items</h4>
+                            <h4>
+                              {catalogMode === "edit"
+                                ? "Edit dry clean catalog"
+                                : "Add dry clean items"}
+                            </h4>
                             <button
                               type="button"
                               className="ops-catalog-modal-close"
@@ -1366,6 +1455,35 @@ export function AdminOrdersPanel({
                               <X size={16} />
                             </button>
                           </div>
+                          <div className="ops-catalog-mode-row">
+                            <button
+                              type="button"
+                              className={cn(
+                                "ops-catalog-mode-btn",
+                                catalogMode === "add" && "is-active"
+                              )}
+                              onClick={() => setCatalogMode("add")}
+                            >
+                              Add to order
+                            </button>
+                            <button
+                              type="button"
+                              className={cn(
+                                "ops-catalog-mode-btn",
+                                catalogMode === "edit" && "is-active"
+                              )}
+                              onClick={() => {
+                                setCatalogMode("edit");
+                                setCatalogDraft(
+                                  catalog.map((item) => ({ ...item }))
+                                );
+                              }}
+                            >
+                              Edit prices
+                            </button>
+                          </div>
+                          {catalogMode === "add" ? (
+                            <>
                           <label className="ops-search is-compact">
                             <Search size={14} aria-hidden />
                             <input
@@ -1442,6 +1560,145 @@ export function AdminOrdersPanel({
                           >
                             Done
                           </button>
+                            </>
+                          ) : (
+                            <>
+                              <div className="ops-catalog-edit-add">
+                                <input
+                                  value={newCatalogName}
+                                  onChange={(e) =>
+                                    setNewCatalogName(e.target.value)
+                                  }
+                                  placeholder="Item name"
+                                  aria-label="New item name"
+                                />
+                                <input
+                                  type="number"
+                                  min={0}
+                                  step={0.05}
+                                  value={newCatalogPrice}
+                                  onChange={(e) =>
+                                    setNewCatalogPrice(e.target.value)
+                                  }
+                                  placeholder="Price"
+                                  aria-label="New item price"
+                                />
+                                <button
+                                  type="button"
+                                  className="ops-catalog-mode-btn is-active"
+                                  onClick={() => {
+                                    const name = newCatalogName.trim();
+                                    const price = Number(newCatalogPrice);
+                                    if (!name || !Number.isFinite(price) || price < 0) {
+                                      setError("Enter a name and valid price.");
+                                      return;
+                                    }
+                                    setCatalogDraft((current) => {
+                                      const without = current.filter(
+                                        (row) =>
+                                          row.name.toLowerCase() !==
+                                          name.toLowerCase()
+                                      );
+                                      return [
+                                        ...without,
+                                        {
+                                          name,
+                                          price: Math.round(price * 100) / 100,
+                                        },
+                                      ].sort((a, b) =>
+                                        a.name.localeCompare(b.name)
+                                      );
+                                    });
+                                    setNewCatalogName("");
+                                    setNewCatalogPrice("");
+                                    setError("");
+                                  }}
+                                >
+                                  Add
+                                </button>
+                              </div>
+                              <div className="ops-catalog-list is-edit">
+                                {catalogDraft.map((item, index) => (
+                                  <div
+                                    key={`${item.name}-${index}`}
+                                    className="ops-catalog-item is-edit"
+                                  >
+                                    <input
+                                      className="ops-catalog-edit-name"
+                                      value={item.name}
+                                      onChange={(e) => {
+                                        const name = e.target.value;
+                                        setCatalogDraft((current) =>
+                                          current.map((row, i) =>
+                                            i === index ? { ...row, name } : row
+                                          )
+                                        );
+                                      }}
+                                      aria-label="Item name"
+                                    />
+                                    <input
+                                      className="ops-catalog-edit-price"
+                                      type="number"
+                                      min={0}
+                                      step={0.05}
+                                      value={item.price}
+                                      onChange={(e) => {
+                                        const price = Number(e.target.value);
+                                        setCatalogDraft((current) =>
+                                          current.map((row, i) =>
+                                            i === index
+                                              ? {
+                                                  ...row,
+                                                  price: Number.isFinite(price)
+                                                    ? price
+                                                    : 0,
+                                                }
+                                              : row
+                                          )
+                                        );
+                                      }}
+                                      aria-label={`${item.name} price`}
+                                    />
+                                    <button
+                                      type="button"
+                                      className="ops-soft-thumb-remove"
+                                      aria-label={`Remove ${item.name}`}
+                                      onClick={() =>
+                                        setCatalogDraft((current) =>
+                                          current.filter((_, i) => i !== index)
+                                        )
+                                      }
+                                    >
+                                      <X size={12} />
+                                    </button>
+                                  </div>
+                                ))}
+                              </div>
+                              <div className="ops-catalog-edit-actions">
+                                <button
+                                  type="button"
+                                  className="ops-catalog-modal-done is-secondary"
+                                  disabled={catalogSaving}
+                                  onClick={() => {
+                                    setCatalogDraft(
+                                      catalog.map((item) => ({ ...item }))
+                                    );
+                                    setCatalogMode("add");
+                                  }}
+                                >
+                                  Cancel
+                                </button>
+                                <button
+                                  type="button"
+                                  className="ops-catalog-modal-done"
+                                  disabled={catalogSaving}
+                                  onClick={() => void persistCatalogDraft()}
+                                >
+                                  {catalogSaving ? "Saving…" : "Save catalog"}
+                                </button>
+                              </div>
+                            </>
+                          )}
                         </div>
                       </div>
                     </div>,
@@ -1662,11 +1919,12 @@ export function AdminOrdersPanel({
         ? washPreferenceRows(selected.preferences)
         : [];
       const notes = (selected.orderNotes ?? "").trim();
+      const access = (selected.pickup.notes ?? "").trim();
       return (
         <section
           className={cn(
             "stage locked-stage",
-            (showPrefs || notes) && "has-prefs"
+            (showPrefs || notes || access) && "has-prefs"
           )}
         >
           <div className="lock-illustration" aria-hidden>
@@ -1700,7 +1958,7 @@ export function AdminOrdersPanel({
               <ArrowRight size={16} />
             </Button>
           </div>
-          {showPrefs || notes ? (
+          {showPrefs || notes || access ? (
             <div className="ops-wash-prefs">
               {showPrefs ? (
                 <>
@@ -1715,11 +1973,11 @@ export function AdminOrdersPanel({
                   </dl>
                 </>
               ) : null}
-              {notes ? (
-                <div className="ops-order-notes">
-                  <h4>Order notes</h4>
-                  <p>{notes}</p>
-                </div>
+              {access || notes ? (
+                <DriverNotesBlock
+                  accessNotes={access}
+                  orderNotes={notes}
+                />
               ) : null}
             </div>
           ) : null}
@@ -2044,10 +2302,22 @@ export function AdminOrdersPanel({
                     <span>{orderDisplayId(selected.id)}</span>
                   </p>
                   <h2 className="ops-detail-title">{selected.contact.name}</h2>
+                  {selected.contact.email ? (
+                    <p className="ops-detail-email">
+                      <Mail size={14} aria-hidden />
+                      <a href={`mailto:${selected.contact.email}`}>
+                        {selected.contact.email}
+                      </a>
+                    </p>
+                  ) : null}
                   <p className="ops-detail-address">
                     <MapPin size={16} aria-hidden />
                     <span>{formatOrderAddress(selected)}</span>
                   </p>
+                  <DriverNotesBlock
+                    accessNotes={selected.pickup.notes}
+                    orderNotes={selected.orderNotes}
+                  />
                   <div className="ops-detail-meta">
                     <span>
                       <CalendarDays size={14} aria-hidden />
@@ -2101,18 +2371,6 @@ export function AdminOrdersPanel({
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src="/ops-icon-maps.png" alt="" width={22} height={22} />
                   </a>
-                  <button
-                    type="button"
-                    className="ops-action-btn is-icon"
-                    aria-label="More"
-                    title={
-                      selected.pickup.notes
-                        ? `Access: ${selected.pickup.notes}`
-                        : "More"
-                    }
-                  >
-                    <MoreHorizontal size={18} aria-hidden />
-                  </button>
                 </div>
               </div>
             </div>

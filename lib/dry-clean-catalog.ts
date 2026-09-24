@@ -1,13 +1,23 @@
+import {
+  doc,
+  getDoc,
+  onSnapshot,
+  setDoc,
+  serverTimestamp,
+} from "firebase/firestore";
+
+import { getFirebaseDb } from "@/lib/firebase";
+
 export type DryCleanCatalogItem = {
   name: string;
   price: number;
 };
 
 /**
- * Flat catalog matching the public dry-cleaning price list.
- * Prices are per item (or per each where noted in the name).
+ * Default flat catalog matching the public dry-cleaning price list.
+ * Live Ops catalog is stored in Firestore `config/dryCleanCatalog`.
  */
-export const DRY_CLEAN_CATALOG: DryCleanCatalogItem[] = [
+export const DRY_CLEAN_CATALOG_DEFAULT: DryCleanCatalogItem[] = [
   // Tops
   { name: "Blouse", price: 6.55 },
   { name: "Blouse (linen)", price: 7.55 },
@@ -67,3 +77,62 @@ export const DRY_CLEAN_CATALOG: DryCleanCatalogItem[] = [
   { name: "Pillowcase (each)", price: 5.0 },
   { name: "Top/Bottom Sheet", price: 15.0 },
 ];
+
+/** @deprecated Prefer DRY_CLEAN_CATALOG_DEFAULT or live Firestore catalog. */
+export const DRY_CLEAN_CATALOG = DRY_CLEAN_CATALOG_DEFAULT;
+
+export const DRY_CLEAN_CATALOG_DOC = "config/dryCleanCatalog";
+
+function normalizeItems(raw: unknown): DryCleanCatalogItem[] | null {
+  if (!Array.isArray(raw) || raw.length === 0) return null;
+  const items: DryCleanCatalogItem[] = [];
+  for (const row of raw) {
+    if (!row || typeof row !== "object") continue;
+    const name = String((row as { name?: unknown }).name ?? "").trim();
+    const price = Number((row as { price?: unknown }).price);
+    if (!name || !Number.isFinite(price) || price < 0) continue;
+    items.push({ name, price: Math.round(price * 100) / 100 });
+  }
+  return items.length ? items : null;
+}
+
+export function subscribeDryCleanCatalog(
+  onChange: (items: DryCleanCatalogItem[]) => void
+) {
+  const ref = doc(getFirebaseDb(), "config", "dryCleanCatalog");
+  return onSnapshot(
+    ref,
+    (snap) => {
+      const items = normalizeItems(snap.data()?.items);
+      onChange(items ?? DRY_CLEAN_CATALOG_DEFAULT);
+    },
+    () => onChange(DRY_CLEAN_CATALOG_DEFAULT)
+  );
+}
+
+export async function loadDryCleanCatalog() {
+  try {
+    const snap = await getDoc(doc(getFirebaseDb(), "config", "dryCleanCatalog"));
+    return normalizeItems(snap.data()?.items) ?? DRY_CLEAN_CATALOG_DEFAULT;
+  } catch {
+    return DRY_CLEAN_CATALOG_DEFAULT;
+  }
+}
+
+export async function saveDryCleanCatalog(
+  items: DryCleanCatalogItem[],
+  updatedBy: string
+) {
+  const cleaned = normalizeItems(items);
+  if (!cleaned) throw new Error("Catalog needs at least one valid item.");
+  await setDoc(
+    doc(getFirebaseDb(), "config", "dryCleanCatalog"),
+    {
+      items: cleaned,
+      updatedAt: serverTimestamp(),
+      updatedBy: updatedBy || "admin",
+    },
+    { merge: true }
+  );
+  return cleaned;
+}

@@ -969,6 +969,118 @@
 .admin-page .ops-order-notes h4 {
   margin-bottom: 6px;
 }
+.admin-page .ops-driver-notes {
+  display: grid;
+  gap: 10px;
+  margin: 12px 0 0;
+}
+.admin-page .ops-detail-top-main > .ops-driver-notes {
+  margin-top: 10px;
+  max-width: 42rem;
+}
+.admin-page .ops-wash-prefs > .ops-driver-notes {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--ops-border);
+}
+.admin-page .ops-driver-note {
+  padding: 10px 12px;
+  border: 1px solid var(--ops-border);
+  border-radius: 10px;
+  background: #fff;
+}
+.admin-page .ops-driver-note h4 {
+  margin: 0 0 4px;
+  color: var(--ops-ink);
+  font-size: 15px;
+  font-weight: 800;
+  line-height: 1.2;
+}
+.admin-page .ops-driver-note p {
+  margin: 0;
+  color: color-mix(in srgb, var(--ops-ink) 78%, var(--ops-muted));
+  font-size: 15px;
+  font-weight: 650;
+  line-height: 1.4;
+}
+.admin-page .ops-detail-email {
+  margin: 4px 0 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--ops-muted);
+  font-size: 13px;
+  font-weight: 650;
+}
+.admin-page .ops-detail-email a {
+  color: var(--ops-primary);
+  text-decoration: none;
+}
+.admin-page .ops-detail-email a:hover { text-decoration: underline; }
+.admin-page .ops-soft-catalog-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.admin-page .ops-soft-add.is-secondary {
+  color: var(--ops-ink);
+  background: #fff;
+  border: 1px solid var(--ops-border);
+}
+.admin-page .ops-catalog-mode-row {
+  display: flex;
+  gap: 8px;
+  margin: 0 0 10px;
+}
+.admin-page .ops-catalog-mode-btn {
+  min-height: 34px;
+  padding: 0 12px;
+  border: 1px solid var(--ops-border);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--ops-ink);
+  font-size: 13px;
+  font-weight: 750;
+  cursor: pointer;
+}
+.admin-page .ops-catalog-mode-btn.is-active {
+  color: #fff;
+  border-color: var(--ops-primary);
+  background: var(--ops-primary);
+}
+.admin-page .ops-catalog-edit-add {
+  display: grid;
+  grid-template-columns: 1fr 88px auto;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.admin-page .ops-catalog-edit-add input,
+.admin-page .ops-catalog-item.is-edit input {
+  min-height: 34px;
+  padding: 0 10px;
+  border: 1px solid var(--ops-border);
+  border-radius: 8px;
+  background: #fff;
+  font-size: 13px;
+}
+.admin-page .ops-catalog-list.is-edit { gap: 8px; }
+.admin-page .ops-catalog-item.is-edit {
+  display: grid;
+  grid-template-columns: 1fr 88px auto;
+  align-items: center;
+  gap: 8px;
+}
+.admin-page .ops-catalog-edit-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+.admin-page .ops-catalog-modal-done.is-secondary {
+  color: var(--ops-ink);
+  background: #fff;
+  border: 1px solid var(--ops-border);
+}
 .admin-page .stage-copy small,
 .admin-page .ops-field-label {
   color: color-mix(in srgb, var(--ops-ink) 70%, var(--ops-muted));

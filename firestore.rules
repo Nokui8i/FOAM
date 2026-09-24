@@ -137,6 +137,16 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
+    match /config/{docId} {
+      allow read: if isAdmin();
+      allow write: if isAdmin()
+        && docId == 'dryCleanCatalog'
+        && request.resource.data.keys().hasAll(['items'])
+        && request.resource.data.items is list
+        && request.resource.data.items.size() > 0
+        && request.resource.data.items.size() <= 200;
+    }
+
     match /{document=**} {
       allow read, write: if false;
     }

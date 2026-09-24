@@ -4,9 +4,12 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
   collection,
+  doc,
   onSnapshot,
   orderBy,
   query,
+  serverTimestamp,
+  updateDoc,
   where,
 } from "firebase/firestore";
 import { ArrowRight, ChevronDown, PackageOpen } from "lucide-react";
@@ -72,6 +75,8 @@ export function AccountOrders({ uid }: { uid: string }) {
   const [orders, setOrders] = useState<AccountOrderRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [actionNote, setActionNote] = useState("");
+  const [busyId, setBusyId] = useState<string | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -102,6 +107,43 @@ export function AccountOrders({ uid }: { uid: string }) {
     );
   }, [uid]);
 
+  async function cancelOrder(order: AccountOrderRow) {
+    if (!isWaitingForPickup(order.status)) return;
+    const ok = window.confirm(
+      `Cancel this pickup${
+        order.pickupDate ? ` on ${formatPickupDate(order.pickupDate)}` : ""
+      }?\n\nThis cannot be undone from here.`
+    );
+    if (!ok) return;
+
+    setBusyId(order.id);
+    setError("");
+    setActionNote("");
+    try {
+      const db = getFirebaseDb();
+      await updateDoc(doc(db, "orders", order.id), {
+        status: "cancelled",
+        cancelReason: "Cancelled by customer from account",
+        statusUpdatedAt: serverTimestamp(),
+      });
+      if (order.trackKey) {
+        try {
+          await updateDoc(doc(db, "orderTracks", order.trackKey), {
+            status: "cancelled",
+            updatedAt: serverTimestamp(),
+          });
+        } catch {
+          /* track optional */
+        }
+      }
+      setActionNote("Pickup cancelled.");
+    } catch {
+      setError("Could not cancel this pickup. Try again or contact FOAM.");
+    } finally {
+      setBusyId(null);
+    }
+  }
+
   if (loading) {
     return (
       <div
@@ -115,7 +157,7 @@ export function AccountOrders({ uid }: { uid: string }) {
     );
   }
 
-  if (error) {
+  if (error && orders.length === 0) {
     return (
       <div
         id="panel-orders"
@@ -168,12 +210,19 @@ export function AccountOrders({ uid }: { uid: string }) {
         <h2 className="font-display text-lg font-semibold tracking-tight">
           Your orders
         </h2>
+        {actionNote ? (
+          <p className="mt-2 text-sm font-medium text-emerald-700">{actionNote}</p>
+        ) : null}
+        {error ? (
+          <p className="mt-2 text-sm font-medium text-destructive">{error}</p>
+        ) : null}
       </div>
 
       {orders.map((order) => {
         const open = openId === order.id;
         const active =
           isWaitingForPickup(order.status) || isInProgressOrder(order.status);
+        const canCancel = isWaitingForPickup(order.status);
         const services = [
           order.laundry
             ? `Laundry${order.bagCount > 0 ? ` (${order.bagCount})` : ""}`
@@ -233,15 +282,26 @@ export function AccountOrders({ uid }: { uid: string }) {
                   weightLbs={order.weightLbs}
                   finalTotal={order.finalTotal}
                 />
-                {order.trackKey ? (
-                  <div className="mt-4">
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {order.trackKey ? (
                     <Button variant="outline" size="sm" asChild>
                       <Link href={trackPath(order.trackKey)}>
                         Open tracking page
                       </Link>
                     </Button>
-                  </div>
-                ) : null}
+                  ) : null}
+                  {canCancel ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={busyId === order.id}
+                      onClick={() => void cancelOrder(order)}
+                    >
+                      {busyId === order.id ? "Cancelling…" : "Cancel pickup"}
+                    </Button>
+                  ) : null}
+                </div>
               </div>
             ) : null}
           </article>
