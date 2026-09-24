@@ -161,6 +161,14 @@ function parseFilter(raw: string | null, mode: OrdersMode): Filter {
   return "waiting";
 }
 
+function filterForStatus(status: OrderStatus): Filter {
+  if (isWaitingForPickup(status)) return "waiting";
+  if (isWashingOrder(status)) return "progress";
+  if (isReadyForDelivery(status)) return "ready";
+  if (isDoneOrder(status)) return "done";
+  return "all";
+}
+
 function formatPickupDate(date: string, withYear = false) {
   if (!date) return "—";
   const d = new Date(`${date}T12:00:00`);
@@ -347,12 +355,23 @@ export function AdminOrdersPanel({
   const futureWeekDays = useMemo(() => buildFutureWeekDays(), []);
   const futureWeekEnd = futureWeekDays[futureWeekDays.length - 1] ?? "";
 
-  function setFilter(next: Filter) {
-    replaceQuery({
+  function setFilter(next: Filter, opts?: { keepSelection?: boolean }) {
+    const patch: Record<string, string | null> = {
       filter: next === "waiting" ? null : next,
-      id: null,
-      view: null,
-    });
+    };
+    if (!opts?.keepSelection) {
+      patch.id = null;
+      patch.view = null;
+    }
+    replaceQuery(patch);
+  }
+
+  /** Move the list tab with the order, but keep the open card. */
+  function syncFilterToOrder(order: FoamOrder) {
+    if (mode === "future") return;
+    const next = filterForStatus(order.status);
+    if (next === filter) return;
+    setFilter(next, { keepSelection: true });
   }
 
   function setFutureDay(next: string) {
@@ -489,9 +508,18 @@ export function AdminOrdersPanel({
     futureWeekEnd,
   ]);
 
-  // Prefer URL selection; fall back to first visible row without rewriting the URL.
+  // Prefer URL selection across all rows so a status/tab change does not close the card.
   const selected =
-    filtered.find((row) => row.id === selectedId) ?? filtered[0] ?? null;
+    (selectedId ? rows.find((row) => row.id === selectedId) ?? null : null) ??
+    filtered[0] ??
+    null;
+
+  // Keep the open card visible in the list even if its tab just changed.
+  const listRows = useMemo(() => {
+    if (!selected) return filtered;
+    if (filtered.some((row) => row.id === selected.id)) return filtered;
+    return [selected, ...filtered];
+  }, [filtered, selected]);
 
   useEffect(() => {
     if (!selected) return;
@@ -621,10 +649,9 @@ export function AdminOrdersPanel({
   }
 
   async function setStatus(status: OrderStatus) {
+    if (!selected) return;
     await patchOrder({ status }, `Status → ${shortStatus(status)}`);
-    if (status === "delivered" || status === "cancelled") {
-      setFilter("all");
-    }
+    syncFilterToOrder({ ...selected, status });
   }
 
   async function goBackStage() {
@@ -939,7 +966,7 @@ export function AdminOrdersPanel({
       }
     }
 
-    setFilter("progress");
+    setFilter("progress", { keepSelection: true });
   }
 
   const previewBreakdown = useMemo(() => {
@@ -1911,7 +1938,7 @@ export function AdminOrdersPanel({
 
         <div className="ops-list-scroll">
           <div className="ops-list-card">
-            {filtered.length === 0 ? (
+            {listRows.length === 0 ? (
               <p className="ops-empty">
                 {mode === "future"
                   ? selectedFutureDay === "later"
@@ -1920,7 +1947,7 @@ export function AdminOrdersPanel({
                   : "Live orders will appear here."}
               </p>
             ) : (
-              filtered.map((row) => (
+              listRows.map((row) => (
                 <button
                   key={row.id}
                   type="button"
