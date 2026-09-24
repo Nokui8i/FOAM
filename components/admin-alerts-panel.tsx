@@ -132,6 +132,7 @@ export function AdminAlertsPanel({
 }) {
   const { searchParams, replaceQuery } = useQueryReplace();
   const [rows, setRows] = useState<PickupReminderAlert[]>([]);
+  const [listReady, setListReady] = useState(false);
   const [error, setError] = useState("");
   const [okMsg, setOkMsg] = useState("");
   const [queryText, setQueryText] = useState("");
@@ -155,9 +156,13 @@ export function AdminAlertsPanel({
         }
         next.sort(reminderSortKey);
         setRows(next);
+        setListReady(true);
         setError("");
       },
-      () => setError("Could not load pickup alerts.")
+      () => {
+        setListReady(true);
+        setError("Could not load pickup alerts.");
+      }
     );
     return () => unsub();
   }, []);
@@ -341,7 +346,7 @@ export function AdminAlertsPanel({
               <span>CUSTOMER CARE</span>
               <h1 className="ops-list-title">Alerts</h1>
             </div>
-            <b>{counts[safeFilter]}</b>
+            <b>{listReady ? counts[safeFilter] : "…"}</b>
           </div>
 
           <label className="ops-search">
@@ -369,7 +374,9 @@ export function AdminAlertsPanel({
                 onClick={() => setFilter(item.id)}
               >
                 {item.label}
-                <span className="ops-radio-count">{counts[item.id]}</span>
+                <span className="ops-radio-count">
+                  {listReady ? counts[item.id] : "…"}
+                </span>
               </button>
             ))}
           </div>
@@ -379,7 +386,17 @@ export function AdminAlertsPanel({
 
         <div className="ops-list-scroll">
           <div className="ops-list-card">
-            {filtered.length === 0 ? (
+            {!listReady ? (
+              <div className="ops-list-skeleton" aria-busy="true" aria-label="Loading alerts">
+                {[0, 1, 2].map((key) => (
+                  <div key={key} className="ops-row-skeleton">
+                    <span className="ops-skel ops-skel-title" />
+                    <span className="ops-skel ops-skel-line" />
+                    <span className="ops-skel ops-skel-line is-short" />
+                  </div>
+                ))}
+              </div>
+            ) : filtered.length === 0 ? (
               <p className="ops-empty">
                 No pickups in the 3–4 day reminder window.
               </p>

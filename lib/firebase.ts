@@ -1,6 +1,12 @@
 import { initializeApp, getApps, getApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
-import { getFirestore } from "firebase/firestore";
+import {
+  initializeFirestore,
+  getFirestore,
+  persistentLocalCache,
+  persistentMultipleTabManager,
+  type Firestore,
+} from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 
 const firebaseConfig = {
@@ -11,6 +17,8 @@ const firebaseConfig = {
   messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
+
+let dbInstance: Firestore | null = null;
 
 function assertConfig() {
   if (!firebaseConfig.apiKey || !firebaseConfig.projectId) {
@@ -28,7 +36,19 @@ export function getFirebaseAuth() {
 }
 
 export function getFirebaseDb() {
-  return getFirestore(getFirebaseApp());
+  if (dbInstance) return dbInstance;
+  const app = getFirebaseApp();
+  try {
+    // Cache locally so refresh can paint from disk before the network round-trip.
+    dbInstance = initializeFirestore(app, {
+      localCache: persistentLocalCache({
+        tabManager: persistentMultipleTabManager(),
+      }),
+    });
+  } catch {
+    dbInstance = getFirestore(app);
+  }
+  return dbInstance;
 }
 
 export function getFirebaseStorage() {

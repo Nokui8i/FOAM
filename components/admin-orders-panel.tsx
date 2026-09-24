@@ -339,6 +339,7 @@ export function AdminOrdersPanel({
 }) {
   const { searchParams, replaceQuery } = useQueryReplace();
   const [rows, setRows] = useState<FoamOrder[]>([]);
+  const [listReady, setListReady] = useState(false);
   const selectedId = searchParams.get("id");
   const filter = parseFilter(searchParams.get("filter"), mode);
   const [queryText, setQueryText] = useState("");
@@ -415,9 +416,11 @@ export function AdminOrdersPanel({
           mapOrder(item.id, item.data() as Record<string, unknown>)
         );
         setRows(next);
+        setListReady(true);
         setError("");
       },
       () => {
+        setListReady(true);
         setError("Could not load orders. Check admin permissions.");
       }
     );
@@ -1860,7 +1863,7 @@ export function AdminOrdersPanel({
                 )}
                 onClick={() => setFilter("all")}
               >
-                All {counts.all}
+                All {listReady ? counts.all : "…"}
               </button>
             ) : null}
           </div>
@@ -1885,7 +1888,7 @@ export function AdminOrdersPanel({
                   )}
                   onClick={() => setFilter(item.id)}
                 >
-                  {item.label} {counts[item.id]}
+                  {item.label} {listReady ? counts[item.id] : "…"}
                 </button>
               ))}
             </div>
@@ -1938,7 +1941,17 @@ export function AdminOrdersPanel({
 
         <div className="ops-list-scroll">
           <div className="ops-list-card">
-            {listRows.length === 0 ? (
+            {!listReady ? (
+              <div className="ops-list-skeleton" aria-busy="true" aria-label="Loading orders">
+                {[0, 1, 2].map((key) => (
+                  <div key={key} className="ops-row-skeleton">
+                    <span className="ops-skel ops-skel-title" />
+                    <span className="ops-skel ops-skel-line" />
+                    <span className="ops-skel ops-skel-line is-short" />
+                  </div>
+                ))}
+              </div>
+            ) : listRows.length === 0 ? (
               <p className="ops-empty">
                 {mode === "future"
                   ? selectedFutureDay === "later"
@@ -2001,7 +2014,13 @@ export function AdminOrdersPanel({
           mobileView === "list" && "is-hidden-mobile"
         )}
       >
-        {!selected ? (
+        {!listReady ? (
+          <div className="ops-detail-skeleton" aria-busy="true" aria-label="Loading order">
+            <span className="ops-skel ops-skel-title is-wide" />
+            <span className="ops-skel ops-skel-line is-wide" />
+            <span className="ops-skel ops-skel-block" />
+          </div>
+        ) : !selected ? (
           <p className="ops-empty ops-pad">Select an order to view details.</p>
         ) : (
           <article className="ops-detail">
