@@ -174,7 +174,7 @@ function DriverNotesBlock({
         </div>
       ) : null}
       {washing ? (
-        <div className="ops-driver-note">
+        <div className="ops-driver-note is-washing">
           <h4>Washing notes</h4>
           <p>{washing}</p>
         </div>
