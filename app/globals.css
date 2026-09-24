@@ -3578,6 +3578,10 @@
     color: var(--color-muted-foreground);
   }
 
+  .book-block.is-slots .book-block-title {
+    text-align: center;
+  }
+
   .book-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;

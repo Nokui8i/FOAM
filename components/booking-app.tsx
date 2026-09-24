@@ -702,7 +702,7 @@ function BookingAppInner() {
               ) : null}
             </section>
 
-            <section className="book-block">
+            <section className="book-block is-slots">
               <h2 className="book-block-title">Time window</h2>
               <div className="book-slots">
                 {TIME_SLOTS.map((slot) => {
