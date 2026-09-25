@@ -21,6 +21,7 @@ import {
   buildOrderTrackDoc,
   makeTrackKey,
 } from "@/lib/order-tracking";
+import { deleteOrderCompletely } from "@/lib/data-retention";
 import type { FoamOrder } from "@/lib/orders";
 import {
   releasePickupSlot,
@@ -228,26 +229,31 @@ export async function cancelFutureWeeklyOrders(
     if (!pickup.repeat) continue;
     const date = String(pickup.date ?? "");
     if (!date || date < today) continue;
-
-    await updateDoc(doc(db, "orders", row.id), {
-      status: "cancelled",
-      cancelReason,
-      statusUpdatedAt: serverTimestamp(),
-    });
     const pickupSlot = String(
       (data.pickup as { slot?: string } | undefined)?.slot ?? ""
     );
+
     await releasePickupSlot(date, pickupSlot);
-    const trackKey =
-      typeof data.trackKey === "string" ? data.trackKey : null;
-    if (trackKey) {
-      try {
-        await updateDoc(doc(db, "orderTracks", trackKey), {
-          status: "cancelled",
-          updatedAt: serverTimestamp(),
-        });
-      } catch {
-        /* track update is best-effort */
+    try {
+      await deleteOrderCompletely(row.id);
+    } catch {
+      // Fallback if delete fails: mark cancelled for immediate purge on next admin login
+      await updateDoc(doc(db, "orders", row.id), {
+        status: "cancelled",
+        cancelReason,
+        statusUpdatedAt: serverTimestamp(),
+      });
+      const trackKey =
+        typeof data.trackKey === "string" ? data.trackKey : null;
+      if (trackKey) {
+        try {
+          await updateDoc(doc(db, "orderTracks", trackKey), {
+            status: "cancelled",
+            updatedAt: serverTimestamp(),
+          });
+        } catch {
+          /* track update is best-effort */
+        }
       }
     }
     cancelled += 1;

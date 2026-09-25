@@ -126,7 +126,13 @@ service cloud.firestore {
         && request.resource.data.trackKey == resource.data.trackKey
       );
 
-      allow delete: if isAdmin();
+      allow delete: if isAdmin() || (
+        // Owner may hard-delete a waiting pickup (cancel = remove from system)
+        isSignedIn()
+        && resource.data.uid is string
+        && resource.data.uid == request.auth.uid
+        && resource.data.status in ['new', 'confirmed']
+      );
     }
 
     match /orderTracks/{key} {
@@ -182,7 +188,15 @@ service cloud.firestore {
         && customerTrackEditKeys()
       );
 
-      allow delete: if isAdmin();
+      allow delete: if isAdmin() || (
+        isSignedIn()
+        && resource.data.orderId is string
+        && exists(/databases/$(database)/documents/orders/$(resource.data.orderId))
+        && get(/databases/$(database)/documents/orders/$(resource.data.orderId)).data.uid
+          == request.auth.uid
+        && get(/databases/$(database)/documents/orders/$(resource.data.orderId)).data.status
+          in ['new', 'confirmed']
+      );
     }
 
     match /config/{docId} {

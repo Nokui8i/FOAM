@@ -26,6 +26,7 @@ import {
   type PickupReminderAlert,
 } from "@/lib/admin-alerts";
 import { getFirebaseDb } from "@/lib/firebase";
+import { deleteOrderCompletely } from "@/lib/data-retention";
 import { normalizeOrderStatus, orderDisplayId } from "@/lib/orders";
 import { BUSINESS_WHATSAPP } from "@/lib/site-config";
 import { useQueryReplace } from "@/lib/use-query-replace";
@@ -267,29 +268,7 @@ export function AdminAlertsPanel({
     setOkMsg("");
     try {
       const db = getFirebaseDb();
-      await updateDoc(doc(db, "orders", alert.orderId), {
-        status: "cancelled",
-        cancelReason:
-          "Cancelled after reminder call — customer requested cancel",
-        statusUpdatedAt: serverTimestamp(),
-        opsReminder: {
-          contacted: true,
-          contactedAt: serverTimestamp(),
-          contactedBy: adminEmail || "admin",
-          outcome: "cancelled",
-        },
-      });
       await releasePickupSlot(alert.pickupDate, alert.pickupSlot);
-      if (alert.trackKey) {
-        try {
-          await updateDoc(doc(db, "orderTracks", alert.trackKey), {
-            status: "cancelled",
-            updatedAt: serverTimestamp(),
-          });
-        } catch {
-          /* track update best-effort */
-        }
-      }
 
       let weeklyStopped = false;
       let futureCancelled = 0;
@@ -310,13 +289,16 @@ export function AdminAlertsPanel({
           });
           futureCancelled = result.cancelled;
         } catch {
-          /* future cancel best-effort after this order already cancelled */
+          /* future cancel best-effort */
         }
       }
 
+      // Remove this pickup from the system (not kept in History).
+      await deleteOrderCompletely(alert.orderId);
+
       setOkMsg(
         weeklyStopped
-          ? futureCancelled > 1
+          ? futureCancelled > 0
             ? `Order cancelled · weekly automation off · ${futureCancelled} future pickups removed · 10% off stopped.`
             : "Order cancelled · weekly automation and 10% off stopped."
           : "Order cancelled."

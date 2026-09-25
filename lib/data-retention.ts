@@ -85,8 +85,13 @@ function shouldPurgeOrder(
       ? (data.pickup as { date: string }).date
       : "";
 
-  // Closed work: keep one year from close (or create).
-  if (status === "delivered" || status === "cancelled") {
+  // Cancelled orders should not linger — remove as soon as purge runs.
+  if (status === "cancelled") {
+    return true;
+  }
+
+  // Delivered: keep one year from close (or create).
+  if (status === "delivered") {
     return isPastRetention(closedAt, cutoff);
   }
 
@@ -101,7 +106,8 @@ function shouldPurgeOrder(
 
 /**
  * Deletes ops data older than one year:
- * - delivered / cancelled orders (+ photos + tracks)
+ * - delivered orders past retention (+ photos + tracks)
+ * - cancelled orders immediately (should not stay in the system)
  * - abandoned open orders past retention
  * - contact / Support messages
  * - orphan orderTracks
@@ -236,13 +242,20 @@ export async function deleteOrderCompletely(orderId: string): Promise<void> {
   await deleteDoc(orderRef);
 }
 
-/** Run at most once per browser session after admin login. */
+/** Run retention cleanup after admin login. Cancelled orders always purge. */
 export async function purgeExpiredOpsDataOncePerSession(): Promise<RetentionPurgeResult | null> {
   if (typeof window === "undefined") return null;
+
+  let alreadyRan = false;
   try {
-    if (sessionStorage.getItem(SESSION_KEY) === "1") return null;
+    alreadyRan = sessionStorage.getItem(SESSION_KEY) === "1";
   } catch {
-    /* private mode — still purge */
+    alreadyRan = false;
+  }
+
+  // Always clear cancelled leftovers; full 1-year purge once per session.
+  if (alreadyRan) {
+    return purgeCancelledOrdersOnly();
   }
 
   const result = await purgeExpiredOpsData();
@@ -253,5 +266,36 @@ export async function purgeExpiredOpsDataOncePerSession(): Promise<RetentionPurg
     /* ignore */
   }
 
+  return result;
+}
+
+async function purgeCancelledOrdersOnly(): Promise<RetentionPurgeResult> {
+  const db = getFirebaseDb();
+  const result: RetentionPurgeResult = {
+    ordersDeleted: 0,
+    tracksDeleted: 0,
+    contactsDeleted: 0,
+    photosCleared: 0,
+    photoFoldersCleared: 0,
+  };
+
+  const ordersSnap = await getDocs(collection(db, "orders"));
+  for (const orderDoc of ordersSnap.docs) {
+    const data = orderDoc.data() as Record<string, unknown>;
+    if (String(data.status ?? "") !== "cancelled") continue;
+    const trackKey =
+      typeof data.trackKey === "string" ? data.trackKey.trim() : "";
+    result.photosCleared += await deleteOrderPhotos(orderDoc.id);
+    if (trackKey) {
+      try {
+        await deleteDoc(doc(db, "orderTracks", trackKey));
+        result.tracksDeleted += 1;
+      } catch {
+        /* ignore */
+      }
+    }
+    await deleteDoc(doc(db, "orders", orderDoc.id));
+    result.ordersDeleted += 1;
+  }
   return result;
 }

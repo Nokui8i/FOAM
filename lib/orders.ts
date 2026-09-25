@@ -253,9 +253,9 @@ export function isCancelledOrder(status: OrderStatus) {
   return status === "cancelled";
 }
 
-/** Closed orders kept in Ops History (until retention purge or manual delete). */
+/** Closed completed orders kept in Ops History (until retention purge or manual delete). */
 export function isHistoryOrder(status: OrderStatus) {
-  return status === "delivered" || status === "cancelled";
+  return status === "delivered";
 }
 
 /** Ops “today” in Las Vegas (service city). */

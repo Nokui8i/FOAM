@@ -1716,20 +1716,16 @@ export function AdminOrdersPanel({
     if (!selected) return null;
 
     if (mode === "history") {
-      const cancelled = isCancelledOrder(selected.status);
       return (
         <section className="stage future-stage">
           <History size={38} aria-hidden />
           <div className="stage-copy">
-            <small>{cancelled ? "CANCELLED" : "DELIVERED"}</small>
+            <small>DELIVERED</small>
             <h3>{formatPickupDate(selected.pickup.date, true)}</h3>
             <p>
               {formatSlotShort(selected.pickup.slot)}
               {selected.finalTotal != null
                 ? ` · $${Number(selected.finalTotal).toFixed(2)}`
-                : ""}
-              {cancelled && selected.cancelReason
-                ? ` · ${selected.cancelReason}`
                 : ""}
             </p>
             <button
@@ -2114,7 +2110,7 @@ export function AdminOrdersPanel({
                     ? "No pickups beyond this week."
                     : `No pickups on ${formatPickupDate(selectedFutureDay)}.`
                   : mode === "history"
-                    ? "Delivered and cancelled orders appear here."
+                    ? "Delivered orders appear here."
                     : "Live orders will appear here."}
               </p>
             ) : (

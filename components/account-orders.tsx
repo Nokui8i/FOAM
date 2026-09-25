@@ -4,12 +4,9 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
   collection,
-  doc,
   onSnapshot,
   orderBy,
   query,
-  serverTimestamp,
-  updateDoc,
   where,
 } from "firebase/firestore";
 import { ArrowRight, ChevronDown, PackageOpen } from "lucide-react";
@@ -17,9 +14,11 @@ import { ArrowRight, ChevronDown, PackageOpen } from "lucide-react";
 import { OrderProgress } from "@/components/order-progress";
 import { Button } from "@/components/ui/button";
 import { formatPickupDate } from "@/lib/booking";
+import { deleteOrderCompletely } from "@/lib/data-retention";
 import { getFirebaseDb } from "@/lib/firebase";
 import {
   ORDER_STATUS_LABELS,
+  isCancelledOrder,
   isInProgressOrder,
   isWaitingForPickup,
   normalizeOrderStatus,
@@ -91,9 +90,9 @@ export function AccountOrders({ uid }: { uid: string }) {
     return onSnapshot(
       q,
       (snap) => {
-        const rows = snap.docs.map((d) =>
-          mapRow(d.id, d.data() as Record<string, unknown>)
-        );
+        const rows = snap.docs
+          .map((d) => mapRow(d.id, d.data() as Record<string, unknown>))
+          .filter((row) => !isCancelledOrder(row.status));
         setOrders(rows);
         setLoading(false);
         setOpenId((current) => {
@@ -121,23 +120,8 @@ export function AccountOrders({ uid }: { uid: string }) {
     setError("");
     setActionNote("");
     try {
-      const db = getFirebaseDb();
-      await updateDoc(doc(db, "orders", order.id), {
-        status: "cancelled",
-        cancelReason: "Cancelled by customer from account",
-        statusUpdatedAt: serverTimestamp(),
-      });
       await releasePickupSlot(order.pickupDate, order.pickupSlot);
-      if (order.trackKey) {
-        try {
-          await updateDoc(doc(db, "orderTracks", order.trackKey), {
-            status: "cancelled",
-            updatedAt: serverTimestamp(),
-          });
-        } catch {
-          /* track optional */
-        }
-      }
+      await deleteOrderCompletely(order.id);
       setActionNote("Pickup cancelled.");
     } catch {
       setError("Could not cancel this pickup. Try again or contact FOAM.");
