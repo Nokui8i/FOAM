@@ -2016,9 +2016,14 @@
 .admin-page .ops-promos-field.is-compact input {
   min-height: 38px;
 }
-.admin-page .ops-schedule-card .ops-catalog-editor-btn {
+.admin-page .ops-schedule-save {
   width: 100%;
-  min-height: 44px;
+  min-height: 48px;
+  margin-top: 4px;
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: .02em;
+  text-transform: uppercase;
 }
 .admin-page .stage-copy small,
 .admin-page .ops-field-label {

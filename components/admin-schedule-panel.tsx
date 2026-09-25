@@ -101,8 +101,7 @@ export function AdminSchedulePanel({
   const [orderPickups, setOrderPickups] = useState<
     Array<{ date: string; slot: string }>
   >([]);
-  const [savingSlots, setSavingSlots] = useState(false);
-  const [savingDay, setSavingDay] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [okMsg, setOkMsg] = useState("");
 
@@ -241,22 +240,7 @@ export function AdminSchedulePanel({
     });
   }
 
-  async function saveWindows() {
-    setSavingSlots(true);
-    setError("");
-    setOkMsg("");
-    try {
-      const saved = await savePickupSchedule(slots, adminEmail);
-      setSlots(saved.map((s) => ({ ...s })));
-      setOkMsg("Time windows saved.");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not save windows.");
-    } finally {
-      setSavingSlots(false);
-    }
-  }
-
-  async function saveDay() {
+  async function saveAll() {
     const closingDay = dayOverride.closed;
     const closingWindows = Object.values(dayOverride.slots).some(
       (row) => row.closed
@@ -268,7 +252,7 @@ export function AdminSchedulePanel({
       if (!ok) return;
     }
 
-    setSavingDay(true);
+    setSaving(true);
     setError("");
     setOkMsg("");
     try {
@@ -280,13 +264,15 @@ export function AdminSchedulePanel({
             .map(([label]) => [label, { closed: true }])
         ),
       };
+      const saved = await savePickupSchedule(slots, adminEmail);
       await saveDayOverride(dayIso, cleaned, adminEmail);
+      setSlots(saved.map((s) => ({ ...s })));
       setDayOverride(cleaned);
-      setOkMsg(`Saved ${formatDayLabel(dayIso)}.`);
+      setOkMsg("Saved.");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not save day.");
+      setError(err instanceof Error ? err.message : "Could not save.");
     } finally {
-      setSavingDay(false);
+      setSaving(false);
     }
   }
 
@@ -402,15 +388,6 @@ export function AdminSchedulePanel({
               </div>
             ))}
           </div>
-
-          <button
-            type="button"
-            className="ops-catalog-editor-btn"
-            disabled={savingSlots}
-            onClick={() => void saveWindows()}
-          >
-            {savingSlots ? "Saving…" : "Save time windows"}
-          </button>
         </section>
 
         <section className="ops-schedule-card">
@@ -507,17 +484,17 @@ export function AdminSchedulePanel({
               );
             })}
           </div>
-
-          <button
-            type="button"
-            className="ops-catalog-editor-btn"
-            disabled={savingDay}
-            onClick={() => void saveDay()}
-          >
-            {savingDay ? "Saving…" : "Save day override"}
-          </button>
         </section>
       </div>
+
+      <button
+        type="button"
+        className="ops-catalog-editor-btn ops-schedule-save"
+        disabled={saving}
+        onClick={() => void saveAll()}
+      >
+        {saving ? "Saving…" : "Save"}
+      </button>
 
       {showCalendar
         ? createPortal(
