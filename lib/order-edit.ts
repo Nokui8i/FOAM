@@ -1,19 +1,20 @@
 import { doc, serverTimestamp, updateDoc } from "firebase/firestore";
 
-import {
-  SLOT_CAPACITY,
-  TIME_SLOTS,
-  isBeforePickupWindow,
-  isPickupSlotStillOpen,
-  type TimeSlot,
-} from "@/lib/booking";
+import { isBeforePickupWindow, isPickupSlotStillOpen } from "@/lib/booking";
 import { getFirebaseDb } from "@/lib/firebase";
 import type { OrderStatus } from "@/lib/orders";
 import {
   getPickupSlotCount,
   releasePickupSlot,
+  resolveSlotCapacity,
   reservePickupSlot,
 } from "@/lib/pickup-availability";
+import {
+  findScheduleSlot,
+  isScheduleSlotOpenOnDay,
+  loadDayOverride,
+  loadPickupSchedule,
+} from "@/lib/pickup-schedule";
 
 export type OrderEditPreferences = {
   pants: string;
@@ -91,21 +92,37 @@ export async function saveCustomerOrderEdit(opts: {
         "Pickup date and time can only be changed before your pickup window starts."
       );
     }
-    if (!(TIME_SLOTS as readonly string[]).includes(next.pickupSlot)) {
-      throw new Error("Pick a valid time window.");
+    const schedule = await loadPickupSchedule();
+    const override = await loadDayOverride(next.pickupDate);
+    const def = findScheduleSlot(schedule, next.pickupSlot);
+    if (
+      !def ||
+      !isScheduleSlotOpenOnDay({
+        schedule,
+        override,
+        dateIso: next.pickupDate,
+        label: next.pickupSlot,
+      })
+    ) {
+      throw new Error("That time window is closed. Pick another slot.");
     }
-    if (!isPickupSlotStillOpen(next.pickupDate, next.pickupSlot)) {
+    if (
+      !isPickupSlotStillOpen(next.pickupDate, next.pickupSlot, new Date(), {
+        endMinutes: def.endMinutes,
+      })
+    ) {
       throw new Error("That time window is closed. Pick another slot.");
     }
     const sameSlot =
       next.pickupDate === previousDate && next.pickupSlot === previousSlot;
     if (!sameSlot) {
       const count = await getPickupSlotCount(next.pickupDate, next.pickupSlot);
-      // Releasing our own seat first when staying on same day/slot isn't needed;
-      // when moving away, capacity check should allow the target if under cap.
-      // If moving within same day to a full slot, block — except if we're the
-      // one freeing a different slot (always separate windows).
-      if (count >= SLOT_CAPACITY) {
+      const capacity = resolveSlotCapacity(
+        schedule,
+        override,
+        next.pickupSlot
+      );
+      if (count >= capacity) {
         throw new Error("That time window is full. Pick another slot.");
       }
     }
@@ -158,14 +175,15 @@ export async function saveCustomerOrderEdit(opts: {
 export function slotIsBookableForEdit(
   dateIso: string,
   slot: string,
-  counts: Partial<Record<TimeSlot, number>>,
+  counts: Record<string, number>,
   currentDate: string,
-  currentSlot: string
+  currentSlot: string,
+  capacity = 5
 ) {
   if (!dateIso || !slot) return false;
   if (!isPickupSlotStillOpen(dateIso, slot)) return false;
   const isCurrent = dateIso === currentDate && slot === currentSlot;
   if (isCurrent) return true;
-  if ((counts[slot as TimeSlot] ?? 0) >= SLOT_CAPACITY) return false;
+  if ((counts[slot] ?? 0) >= capacity) return false;
   return true;
 }

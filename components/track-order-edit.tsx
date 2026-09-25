@@ -31,8 +31,16 @@ import {
 import type { OrderStatus } from "@/lib/orders";
 import {
   subscribePickupSlotCounts,
+  resolveSlotCapacity,
   type SlotCounts,
 } from "@/lib/pickup-availability";
+import {
+  normalizeSchedule,
+  subscribeDayOverride,
+  subscribePickupSchedule,
+  type DayOverride,
+  type PickupSchedule,
+} from "@/lib/pickup-schedule";
 import { cn } from "@/lib/utils";
 
 type PrefKey = keyof OrderEditPreferences;
@@ -111,28 +119,72 @@ export function TrackOrderEdit({
   const [showFullCalendar, setShowFullCalendar] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [slotCounts, setSlotCounts] = useState<SlotCounts>({
-    "7am - 10am": 0,
-    "10am - 1pm": 0,
-    "1pm - 4pm": 0,
-    "4pm - 7pm": 0,
+  const [slotCounts, setSlotCounts] = useState<SlotCounts>({});
+  const [schedule, setSchedule] = useState<PickupSchedule>(() =>
+    normalizeSchedule(null)
+  );
+  const [dayOverride, setDayOverride] = useState<DayOverride>({
+    closed: false,
+    slots: {},
   });
+  const scheduleLabels = useMemo(
+    () => schedule.slots.filter((s) => s.enabled).map((s) => s.label),
+    [schedule]
+  );
+
+  useEffect(() => subscribePickupSchedule(setSchedule), []);
 
   useEffect(() => {
-    if (!canReschedule || !date) return;
-    return subscribePickupSlotCounts(date, setSlotCounts);
+    if (!canReschedule || !date) {
+      setDayOverride({ closed: false, slots: {} });
+      return;
+    }
+    return subscribeDayOverride(date, setDayOverride);
   }, [canReschedule, date]);
 
   useEffect(() => {
+    if (!canReschedule || !date) return;
+    return subscribePickupSlotCounts(date, setSlotCounts, scheduleLabels);
+  }, [canReschedule, date, scheduleLabels]);
+
+  useEffect(() => {
     if (!canReschedule || !date || !slot) return;
-    if (slotIsBookableForEdit(date, slot, slotCounts, pickupDate, pickupSlot)) {
+    const capacity = resolveSlotCapacity(schedule, dayOverride, slot);
+    if (
+      slotIsBookableForEdit(
+        date,
+        slot,
+        slotCounts,
+        pickupDate,
+        pickupSlot,
+        capacity
+      )
+    ) {
       return;
     }
-    const next = TIME_SLOTS.find((s) =>
-      slotIsBookableForEdit(date, s, slotCounts, pickupDate, pickupSlot)
+    const next = (scheduleLabels.length ? scheduleLabels : TIME_SLOTS).find(
+      (s) =>
+        slotIsBookableForEdit(
+          date,
+          s,
+          slotCounts,
+          pickupDate,
+          pickupSlot,
+          resolveSlotCapacity(schedule, dayOverride, s)
+        )
     );
     if (next && next !== slot) setSlot(next);
-  }, [canReschedule, date, slot, slotCounts, pickupDate, pickupSlot]);
+  }, [
+    canReschedule,
+    date,
+    slot,
+    slotCounts,
+    pickupDate,
+    pickupSlot,
+    schedule,
+    dayOverride,
+    scheduleLabels,
+  ]);
 
   async function save() {
     if (!canEdit) return;
@@ -220,30 +272,40 @@ export function TrackOrderEdit({
             <EditCalendar value={date} onChange={setDate} />
           ) : null}
           <div className="book-slots mt-3">
-            {TIME_SLOTS.map((option) => {
-              const open = slotIsBookableForEdit(
-                date,
-                option,
-                slotCounts,
-                pickupDate,
-                pickupSlot
-              );
-              return (
-                <button
-                  key={option}
-                  type="button"
-                  disabled={!open}
-                  className={cn(
-                    "book-slot",
-                    slot === option && open && "is-active",
-                    !open && "is-disabled"
-                  )}
-                  onClick={() => setSlot(option)}
-                >
-                  {option}
-                </button>
-              );
-            })}
+            {(scheduleLabels.length ? scheduleLabels : TIME_SLOTS).map(
+              (option) => {
+                const capacity = resolveSlotCapacity(
+                  schedule,
+                  dayOverride,
+                  option
+                );
+                const open =
+                  !dayOverride.closed &&
+                  slotIsBookableForEdit(
+                    date,
+                    option,
+                    slotCounts,
+                    pickupDate,
+                    pickupSlot,
+                    capacity
+                  );
+                return (
+                  <button
+                    key={option}
+                    type="button"
+                    disabled={!open}
+                    className={cn(
+                      "book-slot",
+                      slot === option && open && "is-active",
+                      !open && "is-disabled"
+                    )}
+                    onClick={() => setSlot(option)}
+                  >
+                    {option}
+                  </button>
+                );
+              }
+            )}
           </div>
         </section>
       ) : (

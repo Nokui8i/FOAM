@@ -300,13 +300,19 @@ export function isPickupDateAllowed(iso: string) {
 }
 
 /** True when this date+slot is still open by clock (ignores capacity). */
-export function isPickupSlotStillOpen(dateIso: string, slot: string, now = new Date()) {
+export function isPickupSlotStillOpen(
+  dateIso: string,
+  slot: string,
+  now = new Date(),
+  window?: { endMinutes: number }
+) {
   if (!isPickupDateAllowed(dateIso)) return false;
-  if (!(TIME_SLOTS as readonly string[]).includes(slot)) return false;
+  const end =
+    window?.endMinutes ?? TIME_SLOT_END_MINUTES[slot as TimeSlot];
+  if (!Number.isFinite(end)) return false;
   const today = bookingTodayIso(now);
   if (dateIso > today) return true;
   if (dateIso < today) return false;
-  const end = TIME_SLOT_END_MINUTES[slot as TimeSlot];
   return lasVegasMinutesNow(now) < end;
 }
 
@@ -314,14 +320,16 @@ export function isPickupSlotStillOpen(dateIso: string, slot: string, now = new D
 export function isBeforePickupWindow(
   dateIso: string,
   slot: string,
-  now = new Date()
+  now = new Date(),
+  window?: { startMinutes: number }
 ) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(dateIso)) return false;
-  if (!(TIME_SLOTS as readonly string[]).includes(slot)) return false;
+  const start =
+    window?.startMinutes ?? TIME_SLOT_START_MINUTES[slot as TimeSlot];
+  if (!Number.isFinite(start)) return false;
   const today = bookingTodayIso(now);
   if (dateIso > today) return true;
   if (dateIso < today) return false;
-  const start = TIME_SLOT_START_MINUTES[slot as TimeSlot];
   return lasVegasMinutesNow(now) < start;
 }
 
@@ -329,14 +337,17 @@ export function isBeforePickupWindow(
 export function isWithinPickupWindow(
   dateIso: string,
   slot: string,
-  now = new Date()
+  now = new Date(),
+  window?: { startMinutes: number; endMinutes: number }
 ) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(dateIso)) return false;
-  if (!(TIME_SLOTS as readonly string[]).includes(slot)) return false;
+  const start =
+    window?.startMinutes ?? TIME_SLOT_START_MINUTES[slot as TimeSlot];
+  const end =
+    window?.endMinutes ?? TIME_SLOT_END_MINUTES[slot as TimeSlot];
+  if (!Number.isFinite(start) || !Number.isFinite(end)) return false;
   const today = bookingTodayIso(now);
   if (dateIso !== today) return false;
-  const start = TIME_SLOT_START_MINUTES[slot as TimeSlot];
-  const end = TIME_SLOT_END_MINUTES[slot as TimeSlot];
   const mins = lasVegasMinutesNow(now);
   return mins >= start && mins < end;
 }

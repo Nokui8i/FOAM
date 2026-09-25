@@ -16,6 +16,7 @@ import {
   Bell,
   CalendarDays,
   ChevronDown,
+  Clock3,
   Headphones,
   History,
   LogOut,
@@ -29,6 +30,7 @@ import { AdminCatalogPanel } from "@/components/admin-catalog-panel";
 import { AdminContactsPanel } from "@/components/admin-contacts-panel";
 import { AdminOrdersPanel } from "@/components/admin-orders-panel";
 import { AdminPromosPanel } from "@/components/admin-promos-panel";
+import { AdminSchedulePanel } from "@/components/admin-schedule-panel";
 import { Button } from "@/components/ui/button";
 import { getFirebaseAuth, getFirebaseDb } from "@/lib/firebase";
 import { purgeExpiredOpsDataOncePerSession } from "@/lib/data-retention";
@@ -56,7 +58,8 @@ type AdminTab =
   | "support"
   | "alerts"
   | "catalog"
-  | "promos";
+  | "promos"
+  | "schedule";
 type MobileView = "list" | "detail";
 
 const TAB_FROM_PARAM: Record<string, AdminTab> = {
@@ -68,6 +71,7 @@ const TAB_FROM_PARAM: Record<string, AdminTab> = {
   alerts: "alerts",
   catalog: "catalog",
   promos: "promos",
+  schedule: "schedule",
 };
 
 function parseAdminTab(raw: string | null): AdminTab {
@@ -539,6 +543,14 @@ function AdminAppInner() {
               <Ticket size={18} aria-hidden />
               <span>Promos</span>
             </button>
+            <button
+              type="button"
+              className={cn("nav-button", tab === "schedule" && "active")}
+              onClick={() => setDestination("schedule")}
+            >
+              <Clock3 size={18} aria-hidden />
+              <span>Schedule</span>
+            </button>
           </nav>
 
           <div className="rail-status">
@@ -620,6 +632,12 @@ function AdminAppInner() {
               />
             ) : tab === "promos" ? (
               <AdminPromosPanel
+                adminEmail={user.email ?? ""}
+                mobileView={mobileView}
+                onMobileViewChange={setMobileView}
+              />
+            ) : tab === "schedule" ? (
+              <AdminSchedulePanel
                 adminEmail={user.email ?? ""}
                 mobileView={mobileView}
                 onMobileViewChange={setMobileView}

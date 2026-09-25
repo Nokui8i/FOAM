@@ -205,14 +205,30 @@ service cloud.firestore {
       allow list, create, update, delete: if isAdmin();
     }
 
+    match /pickupDayOverrides/{date} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin()
+        && date.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$');
+    }
+
     match /config/{docId} {
-      allow read: if isAdmin();
-      allow write: if isAdmin()
-        && docId == 'dryCleanCatalog'
-        && request.resource.data.keys().hasAll(['items'])
-        && request.resource.data.items is list
-        && request.resource.data.items.size() > 0
-        && request.resource.data.items.size() <= 200;
+      allow read: if isAdmin() || docId == 'pickupSchedule';
+      allow write: if isAdmin() && (
+        (
+          docId == 'dryCleanCatalog'
+          && request.resource.data.keys().hasAll(['items'])
+          && request.resource.data.items is list
+          && request.resource.data.items.size() > 0
+          && request.resource.data.items.size() <= 200
+        )
+        || (
+          docId == 'pickupSchedule'
+          && request.resource.data.keys().hasAll(['slots'])
+          && request.resource.data.slots is list
+          && request.resource.data.slots.size() > 0
+          && request.resource.data.slots.size() <= 24
+        )
+      );
     }
 
     match /pickupAvailability/{date} {
@@ -220,10 +236,7 @@ service cloud.firestore {
       allow create, update: if
         date.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
         && request.resource.data.keys().hasOnly(['slots', 'updatedAt'])
-        && request.resource.data.slots is map
-        && request.resource.data.slots.keys().hasOnly([
-          '7am - 10am', '10am - 1pm', '1pm - 4pm', '4pm - 7pm'
-        ]);
+        && request.resource.data.slots is map;
       allow delete: if isAdmin();
     }
 
