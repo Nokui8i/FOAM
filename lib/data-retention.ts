@@ -16,6 +16,13 @@ export const DATA_RETENTION_DAYS = 365;
 const RETENTION_MS = DATA_RETENTION_DAYS * 24 * 60 * 60 * 1000;
 const SESSION_KEY = "foam-ops-retention-purged";
 
+/**
+ * Photos default to inline Firestore blobs. Only hit Storage when explicitly enabled —
+ * otherwise listAll/delete spam CORS errors against an unconfigured bucket.
+ */
+const STORAGE_ENABLED =
+  process.env.NEXT_PUBLIC_FIREBASE_STORAGE_ENABLED === "true";
+
 export type RetentionPurgeResult = {
   ordersDeleted: number;
   tracksDeleted: number;
@@ -56,6 +63,7 @@ function isPastRetention(value: unknown, cutoff: number) {
 }
 
 async function deleteFolderContents(folderPath: string) {
+  if (!STORAGE_ENABLED) return 0;
   try {
     const folder = ref(getFirebaseStorage(), folderPath);
     const listed = await listAll(folder);
@@ -69,8 +77,47 @@ async function deleteFolderContents(folderPath: string) {
   }
 }
 
-async function deleteOrderPhotos(orderId: string) {
-  return deleteFolderContents(`order-photos/${orderId}`);
+async function deleteKnownStoragePaths(paths: string[]) {
+  if (!STORAGE_ENABLED || paths.length === 0) return 0;
+  let removed = 0;
+  await Promise.all(
+    paths.map(async (path) => {
+      const clean = path.trim();
+      if (!clean || clean.startsWith("data:")) return;
+      try {
+        await deleteObject(ref(getFirebaseStorage(), clean));
+        removed += 1;
+      } catch {
+        /* already gone or Storage off */
+      }
+    })
+  );
+  return removed;
+}
+
+function photoPathsFromOrder(data: Record<string, unknown>): string[] {
+  const photos = data.photos;
+  if (!Array.isArray(photos)) return [];
+  const paths: string[] = [];
+  for (const photo of photos) {
+    if (!photo || typeof photo !== "object") continue;
+    const row = photo as Record<string, unknown>;
+    if (typeof row.path === "string" && row.path.trim()) {
+      paths.push(row.path.trim());
+    }
+  }
+  return paths;
+}
+
+async function deleteOrderPhotos(
+  orderId: string,
+  data?: Record<string, unknown>
+) {
+  if (!STORAGE_ENABLED) return 0;
+  const known = data ? photoPathsFromOrder(data) : [];
+  const fromPaths = await deleteKnownStoragePaths(known);
+  const fromFolder = await deleteFolderContents(`order-photos/${orderId}`);
+  return fromPaths + fromFolder;
 }
 
 function shouldPurgeOrder(
@@ -136,7 +183,7 @@ export async function purgeExpiredOpsData(): Promise<RetentionPurgeResult> {
       continue;
     }
 
-    result.photosCleared += await deleteOrderPhotos(orderDoc.id);
+    result.photosCleared += await deleteOrderPhotos(orderDoc.id, data);
 
     if (trackKey) {
       try {
@@ -192,30 +239,32 @@ export async function purgeExpiredOpsData(): Promise<RetentionPurgeResult> {
     /* list may fail without perms */
   }
 
-  try {
-    const root = ref(getFirebaseStorage(), "order-photos");
-    const listed = await listAll(root);
-    for (const prefix of listed.prefixes) {
-      const orderId = prefix.name;
-      const snap = await getDoc(doc(db, "orders", orderId));
+  if (STORAGE_ENABLED) {
+    try {
+      const root = ref(getFirebaseStorage(), "order-photos");
+      const listed = await listAll(root);
+      for (const prefix of listed.prefixes) {
+        const orderId = prefix.name;
+        const snap = await getDoc(doc(db, "orders", orderId));
 
-      if (snap.exists()) {
-        const data = snap.data() as Record<string, unknown>;
-        if (!shouldPurgeOrder(data, cutoff)) continue;
+        if (snap.exists()) {
+          const data = snap.data() as Record<string, unknown>;
+          if (!shouldPurgeOrder(data, cutoff)) continue;
+        }
+
+        const removed = await deleteFolderContents(prefix.fullPath);
+        result.photosCleared += removed;
+        result.photoFoldersCleared += 1;
       }
-
-      const removed = await deleteFolderContents(prefix.fullPath);
-      result.photosCleared += removed;
-      result.photoFoldersCleared += 1;
+    } catch {
+      /* storage list may fail when Storage is off */
     }
-  } catch {
-    /* storage list may fail when Storage is off */
   }
 
   return result;
 }
 
-/** Permanently delete one order + track + photos (admin History). */
+/** Permanently delete one order + track + photos (admin History / cancel). */
 export async function deleteOrderCompletely(orderId: string): Promise<void> {
   const db = getFirebaseDb();
   const orderRef = doc(db, "orders", orderId);
@@ -229,7 +278,7 @@ export async function deleteOrderCompletely(orderId: string): Promise<void> {
   const trackKey =
     typeof data.trackKey === "string" ? data.trackKey.trim() : "";
 
-  await deleteOrderPhotos(orderId);
+  await deleteOrderPhotos(orderId, data);
 
   if (trackKey) {
     try {
@@ -285,7 +334,7 @@ async function purgeCancelledOrdersOnly(): Promise<RetentionPurgeResult> {
     if (String(data.status ?? "") !== "cancelled") continue;
     const trackKey =
       typeof data.trackKey === "string" ? data.trackKey.trim() : "";
-    result.photosCleared += await deleteOrderPhotos(orderDoc.id);
+    result.photosCleared += await deleteOrderPhotos(orderDoc.id, data);
     if (trackKey) {
       try {
         await deleteDoc(doc(db, "orderTracks", trackKey));
