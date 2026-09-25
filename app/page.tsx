@@ -2,7 +2,6 @@ import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { HomePriceOverlay } from "@/components/home-price-overlay";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { BOOKING_PATH } from "@/lib/site-config";
@@ -70,7 +69,6 @@ export default function Home() {
                     }}
                   />
                 )}
-                {index === 4 ? <HomePriceOverlay variant="mobile" /> : null}
               </div>
             );
           })}
@@ -97,7 +95,6 @@ export default function Home() {
                   height={12960}
                   style={{ top: `${index * -100}%` }}
                 />
-                {index === 4 ? <HomePriceOverlay variant="desktop" /> : null}
               </div>
             ))}
           </div>
