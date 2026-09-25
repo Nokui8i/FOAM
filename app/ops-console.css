@@ -368,9 +368,12 @@
 }
 .admin-page .ops-history-toolbar {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 8px;
-  margin-top: 8px;
+  margin-top: 12px;
+  padding: 0 0 13px;
+  border-bottom: 1px solid var(--ops-border);
 }
 .admin-page .ops-history-stage-art {
   justify-self: center;
@@ -404,11 +407,12 @@
   color: #fff;
 }
 .admin-page .ops-history-date-active {
+  flex: 1 0 100%;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  margin: 10px 0 0;
+  margin: 2px 0 0;
   padding: 8px 10px;
   border-radius: 8px;
   background: #e4f4fa;

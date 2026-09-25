@@ -2063,6 +2063,20 @@ export function AdminOrdersPanel({
                 >
                   <History size={20} aria-hidden />
                 </button>
+                {historyDay ? (
+                  <div className="ops-history-date-active">
+                    <span>{formatPickupDate(historyDay, true)}</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setHistoryDay(null);
+                        setShowHistoryCalendar(false);
+                      }}
+                    >
+                      Show all
+                    </button>
+                  </div>
+                ) : null}
               </div>
             </>
           ) : (
@@ -2082,21 +2096,6 @@ export function AdminOrdersPanel({
               </label>
             </>
           )}
-
-          {mode === "history" && historyDay ? (
-            <div className="ops-history-date-active">
-              <span>{formatPickupDate(historyDay, true)}</span>
-              <button
-                type="button"
-                onClick={() => {
-                  setHistoryDay(null);
-                  setShowHistoryCalendar(false);
-                }}
-              >
-                Show all
-              </button>
-            </div>
-          ) : null}
 
           {mode === "today" ? (
             <div className="ops-filter-row" role="group" aria-label="Order filters">
