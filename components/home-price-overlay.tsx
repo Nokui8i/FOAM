@@ -15,7 +15,10 @@ type SlotKey =
   | "feeOndemand"
   | "minimum";
 
-/** Final positions from desktop debug drag (panel 4, %). Numbers only — $ stays in the art. */
+/**
+ * Positions from desktop debug drag (panel 4, %).
+ * Boxes cover digits only — baked "$" stays in the art to the left.
+ */
 const SLOTS: Record<
   SlotKey,
   {
@@ -32,7 +35,7 @@ const SLOTS: Record<
     top: 23.54,
     width: 14.35,
     height: 10.68,
-    color: "#0B1F3A",
+    color: "#232656",
     weight: 800,
   },
   ondemandBig: {
@@ -40,7 +43,7 @@ const SLOTS: Record<
     top: 23.29,
     width: 14.71,
     height: 11.19,
-    color: "#0B7FDD",
+    color: "#2783D3",
     weight: 800,
   },
   feeWeekly: {
@@ -48,7 +51,7 @@ const SLOTS: Record<
     top: 50.69,
     width: 3.98,
     height: 3.41,
-    color: "#0B1F3A",
+    color: "#232656",
     weight: 700,
   },
   feeOndemand: {
@@ -56,7 +59,7 @@ const SLOTS: Record<
     top: 53.44,
     width: 4.09,
     height: 3.51,
-    color: "#0B7FDD",
+    color: "#2783D3",
     weight: 700,
   },
   minimum: {
@@ -110,16 +113,19 @@ export function HomePriceOverlay() {
     <div ref={rootRef} className="home-price-overlay" aria-hidden="true">
       {SLOT_ORDER.map((key) => {
         const slot = SLOTS[key];
-        const fontPx = panelH > 0 ? panelH * (slot.height / 100) * 0.92 : undefined;
+        // Debug box height = exact glyph height (top edge → bottom edge).
+        const fontPx =
+          panelH > 0 ? panelH * (slot.height / 100) : undefined;
         return (
           <div key={key}>
             <span
               className="home-price-cover"
               style={{
-                left: `${slot.left - 0.2}%`,
-                top: `${slot.top - 0.25}%`,
-                width: `${slot.width + 0.4}%`,
-                height: `${slot.height + 0.5}%`,
+                // Never expand left — that clips the baked-in "$".
+                left: `${slot.left}%`,
+                top: `${slot.top - 0.12}%`,
+                width: `${slot.width + 0.25}%`,
+                height: `${slot.height + 0.28}%`,
               }}
             />
             <span

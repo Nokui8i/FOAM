@@ -5148,7 +5148,7 @@
   position: absolute;
   z-index: 2;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: flex-start;
   margin: 0;
   padding: 0;
@@ -5156,7 +5156,7 @@
   line-height: 1;
   letter-spacing: -0.045em;
   white-space: nowrap;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .home-price-text.is-feeWeekly,
