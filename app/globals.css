@@ -3704,7 +3704,8 @@
   .book-slot {
     display: grid;
     gap: 0.15rem;
-    justify-items: start;
+    justify-items: center;
+    align-content: center;
     border: 1px solid var(--color-border);
     border-radius: 0.65rem;
     background: #fff;
@@ -3712,7 +3713,7 @@
     font-size: 0.82rem;
     font-weight: 650;
     cursor: pointer;
-    text-align: left;
+    text-align: center;
   }
 
   .book-slot.is-active {
@@ -3731,6 +3732,7 @@
     font-size: 0.7rem;
     font-weight: 600;
     opacity: 0.88;
+    text-align: center;
   }
 
   .book-summary {
@@ -4176,6 +4178,59 @@
     font-size: clamp(1rem, 2vw, 1.12rem);
     font-weight: 650;
     color: var(--color-muted-foreground);
+  }
+
+  .track-edit {
+    display: grid;
+    gap: 1.1rem;
+  }
+
+  .track-edit-head h2 {
+    margin: 0;
+    font-family: var(--font-display), ui-sans-serif, system-ui, sans-serif;
+    font-size: 1.2rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+  }
+
+  .track-edit-head p {
+    margin: 0.35rem 0 0;
+    font-size: 0.88rem;
+    color: var(--color-muted-foreground);
+  }
+
+  .track-edit-block h3 {
+    margin: 0 0 0.55rem;
+    font-size: 0.92rem;
+    font-weight: 650;
+  }
+
+  .track-edit-textarea {
+    width: 100%;
+    border: 1px solid var(--color-border);
+    border-radius: 0.55rem;
+    background: #fff;
+    padding: 0.65rem 0.75rem;
+    font-size: 0.92rem;
+    line-height: 1.4;
+    resize: vertical;
+  }
+
+  .track-edit-textarea:focus {
+    outline: none;
+    border-color: var(--color-accent-strong);
+    box-shadow: 0 0 0 3px color-mix(in oklab, var(--color-accent-strong) 18%, transparent);
+  }
+
+  .track-edit-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.55rem;
+    margin-top: 0.25rem;
+  }
+
+  .track-edit-prefs {
+    margin: 0;
   }
 
   .track-order-card .order-progress-dot {

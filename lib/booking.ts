@@ -41,6 +41,14 @@ export type TimeSlot = (typeof TIME_SLOTS)[number];
 /** Max active pickups per date + time window. */
 export const SLOT_CAPACITY = 5;
 
+/** Slot opens at this Las Vegas clock time (start of window). */
+export const TIME_SLOT_START_MINUTES: Record<TimeSlot, number> = {
+  "7am - 10am": 7 * 60,
+  "10am - 1pm": 10 * 60,
+  "1pm - 4pm": 13 * 60,
+  "4pm - 7pm": 16 * 60,
+};
+
 /** Slot closes once this Las Vegas clock time is reached (end of window). */
 export const TIME_SLOT_END_MINUTES: Record<TimeSlot, number> = {
   "7am - 10am": 10 * 60,
@@ -300,6 +308,37 @@ export function isPickupSlotStillOpen(dateIso: string, slot: string, now = new D
   if (dateIso < today) return false;
   const end = TIME_SLOT_END_MINUTES[slot as TimeSlot];
   return lasVegasMinutesNow(now) < end;
+}
+
+/** True before the pickup window starts (Las Vegas clock). */
+export function isBeforePickupWindow(
+  dateIso: string,
+  slot: string,
+  now = new Date()
+) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateIso)) return false;
+  if (!(TIME_SLOTS as readonly string[]).includes(slot)) return false;
+  const today = bookingTodayIso(now);
+  if (dateIso > today) return true;
+  if (dateIso < today) return false;
+  const start = TIME_SLOT_START_MINUTES[slot as TimeSlot];
+  return lasVegasMinutesNow(now) < start;
+}
+
+/** True while now is inside the pickup window (Las Vegas clock). */
+export function isWithinPickupWindow(
+  dateIso: string,
+  slot: string,
+  now = new Date()
+) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateIso)) return false;
+  if (!(TIME_SLOTS as readonly string[]).includes(slot)) return false;
+  const today = bookingTodayIso(now);
+  if (dateIso !== today) return false;
+  const start = TIME_SLOT_START_MINUTES[slot as TimeSlot];
+  const end = TIME_SLOT_END_MINUTES[slot as TimeSlot];
+  const mins = lasVegasMinutesNow(now);
+  return mins >= start && mins < end;
 }
 
 export function nextPickupDates(count = 7): string[] {

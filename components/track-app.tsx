@@ -7,9 +7,14 @@ import { doc, onSnapshot } from "firebase/firestore";
 
 import { useAuth } from "@/components/auth-provider";
 import { OrderProgress } from "@/components/order-progress";
+import { TrackOrderEdit } from "@/components/track-order-edit";
 import { Button } from "@/components/ui/button";
 import { formatPickupDate } from "@/lib/booking";
 import { getFirebaseDb } from "@/lib/firebase";
+import {
+  canEditOrderRequests,
+  canRescheduleOrder,
+} from "@/lib/order-edit";
 import {
   ORDER_STATUS_LABELS,
   isInProgressOrder,
@@ -29,16 +34,24 @@ type OrderExtras = {
   photos: OrderPhoto[];
   weightLbs: number | null;
   finalTotal: number | null;
+  preferences: Record<string, string>;
+  orderNotes: string;
+  pickupNotes: string;
+  pickupDate: string;
+  pickupSlot: string;
 };
 
 function TrackBody() {
   const search = useSearchParams();
   const key = (search.get("k") || "").trim();
+  const startInEdit = search.get("edit") === "1";
   const { user, ready } = useAuth();
   const [track, setTrack] = useState<OrderTrackSnapshot | null>(null);
   const [orderExtras, setOrderExtras] = useState<OrderExtras | null>(null);
   const [missing, setMissing] = useState(false);
   const [loading, setLoading] = useState(Boolean(key));
+  const [editing, setEditing] = useState(startInEdit);
+  const [savedNote, setSavedNote] = useState("");
 
   useEffect(() => {
     if (!key || key.length < 16) {
@@ -63,6 +76,10 @@ function TrackBody() {
         const photos = Array.isArray(data.photos)
           ? (data.photos as OrderPhoto[])
           : [];
+        const preferences =
+          data.preferences && typeof data.preferences === "object"
+            ? (data.preferences as Record<string, string>)
+            : {};
         setTrack({
           orderId: String(data.orderId ?? ""),
           ref: String(data.ref ?? ""),
@@ -73,6 +90,9 @@ function TrackBody() {
           laundry: Boolean(data.laundry),
           dryCleaning: Boolean(data.dryCleaning),
           bagCount: Number(data.bagCount ?? 0),
+          preferences,
+          orderNotes: String(data.orderNotes ?? ""),
+          pickupNotes: String(data.pickupNotes ?? ""),
           photos: customerVisiblePhotos(photos),
           weightLbs:
             typeof data.weightLbs === "number" ? data.weightLbs : null,
@@ -89,7 +109,7 @@ function TrackBody() {
     );
   }, [key]);
 
-  // Owner fallback: pull photos/weight from the order doc when signed in.
+  // Owner fallback: pull photos/weight/prefs from the order doc when signed in.
   useEffect(() => {
     if (!ready || !user || !track?.orderId) {
       setOrderExtras(null);
@@ -106,12 +126,22 @@ function TrackBody() {
         const photos = Array.isArray(data.photos)
           ? (data.photos as OrderPhoto[])
           : [];
+        const pickup = (data.pickup ?? {}) as Record<string, unknown>;
+        const preferences =
+          data.preferences && typeof data.preferences === "object"
+            ? (data.preferences as Record<string, string>)
+            : {};
         setOrderExtras({
           photos: customerVisiblePhotos(photos),
           weightLbs:
             typeof data.weightLbs === "number" ? data.weightLbs : null,
           finalTotal:
             typeof data.finalTotal === "number" ? data.finalTotal : null,
+          preferences,
+          orderNotes: String(data.orderNotes ?? ""),
+          pickupNotes: String(pickup.notes ?? ""),
+          pickupDate: String(pickup.date ?? ""),
+          pickupSlot: String(pickup.slot ?? ""),
         });
       },
       () => setOrderExtras(null)
@@ -167,14 +197,67 @@ function TrackBody() {
     .filter(Boolean)
     .join(" · ");
 
+  const pickupDate =
+    track.pickupDate || orderExtras?.pickupDate || "";
+  const pickupSlot =
+    track.pickupSlot || orderExtras?.pickupSlot || "";
+  const preferences =
+    Object.keys(track.preferences ?? {}).length > 0
+      ? track.preferences
+      : orderExtras?.preferences;
+  const orderNotes =
+    track.orderNotes || orderExtras?.orderNotes || "";
+  const pickupNotes =
+    track.pickupNotes || orderExtras?.pickupNotes || "";
+  const showEdit = canEditOrderRequests(status) && Boolean(track.orderId);
+
+  if (editing && showEdit) {
+    return (
+      <article className="account-order-card track-order-card">
+        <div className="account-order-head is-static">
+          <div>
+            <h3>Edit order · Ref {orderRefFromId(track.orderId || track.ref)}</h3>
+            <p>
+              {pickupDate
+                ? `${formatPickupDate(pickupDate)}${
+                    pickupSlot ? ` · ${pickupSlot}` : ""
+                  }`
+                : "Pickup scheduled"}
+            </p>
+          </div>
+          <span className={cn("account-order-badge", active && "is-active")}>
+            {ORDER_STATUS_LABELS[status]}
+          </span>
+        </div>
+        <div className="account-order-body">
+          <TrackOrderEdit
+            trackKey={key}
+            orderId={track.orderId}
+            status={status}
+            pickupDate={pickupDate}
+            pickupSlot={pickupSlot}
+            preferences={preferences}
+            orderNotes={orderNotes}
+            pickupNotes={pickupNotes}
+            onClose={() => setEditing(false)}
+            onSaved={() => {
+              setEditing(false);
+              setSavedNote("Order updated.");
+            }}
+          />
+        </div>
+      </article>
+    );
+  }
+
   return (
     <article className="account-order-card track-order-card">
       <div className="account-order-head is-static">
         <div>
           <h3>
-            {track.pickupDate
-              ? `${formatPickupDate(track.pickupDate)}${
-                  track.pickupSlot ? ` · ${track.pickupSlot}` : ""
+            {pickupDate
+              ? `${formatPickupDate(pickupDate)}${
+                  pickupSlot ? ` · ${pickupSlot}` : ""
                 }`
               : "Pickup scheduled"}
             {services ? ` · ${services}` : ""}
@@ -192,17 +275,35 @@ function TrackBody() {
         {track.firstName ? (
           <p className="track-greeting">Hi {track.firstName}</p>
         ) : null}
+        {savedNote ? (
+          <p className="mb-3 text-sm font-medium text-emerald-700">{savedNote}</p>
+        ) : null}
         <OrderProgress
           status={status}
           photos={photos}
           weightLbs={weightLbs}
           finalTotal={finalTotal}
         />
-        <div className="mt-4">
+        <div className="mt-4 flex flex-wrap gap-2">
+          {showEdit ? (
+            <Button type="button" size="sm" onClick={() => setEditing(true)}>
+              Edit order
+              {canRescheduleOrder(status, pickupDate, pickupSlot)
+                ? ""
+                : " (requests)"}
+            </Button>
+          ) : null}
           <Button variant="outline" size="sm" asChild>
             <Link href="/account">Back</Link>
           </Button>
         </div>
+        {showEdit && !canRescheduleOrder(status, pickupDate, pickupSlot) ? (
+          <p className="mt-2 text-xs text-muted-foreground">
+            You can still change wash preferences and notes. Date &amp; time
+            lock once your pickup window starts (or when the driver is on the
+            way).
+          </p>
+        ) : null}
       </div>
     </article>
   );

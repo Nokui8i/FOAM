@@ -18,6 +18,32 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == uid;
     }
 
+    function orderWaitingStatus() {
+      return resource.data.status in ['new', 'confirmed'];
+    }
+
+    function customerEditProofOk() {
+      return resource.data.trackKey is string
+        && resource.data.trackKey.size() >= 16
+        && request.resource.data.editProof == resource.data.trackKey;
+    }
+
+    function customerOrderEditKeys() {
+      return request.resource.data.diff(resource.data).affectedKeys()
+        .hasOnly([
+          'preferences', 'orderNotes', 'pickup',
+          'editProof', 'updatedAt', 'statusUpdatedAt'
+        ]);
+    }
+
+    function customerTrackEditKeys() {
+      return request.resource.data.diff(resource.data).affectedKeys()
+        .hasOnly([
+          'pickupDate', 'pickupSlot', 'preferences',
+          'orderNotes', 'pickupNotes', 'updatedAt'
+        ]);
+    }
+
     match /users/{uid} {
       allow read: if isOwner(uid) || isAdmin();
       allow create: if isOwner(uid)
@@ -79,16 +105,25 @@ service cloud.firestore {
           && resource.data.uid is string
           && resource.data.uid == request.auth.uid);
 
-      // Customer may cancel their own future weekly pickups (new/confirmed only).
       allow update: if isAdmin() || (
+        // Owner cancel
         isSignedIn()
         && resource.data.uid is string
         && resource.data.uid == request.auth.uid
-        && resource.data.status in ['new', 'confirmed']
+        && orderWaitingStatus()
         && request.resource.data.status == 'cancelled'
         && request.resource.data.uid == resource.data.uid
         && request.resource.data.diff(resource.data).affectedKeys()
           .hasOnly(['status', 'statusUpdatedAt', 'cancelReason'])
+      ) || (
+        // Tracking-link edit (prefs / notes / reschedule) — editProof must match trackKey
+        orderWaitingStatus()
+        && request.resource.data.status == resource.data.status
+        && customerEditProofOk()
+        && customerOrderEditKeys()
+        && request.resource.data.uid == resource.data.uid
+        && request.resource.data.guest == resource.data.guest
+        && request.resource.data.trackKey == resource.data.trackKey
       );
 
       allow delete: if isAdmin();
@@ -104,7 +139,8 @@ service cloud.firestore {
         && request.resource.data.keys().hasOnly([
           'orderId', 'ref', 'status', 'firstName',
           'pickupDate', 'pickupSlot', 'laundry', 'dryCleaning',
-          'bagCount', 'createdAt', 'updatedAt'
+          'bagCount', 'preferences', 'orderNotes', 'pickupNotes',
+          'createdAt', 'updatedAt'
         ])
         && request.resource.data.orderId is string
         && request.resource.data.orderId.size() > 0
@@ -120,6 +156,11 @@ service cloud.firestore {
         && request.resource.data.laundry is bool
         && request.resource.data.dryCleaning is bool
         && request.resource.data.bagCount is number
+        && request.resource.data.preferences is map
+        && request.resource.data.orderNotes is string
+        && request.resource.data.orderNotes.size() <= 2000
+        && request.resource.data.pickupNotes is string
+        && request.resource.data.pickupNotes.size() <= 1000
         && request.resource.data.createdAt == request.time
         && request.resource.data.updatedAt == request.time;
 
@@ -128,10 +169,17 @@ service cloud.firestore {
         && resource.data.orderId is string
         && get(/databases/$(database)/documents/orders/$(resource.data.orderId)).data.uid
           == request.auth.uid
-        && resource.data.status in ['new', 'confirmed']
+        && orderWaitingStatus()
         && request.resource.data.status == 'cancelled'
         && request.resource.data.diff(resource.data).affectedKeys()
           .hasOnly(['status', 'updatedAt'])
+      ) || (
+        // Anyone with the secret track key may edit requests / schedule
+        orderWaitingStatus()
+        && request.resource.data.status == resource.data.status
+        && request.resource.data.orderId == resource.data.orderId
+        && request.resource.data.ref == resource.data.ref
+        && customerTrackEditKeys()
       );
 
       allow delete: if isAdmin();

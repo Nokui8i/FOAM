@@ -38,6 +38,9 @@ export type OrderTrackSnapshot = {
   laundry: boolean;
   dryCleaning: boolean;
   bagCount: number;
+  preferences?: Record<string, string>;
+  orderNotes?: string;
+  pickupNotes?: string;
   /** Customer-visible ops photos (scale + delivery proof). */
   photos?: OrderPhoto[];
   weightLbs?: number | null;
@@ -115,6 +118,9 @@ export function buildOrderTrackDoc(opts: {
   laundry: boolean;
   dryCleaning: boolean;
   bagCount: number;
+  preferences?: Record<string, string>;
+  orderNotes?: string;
+  pickupNotes?: string;
 }): Omit<OrderTrackSnapshot, "updatedAt" | "createdAt"> {
   return {
     orderId: opts.orderId,
@@ -126,5 +132,8 @@ export function buildOrderTrackDoc(opts: {
     laundry: opts.laundry,
     dryCleaning: opts.dryCleaning,
     bagCount: opts.bagCount,
+    preferences: opts.preferences ?? {},
+    orderNotes: opts.orderNotes ?? "",
+    pickupNotes: opts.pickupNotes ?? "",
   };
 }

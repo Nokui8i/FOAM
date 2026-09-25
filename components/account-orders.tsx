@@ -292,6 +292,13 @@ export function AccountOrders({ uid }: { uid: string }) {
                       </Link>
                     </Button>
                   ) : null}
+                  {canCancel && order.trackKey ? (
+                    <Button size="sm" asChild>
+                      <Link href={`${trackPath(order.trackKey)}&edit=1`}>
+                        Edit order
+                      </Link>
+                    </Button>
+                  ) : null}
                   {canCancel ? (
                     <Button
                       type="button"
