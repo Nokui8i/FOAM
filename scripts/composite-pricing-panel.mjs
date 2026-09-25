@@ -1,7 +1,7 @@
 import sharp from "sharp";
 
 const BLANK =
-  "preview-sections/ChatGPT Image Sep 25, 2026, 05_50_02 PM.png";
+  "preview-sections/ChatGPT Image Sep 25, 2026, 06_31_47 PM.png";
 
 function applyEdgeFade(rgba, w, h, fadeTop, fadeBot) {
   for (let y = 0; y < h; y++) {
@@ -56,11 +56,16 @@ async function buildDesktop() {
     .png()
     .toBuffer();
 
-  await sharp(deskBase)
+  const composed = await sharp(deskBase)
     .composite([{ input: overlay, top, left: 0 }])
     .png({ compressionLevel: 6 })
-    .toFile("public/home-mockup-desktop-v22.png");
-  console.log("desktop v22", { top, span, fade });
+    .toBuffer();
+
+  await sharp(composed).png().toFile("public/home-mockup-desktop-v23.png");
+  await sharp(composed)
+    .jpeg({ quality: 88, mozjpeg: true })
+    .toFile("public/home-mockup-desktop-v23.jpg");
+  console.log("desktop v23", { top, span, fade });
 }
 
 async function buildMobile() {
@@ -95,39 +100,18 @@ async function buildMobile() {
     .png()
     .toBuffer();
 
-  await sharp(mobBase)
+  const composed = await sharp(mobBase)
     .composite([{ input: overlay, top, left: 0 }])
     .png({ compressionLevel: 6 })
-    .toFile("public/home-mockup-mobile-v19.png");
-  console.log("mobile v19", { top, span, fade, bh, topPad });
+    .toBuffer();
+
+  await sharp(composed).png().toFile("public/home-mockup-mobile-v20.png");
+  await sharp(composed)
+    .jpeg({ quality: 88, mozjpeg: true })
+    .toFile("public/home-mockup-mobile-v20.jpg");
+  console.log("mobile v20", { top, span, fade, bh, topPad });
 }
 
 await buildDesktop();
 await buildMobile();
-
-await sharp("public/home-mockup-desktop-v22.png")
-  .extract({ left: 0, top: 8640, width: 3840, height: 2160 })
-  .png()
-  .toFile("public/_panel4-new.png");
-await sharp("public/home-mockup-mobile-v19.png")
-  .extract({ left: 0, top: 9561, width: 1440, height: 2308 })
-  .png()
-  .toFile("public/_mpanel4-new.png");
-await sharp("public/home-mockup-desktop-v22.png")
-  .extract({ left: 0, top: 8460, width: 3840, height: 400 })
-  .png()
-  .toFile("public/_seam-new-top.png");
-await sharp("public/home-mockup-desktop-v22.png")
-  .extract({ left: 0, top: 10620, width: 3840, height: 400 })
-  .png()
-  .toFile("public/_seam-new-bot.png");
-await sharp("public/home-mockup-mobile-v19.png")
-  .extract({ left: 0, top: 9411, width: 1440, height: 300 })
-  .png()
-  .toFile("public/_mseam-new-top.png");
-await sharp("public/home-mockup-mobile-v19.png")
-  .extract({ left: 0, top: 11719, width: 1440, height: 300 })
-  .png()
-  .toFile("public/_mseam-new-bot.png");
-
 console.log("done");
