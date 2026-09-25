@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import {
+  AlertTriangle,
   CalendarDays,
   ChevronLeft,
   ChevronRight,
@@ -10,6 +11,7 @@ import {
   Trash2,
   X,
 } from "lucide-react";
+import { collection, onSnapshot } from "firebase/firestore";
 import { createPortal } from "react-dom";
 
 import {
@@ -18,6 +20,12 @@ import {
   latestPickupDate,
   toIsoDate,
 } from "@/lib/booking";
+import { getFirebaseDb } from "@/lib/firebase";
+import {
+  isCancelledOrder,
+  normalizeOrderStatus,
+  type OrderStatus,
+} from "@/lib/orders";
 import {
   subscribePickupSlotCounts,
   type SlotCounts,
@@ -60,6 +68,19 @@ function formatDayLabel(iso: string) {
   });
 }
 
+function activePickupOrdersByDate(rows: Array<{ date: string; slot: string }>) {
+  const byDate: Record<string, number> = {};
+  const byDateSlot: Record<string, SlotCounts> = {};
+  for (const row of rows) {
+    if (!row.date) continue;
+    byDate[row.date] = (byDate[row.date] ?? 0) + 1;
+    if (!byDateSlot[row.date]) byDateSlot[row.date] = {};
+    const slot = row.slot || "Unassigned";
+    byDateSlot[row.date][slot] = (byDateSlot[row.date][slot] ?? 0) + 1;
+  }
+  return { byDate, byDateSlot };
+}
+
 export function AdminSchedulePanel({
   adminEmail,
   onMobileViewChange,
@@ -76,7 +97,10 @@ export function AdminSchedulePanel({
     closed: false,
     slots: {},
   });
-  const [booked, setBooked] = useState<SlotCounts>({});
+  const [availability, setAvailability] = useState<SlotCounts>({});
+  const [orderPickups, setOrderPickups] = useState<
+    Array<{ date: string; slot: string }>
+  >([]);
   const [savingSlots, setSavingSlots] = useState(false);
   const [savingDay, setSavingDay] = useState(false);
   const [error, setError] = useState("");
@@ -98,13 +122,79 @@ export function AdminSchedulePanel({
 
   useEffect(() => {
     const labels = slots.map((s) => s.label);
-    return subscribePickupSlotCounts(dayIso, setBooked, labels);
+    return subscribePickupSlotCounts(dayIso, setAvailability, labels);
   }, [dayIso, slots]);
+
+  useEffect(() => {
+    return onSnapshot(collection(getFirebaseDb(), "orders"), (snap) => {
+      const next: Array<{ date: string; slot: string }> = [];
+      snap.forEach((docSnap) => {
+        const data = docSnap.data() as Record<string, unknown>;
+        const status = normalizeOrderStatus(data.status) as OrderStatus;
+        if (isCancelledOrder(status)) return;
+        const pickup =
+          data.pickup && typeof data.pickup === "object"
+            ? (data.pickup as Record<string, unknown>)
+            : null;
+        const date = typeof pickup?.date === "string" ? pickup.date : "";
+        if (!date) return;
+        const slot = typeof pickup?.slot === "string" ? pickup.slot.trim() : "";
+        next.push({ date, slot });
+      });
+      setOrderPickups(next);
+    });
+  }, []);
+
+  const { byDate: ordersByDate, byDateSlot: ordersByDateSlot } = useMemo(
+    () => activePickupOrdersByDate(orderPickups),
+    [orderPickups]
+  );
 
   const sortedSlots = useMemo(
     () => [...slots].sort((a, b) => a.startMinutes - b.startMinutes),
     [slots]
   );
+
+  const dayOrderCounts = ordersByDateSlot[dayIso] ?? {};
+  const dayOrderTotal = ordersByDate[dayIso] ?? 0;
+
+  const daySlotRows = useMemo(() => {
+    const known = new Set(sortedSlots.map((s) => s.label));
+    const rows = sortedSlots.map((slot) => ({
+      id: slot.id,
+      label: slot.label,
+      capacity: slot.capacity,
+      enabled: slot.enabled,
+      booked: Math.max(
+        dayOrderCounts[slot.label] ?? 0,
+        availability[slot.label] ?? 0
+      ),
+      orphan: false as boolean,
+    }));
+    for (const [label, count] of Object.entries(dayOrderCounts)) {
+      if (known.has(label) || !(count > 0)) continue;
+      rows.push({
+        id: `orphan-${label}`,
+        label,
+        capacity: 0,
+        enabled: false,
+        booked: count,
+        orphan: true,
+      });
+    }
+    for (const [label, count] of Object.entries(availability)) {
+      if (known.has(label) || dayOrderCounts[label] || !(count > 0)) continue;
+      rows.push({
+        id: `avail-${label}`,
+        label,
+        capacity: 0,
+        enabled: false,
+        booked: count,
+        orphan: true,
+      });
+    }
+    return rows;
+  }, [sortedSlots, dayOrderCounts, availability]);
 
   const dayHasOverride =
     dayOverride.closed ||
@@ -158,7 +248,7 @@ export function AdminSchedulePanel({
     try {
       const saved = await savePickupSchedule(slots, adminEmail);
       setSlots(saved.map((s) => ({ ...s })));
-      setOkMsg("Time windows saved for all days.");
+      setOkMsg("Time windows saved.");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not save windows.");
     } finally {
@@ -167,11 +257,21 @@ export function AdminSchedulePanel({
   }
 
   async function saveDay() {
+    const closingDay = dayOverride.closed;
+    const closingWindows = Object.values(dayOverride.slots).some(
+      (row) => row.closed
+    );
+    if ((closingDay || closingWindows) && dayOrderTotal > 0) {
+      const ok = window.confirm(
+        `${dayOrderTotal} pickup${dayOrderTotal === 1 ? "" : "s"} already booked on ${formatDayLabel(dayIso)}. Close anyway?`
+      );
+      if (!ok) return;
+    }
+
     setSavingDay(true);
     setError("");
     setOkMsg("");
     try {
-      // Capacity stays global — day overrides only close the day / windows.
       const cleaned: DayOverride = {
         closed: dayOverride.closed,
         slots: Object.fromEntries(
@@ -182,7 +282,7 @@ export function AdminSchedulePanel({
       };
       await saveDayOverride(dayIso, cleaned, adminEmail);
       setDayOverride(cleaned);
-      setOkMsg(`Day override saved for ${formatDayLabel(dayIso)}.`);
+      setOkMsg(`Saved ${formatDayLabel(dayIso)}.`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not save day.");
     } finally {
@@ -207,10 +307,6 @@ export function AdminSchedulePanel({
       <header className="ops-catalog-plane-head">
         <div>
           <h1 className="ops-list-title">Schedule</h1>
-          <p className="ops-catalog-plane-lead">
-            Time windows and capacity are the same every day. Use the calendar
-            only to close a specific day, or close specific windows on that day.
-          </p>
         </div>
         <div className="ops-catalog-plane-chip" aria-current="page">
           <span className="ops-catalog-plane-chip-icon" aria-hidden>
@@ -240,10 +336,6 @@ export function AdminSchedulePanel({
               Add window
             </button>
           </div>
-          <p className="ops-schedule-hint">
-            Changes here apply collectively to every day. Capacity is the max
-            pickups allowed in that window.
-          </p>
 
           <div className="ops-schedule-windows">
             {sortedSlots.map((slot) => (
@@ -298,10 +390,6 @@ export function AdminSchedulePanel({
                 </label>
                 <div className="ops-schedule-window-label">
                   <strong>{slot.label}</strong>
-                  <small>
-                    {minutesToClock(slot.startMinutes)} →{" "}
-                    {minutesToClock(slot.endMinutes)}
-                  </small>
                 </div>
                 <button
                   type="button"
@@ -331,21 +419,29 @@ export function AdminSchedulePanel({
             <button
               type="button"
               className={cn(
-                "ops-history-cal-btn",
+                "ops-schedule-cal-btn",
                 showCalendar && "is-open",
-                dayHasOverride && "has-date"
+                dayHasOverride && "has-override",
+                dayOrderTotal > 0 && "has-bookings"
               )}
               aria-expanded={showCalendar}
+              aria-label={`Pick date, currently ${formatDayLabel(dayIso)}`}
               onClick={() => setShowCalendar((v) => !v)}
             >
-              <CalendarDays size={15} aria-hidden />
-              {formatDayLabel(dayIso)}
+              <CalendarDays size={18} aria-hidden />
+              <span>{formatDayLabel(dayIso)}</span>
             </button>
           </div>
-          <p className="ops-schedule-hint">
-            Pick a date on the calendar, then close the whole day or only
-            specific windows for that date. Capacity stays on the left.
-          </p>
+
+          {dayOrderTotal > 0 ? (
+            <div className="ops-schedule-booked" role="status">
+              <AlertTriangle size={16} aria-hidden />
+              <strong>
+                {dayOrderTotal} order{dayOrderTotal === 1 ? "" : "s"} already
+                booked on {formatDayLabel(dayIso)}
+              </strong>
+            </div>
+          ) : null}
 
           <label className="ops-schedule-toggle is-day">
             <input
@@ -359,9 +455,7 @@ export function AdminSchedulePanel({
               }
             />
             <span>
-              {dayOverride.closed
-                ? "Whole day closed — no bookings"
-                : "Day open (unless windows closed below)"}
+              {dayOverride.closed ? "Whole day closed" : "Day open"}
             </span>
           </label>
 
@@ -371,30 +465,44 @@ export function AdminSchedulePanel({
               dayOverride.closed && "is-disabled"
             )}
           >
-            {sortedSlots.map((slot) => {
+            {daySlotRows.map((row) => {
               const closed =
-                dayOverride.slots[slot.label]?.closed === true || !slot.enabled;
-              const used = booked[slot.label] ?? 0;
+                dayOverride.slots[row.label]?.closed === true ||
+                (!row.orphan && !row.enabled);
               return (
-                <div key={slot.id} className="ops-schedule-day-row is-simple">
+                <div
+                  key={row.id}
+                  className={cn(
+                    "ops-schedule-day-row is-simple",
+                    row.booked > 0 && "has-bookings"
+                  )}
+                >
                   <div className="ops-schedule-day-copy">
-                    <strong>{slot.label}</strong>
-                    <small>
-                      {used} booked · capacity {slot.capacity}
-                      {!slot.enabled ? " · off in global windows" : ""}
-                    </small>
+                    <strong>{row.label}</strong>
+                    <span className={cn(row.booked > 0 && "is-booked")}>
+                      {row.booked > 0
+                        ? `${row.booked} booked`
+                        : "0 booked"}
+                      {!row.orphan ? ` · capacity ${row.capacity}` : ""}
+                      {row.orphan ? " · previous window" : ""}
+                      {!row.orphan && !row.enabled ? " · off globally" : ""}
+                    </span>
                   </div>
-                  <label className="ops-schedule-toggle">
-                    <input
-                      type="checkbox"
-                      checked={!closed && slot.enabled}
-                      disabled={dayOverride.closed || !slot.enabled}
-                      onChange={(e) =>
-                        setDaySlotClosed(slot.label, !e.target.checked)
-                      }
-                    />
-                    <span>{closed ? "Closed this day" : "Open this day"}</span>
-                  </label>
+                  {!row.orphan ? (
+                    <label className="ops-schedule-toggle">
+                      <input
+                        type="checkbox"
+                        checked={!closed && row.enabled}
+                        disabled={dayOverride.closed || !row.enabled}
+                        onChange={(e) =>
+                          setDaySlotClosed(row.label, !e.target.checked)
+                        }
+                      />
+                      <span>{closed ? "Closed" : "Open"}</span>
+                    </label>
+                  ) : (
+                    <span className="ops-schedule-orphan-tag">Booked</span>
+                  )}
                 </div>
               );
             })}
@@ -438,6 +546,7 @@ export function AdminSchedulePanel({
                 </div>
                 <ScheduleCalendar
                   value={dayIso}
+                  ordersByDate={ordersByDate}
                   onChange={(iso) => {
                     setDayIso(iso);
                     setShowCalendar(false);
@@ -455,9 +564,11 @@ export function AdminSchedulePanel({
 function ScheduleCalendar({
   value,
   onChange,
+  ordersByDate,
 }: {
   value: string;
   onChange: (iso: string) => void;
+  ordersByDate: Record<string, number>;
 }) {
   const min = useMemo(() => earliestPickupDate(), []);
   const max = useMemo(() => latestPickupDate(), []);
@@ -531,6 +642,7 @@ function ScheduleCalendar({
         {cells.map((cell, i) => {
           if (!cell) return <span key={`e-${i}`} className="book-cal-empty" />;
           const open = cell.iso >= minIso && cell.iso <= maxIso;
+          const booked = (ordersByDate[cell.iso] ?? 0) > 0;
           return (
             <button
               key={cell.iso}
@@ -540,11 +652,12 @@ function ScheduleCalendar({
                 "book-cal-day",
                 value === cell.iso && "is-active",
                 !open && "is-disabled",
-                open && "has-orders"
+                booked && open && "has-orders"
               )}
               onClick={() => onChange(cell.iso)}
             >
               {cell.day}
+              {booked ? <i className="ops-schedule-cal-dot" aria-hidden /> : null}
             </button>
           );
         })}

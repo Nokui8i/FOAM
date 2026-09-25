@@ -1819,11 +1819,99 @@
   color: var(--ops-ink);
   letter-spacing: -.02em;
 }
-.admin-page .ops-schedule-hint {
-  margin: 0;
-  color: var(--ops-muted);
+.admin-page .ops-schedule-cal-btn {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 42px;
+  padding: 0 14px 0 12px;
+  border: 2px solid var(--ops-primary);
+  border-radius: 12px;
+  background: #e4f4fa;
+  color: var(--ops-navy);
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: -.01em;
+  cursor: pointer;
+  box-shadow: 0 1px 0 rgba(15, 23, 42, 0.06);
+}
+.admin-page .ops-schedule-cal-btn:hover,
+.admin-page .ops-schedule-cal-btn.is-open {
+  background: var(--ops-navy);
+  border-color: var(--ops-navy);
+  color: #fff;
+}
+.admin-page .ops-schedule-cal-btn.has-bookings {
+  border-color: #c2410c;
+  background: #fff7ed;
+  color: #9a3412;
+}
+.admin-page .ops-schedule-cal-btn.has-bookings:hover,
+.admin-page .ops-schedule-cal-btn.has-bookings.is-open {
+  background: #9a3412;
+  border-color: #9a3412;
+  color: #fff;
+}
+.admin-page .ops-schedule-cal-btn.has-override:not(.has-bookings) {
+  background: var(--ops-navy);
+  border-color: var(--ops-navy);
+  color: #fff;
+}
+.admin-page .ops-schedule-booked {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid #fdba74;
+  border-radius: 12px;
+  background: #fff7ed;
+  color: #9a3412;
+}
+.admin-page .ops-schedule-booked strong {
   font-size: 13px;
-  line-height: 1.4;
+  font-weight: 800;
+  line-height: 1.3;
+}
+.admin-page .ops-schedule-day-row.has-bookings {
+  border-color: #fdba74;
+  background: #fffaf5;
+}
+.admin-page .ops-schedule-day-copy span {
+  color: var(--ops-muted);
+  font-size: 12px;
+  font-weight: 650;
+}
+.admin-page .ops-schedule-day-copy span.is-booked {
+  color: #9a3412;
+  font-weight: 800;
+}
+.admin-page .ops-schedule-orphan-tag {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: #fff7ed;
+  color: #9a3412;
+  font-size: 12px;
+  font-weight: 800;
+}
+.admin-page .ops-history-cal-popover .book-cal-day {
+  position: relative;
+}
+.admin-page .ops-schedule-cal-dot {
+  position: absolute;
+  left: 50%;
+  bottom: 5px;
+  width: 5px;
+  height: 5px;
+  margin-left: -2.5px;
+  border-radius: 50%;
+  background: #c2410c;
+}
+.admin-page .ops-history-cal-popover .book-cal-day.is-active .ops-schedule-cal-dot {
+  background: #fff;
 }
 .admin-page .ops-schedule-windows {
   display: flex;
@@ -1920,6 +2008,10 @@
 .admin-page .ops-schedule-day-copy small {
   color: var(--ops-muted);
   font-size: 11px;
+}
+.admin-page .ops-schedule-plane .ops-catalog-plane-lead,
+.admin-page .ops-schedule-hint {
+  display: none;
 }
 .admin-page .ops-promos-field.is-compact input {
   min-height: 38px;

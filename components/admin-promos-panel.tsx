@@ -144,10 +144,6 @@ export function AdminPromosPanel({
       <header className="ops-catalog-plane-head">
         <div>
           <h1 className="ops-list-title">Promos</h1>
-          <p className="ops-catalog-plane-lead">
-            Create discount codes for booking. Set a percent or dollar off, then
-            limit by number of uses or an end date.
-          </p>
         </div>
         <div className="ops-catalog-plane-chip" aria-current="page">
           <span className="ops-catalog-plane-chip-icon" aria-hidden>

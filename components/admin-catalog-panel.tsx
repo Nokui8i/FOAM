@@ -108,9 +108,6 @@ export function AdminCatalogPanel({
       <header className="ops-catalog-plane-head">
         <div>
           <h1 className="ops-list-title">Catalog</h1>
-          <p className="ops-catalog-plane-lead">
-            Admin-only dry clean prices. Drivers only add items to orders.
-          </p>
         </div>
         <div className="ops-catalog-plane-chip" aria-current="page">
           <span className="ops-catalog-plane-chip-icon" aria-hidden>
