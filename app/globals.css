@@ -5129,6 +5129,48 @@
   top: 66%;
 }
 
+/* Temporary debug outlines for empty pricing boxes on the mockup. */
+.home-pricing-debug {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  pointer-events: none;
+}
+
+.home-pricing-debug-box {
+  position: absolute;
+  box-sizing: border-box;
+  border: 3px solid #ff2d55;
+  background: rgb(255 45 85 / 12%);
+  border-radius: 0.35rem;
+}
+
+.home-pricing-debug-box:nth-child(2) {
+  border-color: #00e5ff;
+  background: rgb(0 229 255 / 12%);
+}
+
+.home-pricing-debug-label {
+  position: absolute;
+  top: 0.4rem;
+  left: 0.45rem;
+  padding: 0.2rem 0.4rem;
+  border-radius: 0.25rem;
+  background: rgb(0 0 0 / 72%);
+  color: #fff;
+  font-family: ui-monospace, monospace;
+  font-size: 0.65rem;
+  font-weight: 600;
+  line-height: 1.25;
+  white-space: nowrap;
+}
+
+@media (min-width: 640px) {
+  .home-full {
+    padding-top: 0;
+  }
+}
+
 /* ---------- Real HTML pricing (live rates, not image overlays) ---------- */
 
 .home-pricing {
