@@ -642,7 +642,7 @@ function ScheduleCalendar({
         {cells.map((cell, i) => {
           if (!cell) return <span key={`e-${i}`} className="book-cal-empty" />;
           const open = cell.iso >= minIso && cell.iso <= maxIso;
-          const booked = (ordersByDate[cell.iso] ?? 0) > 0;
+          const booked = open && (ordersByDate[cell.iso] ?? 0) > 0;
           return (
             <button
               key={cell.iso}
@@ -652,7 +652,7 @@ function ScheduleCalendar({
                 "book-cal-day",
                 value === cell.iso && "is-active",
                 !open && "is-disabled",
-                booked && open && "has-orders"
+                booked && "has-orders"
               )}
               onClick={() => onChange(cell.iso)}
             >
