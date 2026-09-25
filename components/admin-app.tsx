@@ -20,6 +20,7 @@ import {
   History,
   LogOut,
   Shirt,
+  Ticket,
   Truck,
 } from "lucide-react";
 
@@ -27,6 +28,7 @@ import { AdminAlertsPanel } from "@/components/admin-alerts-panel";
 import { AdminCatalogPanel } from "@/components/admin-catalog-panel";
 import { AdminContactsPanel } from "@/components/admin-contacts-panel";
 import { AdminOrdersPanel } from "@/components/admin-orders-panel";
+import { AdminPromosPanel } from "@/components/admin-promos-panel";
 import { Button } from "@/components/ui/button";
 import { getFirebaseAuth, getFirebaseDb } from "@/lib/firebase";
 import { purgeExpiredOpsDataOncePerSession } from "@/lib/data-retention";
@@ -47,7 +49,14 @@ import {
 } from "@/lib/admin-alerts";
 import { reconcileWeeklyQueues } from "@/lib/weekly-automation";
 
-type AdminTab = "orders" | "future" | "history" | "support" | "alerts" | "catalog";
+type AdminTab =
+  | "orders"
+  | "future"
+  | "history"
+  | "support"
+  | "alerts"
+  | "catalog"
+  | "promos";
 type MobileView = "list" | "detail";
 
 const TAB_FROM_PARAM: Record<string, AdminTab> = {
@@ -58,6 +67,7 @@ const TAB_FROM_PARAM: Record<string, AdminTab> = {
   contacts: "support",
   alerts: "alerts",
   catalog: "catalog",
+  promos: "promos",
 };
 
 function parseAdminTab(raw: string | null): AdminTab {
@@ -521,6 +531,14 @@ function AdminAppInner() {
               <Shirt size={18} aria-hidden />
               <span>Catalog</span>
             </button>
+            <button
+              type="button"
+              className={cn("nav-button", tab === "promos" && "active")}
+              onClick={() => setDestination("promos")}
+            >
+              <Ticket size={18} aria-hidden />
+              <span>Promos</span>
+            </button>
           </nav>
 
           <div className="rail-status">
@@ -596,6 +614,12 @@ function AdminAppInner() {
               />
             ) : tab === "catalog" ? (
               <AdminCatalogPanel
+                adminEmail={user.email ?? ""}
+                mobileView={mobileView}
+                onMobileViewChange={setMobileView}
+              />
+            ) : tab === "promos" ? (
+              <AdminPromosPanel
                 adminEmail={user.email ?? ""}
                 mobileView={mobileView}
                 onMobileViewChange={setMobileView}

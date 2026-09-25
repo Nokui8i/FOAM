@@ -384,6 +384,9 @@ export type FoamOrder = {
     minimumOrder?: number;
     tip?: number;
     promoCode?: string;
+    promoDiscountType?: "percent" | "fixed";
+    promoDiscountValue?: number;
+    promoLabel?: string;
     finalTotalPending?: boolean;
     repeatDiscountEligible?: boolean;
     repeatDiscountPercent?: number;

@@ -74,6 +74,11 @@ import {
   type SlotCounts,
 } from "@/lib/pickup-availability";
 import {
+  formatPromoLabel,
+  validatePromoCode,
+  type PromoCode,
+} from "@/lib/promo-codes";
+import {
   LAS_VEGAS_CITY,
   hasHouseNumber,
   isLasVegasAddress,
@@ -144,6 +149,12 @@ function BookingAppInner() {
   const [repeatDiscountEligible, setRepeatDiscountEligible] = useState(false);
   const [guestGateOpen, setGuestGateOpen] = useState(false);
   const [draftHydrated, setDraftHydrated] = useState(false);
+  const [promoStatus, setPromoStatus] = useState<
+    | { state: "idle" }
+    | { state: "checking" }
+    | { state: "ok"; label: string; promo: PromoCode }
+    | { state: "bad"; reason: string }
+  >({ state: "idle" });
   const [slotCounts, setSlotCounts] = useState<SlotCounts>({
     "7am - 10am": 0,
     "10am - 1pm": 0,
@@ -370,6 +381,23 @@ function BookingAppInner() {
       if (!slotIsBookable(draft.pickupDate, draft.pickupSlot, slotCounts)) {
         throw new Error("That time window is closed or full. Pick another.");
       }
+
+      const code = draft.promoCode.trim();
+      let appliedPromo: PromoCode | null = null;
+      if (code) {
+        const check = await validatePromoCode(code);
+        if (!check.ok) {
+          setPromoStatus({ state: "bad", reason: check.reason });
+          throw new Error(check.reason);
+        }
+        appliedPromo = check.promo;
+        setPromoStatus({
+          state: "ok",
+          label: check.label,
+          promo: check.promo,
+        });
+      }
+
       await reservePickupSlot(draft.pickupDate, draft.pickupSlot);
 
       const wantsRepeat = draft.repeatPickup;
@@ -417,7 +445,10 @@ function BookingAppInner() {
         pricing: {
           ...pricing,
           tip,
-          promoCode: draft.promoCode.trim(),
+          promoCode: appliedPromo?.code ?? "",
+          promoDiscountType: appliedPromo?.discountType ?? null,
+          promoDiscountValue: appliedPromo?.discountValue ?? null,
+          promoLabel: appliedPromo ? formatPromoLabel(appliedPromo) : "",
           // Final $ after weigh — ops applies rate × lbs (min $50) + delivery + tip + dry cleaning.
           finalTotalPending: true,
           repeatDiscountEligible: repeatDiscountEligible,
@@ -426,7 +457,7 @@ function BookingAppInner() {
             : 0,
         },
         tip,
-        promoCode: draft.promoCode.trim(),
+        promoCode: appliedPromo?.code ?? "",
         createdAt: serverTimestamp(),
       };
 
@@ -991,20 +1022,59 @@ function BookingAppInner() {
             <section className="book-block">
               <h2 className="book-block-title">Promo code</h2>
               <Field label="Have a code?">
-                <input
-                  className={fieldClass}
-                  placeholder="Enter promo code"
-                  value={draft.promoCode}
-                  onChange={(e) =>
-                    patch({ promoCode: e.target.value.toUpperCase() })
-                  }
-                  autoCapitalize="characters"
-                />
+                <div className="book-promo-row">
+                  <input
+                    className={fieldClass}
+                    placeholder="Enter promo code"
+                    value={draft.promoCode}
+                    onChange={(e) => {
+                      const next = e.target.value.toUpperCase();
+                      patch({ promoCode: next });
+                      setPromoStatus({ state: "idle" });
+                    }}
+                    autoCapitalize="characters"
+                  />
+                  <button
+                    type="button"
+                    className="book-promo-apply"
+                    disabled={!draft.promoCode.trim() || promoStatus.state === "checking"}
+                    onClick={() => {
+                      const code = draft.promoCode.trim();
+                      if (!code) return;
+                      setPromoStatus({ state: "checking" });
+                      void validatePromoCode(code).then((check) => {
+                        if (!check.ok) {
+                          setPromoStatus({
+                            state: "bad",
+                            reason: check.reason,
+                          });
+                          return;
+                        }
+                        setPromoStatus({
+                          state: "ok",
+                          label: check.label,
+                          promo: check.promo,
+                        });
+                      });
+                    }}
+                  >
+                    {promoStatus.state === "checking" ? "…" : "Apply"}
+                  </button>
+                </div>
               </Field>
-              <p className="book-note">
-                We&apos;ll apply it when we confirm your final total after
-                weighing (and any dry cleaning).
-              </p>
+              {promoStatus.state === "ok" ? (
+                <p className="book-note book-promo-ok">
+                  Applied · <b>{promoStatus.label}</b> — deducted from your final
+                  total after weighing.
+                </p>
+              ) : promoStatus.state === "bad" ? (
+                <p className="book-note book-promo-bad">{promoStatus.reason}</p>
+              ) : (
+                <p className="book-note">
+                  We&apos;ll apply a valid code when we confirm your final total
+                  after weighing (and any dry cleaning).
+                </p>
+              )}
             </section>
 
             <p className="book-note book-price-note">

@@ -199,6 +199,12 @@ service cloud.firestore {
       );
     }
 
+    match /promoCodes/{code} {
+      // Customers validate a single code at booking; list/write is admin-only.
+      allow get: if true;
+      allow list, create, update, delete: if isAdmin();
+    }
+
     match /config/{docId} {
       allow read: if isAdmin();
       allow write: if isAdmin()

@@ -60,6 +60,13 @@ import { getFirebaseDb } from "@/lib/firebase";
 import { uploadOrderPhoto } from "@/lib/order-photos";
 import { releasePickupSlot } from "@/lib/pickup-availability";
 import {
+  formatPromoLabel,
+  isPromoCurrentlyValid,
+  loadPromoCode,
+  promoDiscountAmount,
+  recordPromoUse,
+} from "@/lib/promo-codes";
+import {
   ORDER_PIPELINE_STEPS,
   ORDER_STATUS_LABELS,
   computeFinalTotal,
@@ -1092,14 +1099,52 @@ export function AdminOrdersPanel({
       ratePerLb: selected.pricing?.laundryRatePerLb,
       deliveryFee: selected.pricing?.deliveryFee,
       minimumOrder: selected.pricing?.minimumOrder,
-      tip: selected.tip ?? selected.pricing?.tip ?? 0,
+      tip: 0,
       repeatDiscountPercent: selected.pricing?.repeatDiscountEligible
         ? selected.pricing?.repeatDiscountPercent ?? 0
         : 0,
       hasLaundry,
     });
     const dryTotal = dryCleanItemsTotal(dryItems);
-    const finalTotal = Math.round((laundryPortion + dryTotal) * 100) / 100;
+    const tip = selected.tip ?? selected.pricing?.tip ?? 0;
+    const subtotal = Math.round((laundryPortion + dryTotal) * 100) / 100;
+
+    let promoOff = 0;
+    let promoLabel = "";
+    let promoCodeUsed = "";
+    const code = (selected.promoCode || selected.pricing?.promoCode || "").trim();
+    if (code) {
+      const live = await loadPromoCode(code);
+      const snapType = selected.pricing?.promoDiscountType;
+      const snapValue = selected.pricing?.promoDiscountValue;
+      if (live) {
+        const validity = isPromoCurrentlyValid(live);
+        if (validity.ok) {
+          promoOff = promoDiscountAmount(subtotal, live);
+          promoLabel = formatPromoLabel(live);
+          promoCodeUsed = live.code;
+        }
+      } else if (
+        (snapType === "percent" || snapType === "fixed") &&
+        typeof snapValue === "number" &&
+        snapValue > 0
+      ) {
+        promoOff = promoDiscountAmount(subtotal, {
+          discountType: snapType,
+          discountValue: snapValue,
+        });
+        promoLabel =
+          selected.pricing?.promoLabel ||
+          formatPromoLabel({
+            discountType: snapType,
+            discountValue: snapValue,
+          });
+        promoCodeUsed = code.toUpperCase();
+      }
+    }
+
+    const finalTotal =
+      Math.round((subtotal - promoOff + tip) * 100) / 100;
 
     await patchOrder(
       {
@@ -1108,9 +1153,22 @@ export function AdminOrdersPanel({
         finalTotal,
         status: "washing",
         "pricing.finalTotalPending": false,
+        ...(promoCodeUsed
+          ? {
+              "pricing.promoApplied": true,
+              "pricing.promoDiscountAmount": promoOff,
+              "pricing.promoLabel": promoLabel,
+            }
+          : {}),
       },
-      `Charged · $${finalTotal.toFixed(2)} · At laundry`
+      promoOff > 0
+        ? `Charged · $${finalTotal.toFixed(2)} · ${promoLabel} · At laundry`
+        : `Charged · $${finalTotal.toFixed(2)} · At laundry`
     );
+
+    if (promoCodeUsed && promoOff > 0) {
+      await recordPromoUse(promoCodeUsed);
+    }
 
     if (selected.pickup.repeat || selected.pickup.repeatRequested) {
       try {
@@ -1213,11 +1271,44 @@ export function AdminOrdersPanel({
     if (dryTotal > 0) {
       lines.push({ label: "Dry cleaning", amount: dryTotal });
     }
+
+    const subtotalBeforePromo =
+      Math.round((laundryPlusFee + dryTotal) * 100) / 100;
+    let promoOff = 0;
+    let promoLine = "";
+    const promoType = selected.pricing?.promoDiscountType;
+    const promoValue = selected.pricing?.promoDiscountValue;
+    const promoCode = (selected.promoCode || selected.pricing?.promoCode || "").trim();
+    if (
+      promoCode &&
+      (promoType === "percent" || promoType === "fixed") &&
+      typeof promoValue === "number" &&
+      promoValue > 0
+    ) {
+      promoOff = promoDiscountAmount(subtotalBeforePromo, {
+        discountType: promoType,
+        discountValue: promoValue,
+      });
+      promoLine =
+        selected.pricing?.promoLabel ||
+        formatPromoLabel({
+          discountType: promoType,
+          discountValue: promoValue,
+        });
+      if (promoOff > 0) {
+        lines.push({
+          label: `Promo (${promoCode}${promoLine ? ` · ${promoLine}` : ""})`,
+          amount: -promoOff,
+        });
+      }
+    }
+
     if (tip > 0) {
       lines.push({ label: "Tip", amount: tip });
     }
 
-    const total = Math.round((laundryPlusFee + dryTotal + tip) * 100) / 100;
+    const total =
+      Math.round((subtotalBeforePromo - promoOff + tip) * 100) / 100;
 
     return { lines, total, isWeekly, rate };
   }, [selected, weightInput, dryItems]);
@@ -1334,6 +1425,15 @@ export function AdminOrdersPanel({
             {selected.pricing?.repeatDiscountEligible ? (
               <span className="ops-service-chip is-discount">
                 {selected.pricing.repeatDiscountPercent ?? 10}% off this pickup
+              </span>
+            ) : null}
+            {selected.promoCode || selected.pricing?.promoCode ? (
+              <span className="ops-service-chip is-discount">
+                Promo ·{" "}
+                {(selected.promoCode || selected.pricing?.promoCode || "").toUpperCase()}
+                {selected.pricing?.promoLabel
+                  ? ` · ${selected.pricing.promoLabel}`
+                  : ""}
               </span>
             ) : null}
           </div>
