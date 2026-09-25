@@ -1426,74 +1426,96 @@
   font-size: 12px;
   font-weight: 650;
 }
-.admin-page .ops-catalog-plane-body {
+.admin-page .ops-catalog-plane .ops-flash {
+  margin: 0;
+  flex: 0 0 auto;
+  font-size: 13px;
+  padding: 11px 13px;
+}
+.admin-page .ops-catalog-editor {
   flex: 1 1 auto;
   min-height: 0;
   display: flex;
   flex-direction: column;
   gap: 14px;
-  padding: 2px 0 0;
 }
-.admin-page .ops-catalog-plane .ops-catalog-edit-add {
-  grid-template-columns: 1fr 110px auto;
+.admin-page .ops-catalog-editor-add {
+  flex: 0 0 auto;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 120px 96px;
   gap: 10px;
-  margin-bottom: 0;
+  align-items: stretch;
 }
-.admin-page .ops-catalog-plane .ops-catalog-mode-btn {
-  min-height: 46px;
-  padding: 0 18px;
-  border-radius: 10px;
-  font-size: 15px;
-}
-.admin-page .ops-catalog-plane .ops-catalog-edit-add input,
-.admin-page .ops-catalog-plane .ops-catalog-item.is-edit input {
+.admin-page .ops-catalog-editor-add input,
+.admin-page .ops-catalog-editor-row input {
+  width: 100%;
+  min-width: 0;
   min-height: 46px;
   padding: 0 14px;
+  border: 1px solid var(--ops-border);
   border-radius: 10px;
-  font-size: 15px;
-}
-.admin-page .ops-catalog-plane .ops-catalog-list.is-edit {
-  flex: 1 1 auto;
-  min-height: 0;
-  max-height: none;
-  gap: 10px;
-  overflow: auto;
-  padding: 0;
-  border: 0;
-  background: transparent;
-}
-.admin-page .ops-catalog-plane .ops-catalog-item.is-edit {
-  min-height: 0;
-  margin: 0;
-  padding: 0;
-  display: grid;
-  grid-template-columns: 1fr 110px 42px;
-  align-items: center;
-  gap: 10px;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
+  background: #fff;
+  color: var(--ops-ink);
+  font: 500 15px/1.2 var(--ops-body);
+  outline: 0;
   box-shadow: none;
 }
-.admin-page .ops-catalog-plane .ops-catalog-item.is-edit:hover {
+.admin-page .ops-catalog-editor-add input::placeholder,
+.admin-page .ops-catalog-editor-row input::placeholder {
+  color: color-mix(in srgb, var(--ops-muted) 82%, #fff);
+}
+.admin-page .ops-catalog-editor-add input:focus,
+.admin-page .ops-catalog-editor-row input:focus {
+  border-color: color-mix(in srgb, var(--ops-primary) 55%, var(--ops-border));
+}
+.admin-page .ops-catalog-editor-add-btn {
+  min-height: 46px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 10px;
+  color: #fff;
+  background: var(--ops-primary);
+  font: 800 15px/1 var(--ops-body);
+  cursor: pointer;
+}
+.admin-page .ops-catalog-editor-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding: 2px 2px 4px 0;
+}
+.admin-page .ops-catalog-editor-row {
+  flex: 0 0 auto;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 120px 44px;
+  gap: 10px;
+  align-items: center;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
   background: transparent;
 }
-.admin-page .ops-catalog-plane .ops-soft-thumb-remove {
-  position: static;
-  top: auto;
-  right: auto;
-  width: 42px;
-  height: 42px;
+.admin-page .ops-catalog-editor-remove {
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  border: 0;
   border-radius: 10px;
   color: var(--ops-muted);
   background: var(--ops-wash);
-  box-shadow: none;
+  cursor: pointer;
 }
-.admin-page .ops-catalog-plane .ops-soft-thumb-remove:hover {
+.admin-page .ops-catalog-editor-remove:hover {
   color: var(--ops-danger);
   background: #fbecea;
 }
-.admin-page .ops-catalog-plane .ops-catalog-empty {
+.admin-page .ops-catalog-editor-empty {
   margin: 0;
   padding: 36px 18px;
   text-align: center;
@@ -1501,24 +1523,30 @@
   font-size: 15px;
   border: 1px dashed var(--ops-border);
   border-radius: 12px;
-  background: transparent;
 }
-.admin-page .ops-catalog-plane .ops-flash {
-  margin: 0;
+.admin-page .ops-catalog-editor-actions {
   flex: 0 0 auto;
-  font-size: 13px;
-  padding: 11px 13px;
-}
-.admin-page .ops-catalog-plane .ops-catalog-edit-actions {
+  display: flex;
   gap: 10px;
-  margin-top: 2px;
 }
-.admin-page .ops-catalog-plane .ops-catalog-edit-actions .ops-catalog-modal-done {
+.admin-page .ops-catalog-editor-btn {
   flex: 1 1 0;
-  margin-top: 0;
   min-height: 50px;
+  border: 0;
   border-radius: 11px;
-  font-size: 15px;
+  color: #fff;
+  background: var(--ops-primary);
+  font: 800 15px/1 var(--ops-body);
+  cursor: pointer;
+}
+.admin-page .ops-catalog-editor-btn:disabled {
+  opacity: .45;
+  cursor: default;
+}
+.admin-page .ops-catalog-editor-btn.is-secondary {
+  color: var(--ops-ink);
+  background: #fff;
+  border: 1px solid var(--ops-border);
 }
 .admin-page .ops-catalog-modal-done.is-secondary {
   color: var(--ops-ink);
@@ -2489,8 +2517,12 @@
   .admin-page .ops-catalog-plane-chip {
     width: 100%;
   }
-  .admin-page .ops-catalog-edit-add {
-    grid-template-columns: 1fr 76px auto;
+  .admin-page .ops-catalog-editor-add,
+  .admin-page .ops-catalog-editor-row {
+    grid-template-columns: minmax(0, 1fr) 88px 44px;
+  }
+  .admin-page .ops-catalog-editor-add-btn {
+    grid-column: 1 / -1;
   }
   .admin-page .ops-list-pane.is-hidden-mobile,
   .admin-page .ops-detail-pane.is-hidden-mobile { display: none; }

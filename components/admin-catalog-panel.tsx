@@ -109,7 +109,7 @@ export function AdminCatalogPanel({
         </div>
         <div className="ops-catalog-plane-chip" aria-current="page">
           <span className="ops-catalog-plane-chip-icon" aria-hidden>
-            <Shirt size={15} />
+            <Shirt size={16} />
           </span>
           <span className="ops-catalog-plane-chip-copy">
             <strong>Dry cleaning</strong>
@@ -126,8 +126,8 @@ export function AdminCatalogPanel({
         </p>
       )}
 
-      <div className="ops-catalog-plane-body">
-        <div className="ops-catalog-edit-add">
+      <div className="ops-catalog-editor">
+        <div className="ops-catalog-editor-add">
           <input
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
@@ -155,26 +155,20 @@ export function AdminCatalogPanel({
               }
             }}
           />
-          <button
-            type="button"
-            className="ops-catalog-mode-btn is-active"
-            onClick={addItem}
-          >
+          <button type="button" className="ops-catalog-editor-add-btn" onClick={addItem}>
             Add
           </button>
         </div>
 
-        <div className="ops-catalog-list is-edit">
+        <div className="ops-catalog-editor-list">
           {draft.length === 0 ? (
-            <p className="ops-catalog-empty">No items yet. Add the first price above.</p>
+            <p className="ops-catalog-editor-empty">
+              No items yet. Add the first price above.
+            </p>
           ) : (
             draft.map((item, index) => (
-              <div
-                key={`${item.name}-${index}`}
-                className="ops-catalog-item is-edit"
-              >
+              <div key={`${item.name}-${index}`} className="ops-catalog-editor-row">
                 <input
-                  className="ops-catalog-edit-name"
                   value={item.name}
                   onChange={(e) => {
                     const name = e.target.value;
@@ -187,7 +181,6 @@ export function AdminCatalogPanel({
                   aria-label="Item name"
                 />
                 <input
-                  className="ops-catalog-edit-price"
                   type="number"
                   min={0}
                   step={0.05}
@@ -209,7 +202,7 @@ export function AdminCatalogPanel({
                 />
                 <button
                   type="button"
-                  className="ops-soft-thumb-remove"
+                  className="ops-catalog-editor-remove"
                   aria-label={`Remove ${item.name}`}
                   onClick={() =>
                     markDirty((current) =>
@@ -217,17 +210,17 @@ export function AdminCatalogPanel({
                     )
                   }
                 >
-                  <X size={12} />
+                  <X size={15} />
                 </button>
               </div>
             ))
           )}
         </div>
 
-        <div className="ops-catalog-edit-actions">
+        <div className="ops-catalog-editor-actions">
           <button
             type="button"
-            className="ops-catalog-modal-done is-secondary"
+            className="ops-catalog-editor-btn is-secondary"
             disabled={saving || !dirty}
             onClick={resetDraft}
           >
@@ -235,7 +228,7 @@ export function AdminCatalogPanel({
           </button>
           <button
             type="button"
-            className="ops-catalog-modal-done"
+            className="ops-catalog-editor-btn"
             disabled={saving || !dirty}
             onClick={() => void save()}
           >
