@@ -17,6 +17,7 @@ import {
   formatPickupDate,
   isPickupDateAllowed,
   latestPickupDate,
+  nextPickupDates,
   toIsoDate,
 } from "@/lib/booking";
 import {
@@ -107,6 +108,7 @@ export function TrackOrderEdit({
   const [date, setDate] = useState(pickupDate);
   const [slot, setSlot] = useState(pickupSlot);
   const [picker, setPicker] = useState<PrefKey | null>(null);
+  const [showFullCalendar, setShowFullCalendar] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [slotCounts, setSlotCounts] = useState<SlotCounts>({
@@ -191,7 +193,40 @@ export function TrackOrderEdit({
       {canReschedule ? (
         <section className="track-edit-block">
           <h3>Pickup date &amp; time</h3>
-          <EditCalendar value={date} onChange={setDate} />
+          <p className="mb-2 text-sm text-muted-foreground">
+            Choose a new day and time window for pickup.
+          </p>
+          <div className="book-day-pills">
+            {nextPickupDates(7).map((iso) => {
+              const d = new Date(`${iso}T12:00:00`);
+              const active = date === iso;
+              return (
+                <button
+                  key={iso}
+                  type="button"
+                  className={cn("book-day-pill", active && "is-active")}
+                  onClick={() => setDate(iso)}
+                >
+                  <span className="book-day-pill-dow">
+                    {d.toLocaleDateString("en-US", { weekday: "short" })}
+                  </span>
+                  <span className="book-day-pill-num">{d.getDate()}</span>
+                </button>
+              );
+            })}
+          </div>
+          <button
+            type="button"
+            className="book-more-dates"
+            onClick={() => setShowFullCalendar((v) => !v)}
+          >
+            {showFullCalendar
+              ? "Hide full calendar"
+              : "Need a date further out? Pick from the calendar"}
+          </button>
+          {showFullCalendar ? (
+            <EditCalendar value={date} onChange={setDate} />
+          ) : null}
           <div className="book-slots mt-3">
             {TIME_SLOTS.map((option) => {
               const open = slotIsBookableForEdit(
@@ -348,38 +383,40 @@ function EditCalendar({
     new Date(max.getFullYear(), max.getMonth(), 1);
 
   return (
-    <div className="book-calendar">
-      <div className="book-calendar-nav">
+    <div className="book-cal mt-3">
+      <div className="book-cal-head">
         <button
           type="button"
+          className="book-cal-nav"
           disabled={!canPrev}
           onClick={() =>
             setCursor(new Date(cursor.getFullYear(), cursor.getMonth() - 1, 1))
           }
           aria-label="Previous month"
         >
-          <ChevronLeft size={16} />
+          <ChevronLeft size={18} />
         </button>
         <strong>{monthLabel}</strong>
         <button
           type="button"
+          className="book-cal-nav"
           disabled={!canNext}
           onClick={() =>
             setCursor(new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1))
           }
           aria-label="Next month"
         >
-          <ChevronRight size={16} />
+          <ChevronRight size={18} />
         </button>
       </div>
-      <div className="book-calendar-grid">
-        {["S", "M", "T", "W", "T", "F", "S"].map((d, i) => (
-          <span key={`${d}-${i}`} className="book-calendar-dow">
-            {d}
-          </span>
+      <div className="book-cal-week">
+        {["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"].map((d) => (
+          <span key={d}>{d}</span>
         ))}
+      </div>
+      <div className="book-cal-grid">
         {cells.map((cell, i) => {
-          if (!cell) return <span key={`e-${i}`} />;
+          if (!cell) return <span key={`e-${i}`} className="book-cal-empty" />;
           const open = isPickupDateAllowed(cell.iso);
           return (
             <button
@@ -387,7 +424,7 @@ function EditCalendar({
               type="button"
               disabled={!open}
               className={cn(
-                "book-calendar-day",
+                "book-cal-day",
                 value === cell.iso && "is-active",
                 !open && "is-disabled"
               )}
