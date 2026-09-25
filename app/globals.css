@@ -5137,13 +5137,6 @@
   pointer-events: none;
 }
 
-.home-price-cover {
-  position: absolute;
-  z-index: 1;
-  background: #fff;
-  border-radius: 0.1em;
-}
-
 .home-price-text {
   position: absolute;
   z-index: 2;
@@ -5151,7 +5144,9 @@
   align-items: center;
   justify-content: flex-start;
   margin: 0;
-  padding: 0;
+  padding: 0 0.08em 0 0.02em;
+  box-sizing: border-box;
+  background: #fff;
   font-family: var(--font-display);
   line-height: 1;
   letter-spacing: -0.045em;
@@ -5164,6 +5159,7 @@
 .home-price-text.is-minimum {
   letter-spacing: -0.02em;
   justify-content: flex-start;
+  padding: 0 0.06em;
 }
 
 @media (min-width: 640px) {
