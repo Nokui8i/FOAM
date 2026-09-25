@@ -58,6 +58,7 @@ import {
 } from "@/lib/data-retention";
 import { getFirebaseDb } from "@/lib/firebase";
 import { uploadOrderPhoto } from "@/lib/order-photos";
+import { releasePickupSlot } from "@/lib/pickup-availability";
 import {
   ORDER_PIPELINE_STEPS,
   ORDER_STATUS_LABELS,
@@ -718,6 +719,36 @@ export function AdminOrdersPanel({
     }
   }
 
+  async function cancelAdminOrder(order: FoamOrder) {
+    if (!isWaitingForPickup(order.status)) return;
+    const name = order.contact.name?.trim() || "this customer";
+    const when = [
+      formatPickupDate(order.pickup.date, true),
+      formatSlotShort(order.pickup.slot),
+    ]
+      .filter(Boolean)
+      .join(" · ");
+    const ok = window.confirm(
+      `Cancel pickup for ${name}?\n\n${when}\nOrder ${orderDisplayId(order.id)}\n\nThis removes the order and frees the time slot. Are you sure?`
+    );
+    if (!ok) return;
+
+    setDeleting(true);
+    setError("");
+    setOkMsg("");
+    try {
+      await releasePickupSlot(order.pickup.date, order.pickup.slot);
+      await deleteOrderCompletely(order.id);
+      replaceQuery({ id: null, view: null });
+      setOkMsg("Order cancelled.");
+      onMobileViewChange?.("list");
+    } catch {
+      setError("Could not cancel this order. Try again.");
+    } finally {
+      setDeleting(false);
+    }
+  }
+
   async function patchOrderDoc(
     order: FoamOrder,
     data: Record<string, unknown>,
@@ -1238,12 +1269,21 @@ export function AdminOrdersPanel({
               <Button
                 type="button"
                 className="primary-action"
-                disabled={saving || uploadingPhoto}
+                disabled={saving || uploadingPhoto || deleting}
                 onClick={() => void markLeftForPickup(selected)}
               >
                 I’m on the way
                 <ArrowRight size={16} />
               </Button>
+              <button
+                type="button"
+                className="ops-order-cancel"
+                disabled={saving || uploadingPhoto || deleting}
+                onClick={() => void cancelAdminOrder(selected)}
+              >
+                <X size={15} aria-hidden />
+                {deleting ? "Cancelling…" : "Cancel order"}
+              </button>
             </div>
           </div>
         </section>
@@ -1740,6 +1780,15 @@ export function AdminOrdersPanel({
               ) : null}
             </div>
           </div>
+          <button
+            type="button"
+            className="ops-order-cancel is-footer"
+            disabled={saving || uploadingPhoto || deleting}
+            onClick={() => void cancelAdminOrder(selected)}
+          >
+            <X size={15} aria-hidden />
+            {deleting ? "Cancelling…" : "Cancel order"}
+          </button>
         </div>
       </>
     );
@@ -1797,8 +1846,17 @@ export function AdminOrdersPanel({
             </p>
             <div className="calm-lock">
               <LockKeyhole size={16} />
-              Scheduled order · read only
+              Scheduled order · waiting for pickup day
             </div>
+            <button
+              type="button"
+              className="ops-order-cancel"
+              disabled={saving || deleting}
+              onClick={() => void cancelAdminOrder(selected)}
+            >
+              <X size={15} aria-hidden />
+              {deleting ? "Cancelling…" : "Cancel order"}
+            </button>
           </div>
         </section>
       );
