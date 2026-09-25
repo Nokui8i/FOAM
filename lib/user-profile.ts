@@ -34,6 +34,106 @@ export type LaundryPrefs = {
   colorsDryerHeat: string;
 };
 
+export function defaultLaundryPrefs(): LaundryPrefs {
+  return {
+    pants: "Folded",
+    dresses: "Folded",
+    detergent: "Persil",
+    softener: "No softener",
+    whitesWashTemp: "Cold wash",
+    colorsWashTemp: "Cold wash",
+    whitesDryerHeat: "Low",
+    colorsDryerHeat: "Low",
+  };
+}
+
+/** Prefer laundryPrefs; fall back to legacy account fields when missing. */
+export function resolveLaundryPrefs(profile: UserProfile): LaundryPrefs {
+  if (profile.laundryPrefs) {
+    return { ...defaultLaundryPrefs(), ...profile.laundryPrefs };
+  }
+
+  const wash =
+    profile.washTemp === "Warm" || profile.washTemp === "Hot"
+      ? "Warm wash"
+      : "Cold wash";
+  const dryer =
+    profile.dryerTemp === "High"
+      ? "Regular"
+      : profile.dryerTemp === "Low"
+        ? "Low"
+        : "Low";
+
+  let detergent = "Persil";
+  const det = profile.detergent.toLowerCase();
+  if (det.includes("hypo") || det.includes("organic") || det.includes("free")) {
+    detergent = "All Free and Clear";
+  } else if (det.includes("own")) {
+    detergent = "Will Provide Own";
+  } else if (
+    [
+      "Persil",
+      "Tide",
+      "Gain",
+      "OxyClean",
+      "All Free and Clear",
+      "Kirkland UltraClear",
+      "Will Provide Own",
+    ].includes(profile.detergent)
+  ) {
+    detergent = profile.detergent;
+  }
+
+  let softener = "No softener";
+  if (profile.softener === "Standard" || profile.softener === "Downy") {
+    softener = "Downy";
+  } else if (profile.softener === "White Vinegar") {
+    softener = "White Vinegar";
+  } else if (profile.softener === "No softener") {
+    softener = "No softener";
+  }
+
+  const fold =
+    profile.foldStyle.toLowerCase().includes("hang")
+      ? "Hanger (Provide Own)"
+      : "Folded";
+
+  return {
+    pants: fold,
+    dresses: fold,
+    detergent,
+    softener,
+    whitesWashTemp: wash,
+    colorsWashTemp: wash,
+    whitesDryerHeat: dryer,
+    colorsDryerHeat: dryer,
+  };
+}
+
+/** Keep old scalar fields roughly aligned for any leftover readers. */
+export function legacyFieldsFromLaundryPrefs(prefs: LaundryPrefs) {
+  const washTemp = prefs.whitesWashTemp.toLowerCase().includes("warm")
+    ? "Warm"
+    : "Cold";
+  const dryerTemp = prefs.whitesDryerHeat === "Regular" ? "Medium" : "Low";
+  const softener =
+    prefs.softener === "Downy"
+      ? "Standard"
+      : prefs.softener === "White Vinegar"
+        ? "White Vinegar"
+        : "None";
+  const foldStyle = prefs.pants.toLowerCase().includes("hanger")
+    ? "Hang shirts when possible"
+    : "Fold everything";
+  return {
+    detergent: prefs.detergent,
+    softener,
+    washTemp,
+    dryerTemp,
+    foldStyle,
+  };
+}
+
 export type UserProfile = {
   uid: string;
   email: string;
