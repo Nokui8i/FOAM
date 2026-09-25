@@ -2043,10 +2043,11 @@ export function AdminOrdersPanel({
               </div>
               <div className="ops-history-toolbar">
                 <label className="ops-search">
-                  <Search size={15} aria-hidden />
+                  <Search size={16} aria-hidden />
                   <input
                     value={queryText}
                     onChange={(e) => setQueryText(e.target.value)}
+                    placeholder="Search name, phone, or date"
                     aria-label="Search history"
                   />
                 </label>
@@ -2087,10 +2088,11 @@ export function AdminOrdersPanel({
                 </h1>
               </div>
               <label className="ops-search">
-                <Search size={15} aria-hidden />
+                <Search size={16} aria-hidden />
                 <input
                   value={queryText}
                   onChange={(e) => setQueryText(e.target.value)}
+                  placeholder="Search name, phone, or address"
                   aria-label="Search orders"
                 />
               </label>

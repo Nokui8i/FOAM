@@ -178,12 +178,8 @@ export function AdminContactsPanel({
         )}
       >
         <div className="ops-list-head">
-          <div className="ops-list-head-row queue-heading">
-            <div>
-              <span>CUSTOMER CARE</span>
-              <h1 className="ops-list-title">Support</h1>
-            </div>
-            <b>{counts[filter]}</b>
+          <div className="queue-heading">
+            <h1 className="ops-list-title">Support</h1>
           </div>
 
           <label className="ops-search">

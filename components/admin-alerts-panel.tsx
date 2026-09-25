@@ -325,12 +325,8 @@ export function AdminAlertsPanel({
         )}
       >
         <div className="ops-list-head">
-          <div className="ops-list-head-row queue-heading">
-            <div>
-              <span>CUSTOMER CARE</span>
-              <h1 className="ops-list-title">Alerts</h1>
-            </div>
-            <b>{listReady ? counts[safeFilter] : "…"}</b>
+          <div className="queue-heading">
+            <h1 className="ops-list-title">Alerts</h1>
           </div>
 
           <label className="ops-search">
