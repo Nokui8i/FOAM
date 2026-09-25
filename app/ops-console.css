@@ -415,8 +415,8 @@
 }
 .admin-page .ops-filter-row {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0,1fr));
-  gap: 4px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
   padding: 0 0 13px;
   overflow: visible;
   border-bottom: 1px solid var(--ops-border);

@@ -2002,18 +2002,7 @@ export function AdminOrdersPanel({
                   ? "History"
                   : "Orders"}
             </h1>
-            {mode === "today" ? (
-              <button
-                type="button"
-                className={cn(
-                  "ops-all-tab",
-                  filter === "all" && "is-active"
-                )}
-                onClick={() => setFilter("all")}
-              >
-                All {listReady ? counts.all : "…"}
-              </button>
-            ) : mode === "history" ? (
+            {mode === "history" ? (
               <span className="ops-all-tab is-static">
                 {listReady ? counts.history : "…"}
               </span>
