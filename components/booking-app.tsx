@@ -865,10 +865,6 @@ function BookingAppInner() {
                           <span className="book-slot-meta">
                             {past ? "Passed" : full ? "Full" : "Unavailable"}
                           </span>
-                        ) : count > 0 ? (
-                          <span className="book-slot-meta">
-                            {Math.max(0, capacity - count)} left
-                          </span>
                         ) : null}
                       </button>
                     );

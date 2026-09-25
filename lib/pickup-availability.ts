@@ -1,14 +1,23 @@
 import {
+  collection,
   doc,
   getDoc,
+  getDocs,
   onSnapshot,
+  query,
   runTransaction,
   serverTimestamp,
   setDoc,
+  where,
 } from "firebase/firestore";
 
 import { SLOT_CAPACITY } from "@/lib/booking";
 import { getFirebaseDb } from "@/lib/firebase";
+import {
+  isWaitingForPickup,
+  normalizeOrderStatus,
+  type OrderStatus,
+} from "@/lib/orders";
 import {
   loadDayOverride,
   loadPickupSchedule,
@@ -20,19 +29,105 @@ import {
 
 export type SlotCounts = Record<string, number>;
 
+/** Normalize slot keys so "7am – 10am" and "7am - 10am" match. */
+export function normalizeSlotLabel(raw: string) {
+  return raw
+    .trim()
+    .replace(/[\u2013\u2014]/g, "-")
+    .replace(/\s*-\s*/g, " - ");
+}
+
 function normalizeCounts(raw: unknown, labels?: string[]): SlotCounts {
   const next: SlotCounts = {};
   if (labels) {
-    for (const label of labels) next[label] = 0;
+    for (const label of labels) next[normalizeSlotLabel(label)] = 0;
   }
   if (!raw || typeof raw !== "object") return next;
   for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
+    const label = normalizeSlotLabel(key);
+    if (!label) continue;
     const n = Number(value ?? 0);
-    next[key] = Number.isFinite(n) && n > 0 ? Math.floor(n) : 0;
+    const count = Number.isFinite(n) && n > 0 ? Math.floor(n) : 0;
+    next[label] = Math.max(next[label] ?? 0, count);
   }
   return next;
 }
 
+function mergeCounts(
+  availability: SlotCounts,
+  waiting: SlotCounts,
+  labels?: string[]
+): SlotCounts {
+  const next = normalizeCounts(null, labels);
+  const keys = new Set([
+    ...Object.keys(next),
+    ...Object.keys(availability),
+    ...Object.keys(waiting),
+  ]);
+  for (const key of keys) {
+    next[key] = Math.max(availability[key] ?? 0, waiting[key] ?? 0);
+  }
+  return next;
+}
+
+function waitingCountsFromOrdersSnap(
+  docs: Array<{ data: () => Record<string, unknown> }>,
+  dateIso: string
+): SlotCounts {
+  const next: SlotCounts = {};
+  for (const docSnap of docs) {
+    const data = docSnap.data();
+    const status = normalizeOrderStatus(data.status) as OrderStatus;
+    if (!isWaitingForPickup(status)) continue;
+    const pickup =
+      data.pickup && typeof data.pickup === "object"
+        ? (data.pickup as Record<string, unknown>)
+        : null;
+    const date = typeof pickup?.date === "string" ? pickup.date : "";
+    if (date !== dateIso) continue;
+    const slot = normalizeSlotLabel(
+      typeof pickup?.slot === "string" ? pickup.slot : ""
+    );
+    if (!slot) continue;
+    next[slot] = (next[slot] ?? 0) + 1;
+  }
+  return next;
+}
+
+async function loadWaitingSlotCounts(dateIso: string): Promise<SlotCounts> {
+  try {
+    const snap = await getDocs(
+      query(
+        collection(getFirebaseDb(), "orders"),
+        where("pickup.date", "==", dateIso)
+      )
+    );
+    return waitingCountsFromOrdersSnap(
+      snap.docs.map((d) => ({
+        data: () => d.data() as Record<string, unknown>,
+      })),
+      dateIso
+    );
+  } catch {
+    /* Fallback: scan recent orders if the date query isn't indexed yet. */
+    try {
+      const snap = await getDocs(collection(getFirebaseDb(), "orders"));
+      return waitingCountsFromOrdersSnap(
+        snap.docs.map((d) => ({
+          data: () => d.data() as Record<string, unknown>,
+        })),
+        dateIso
+      );
+    } catch {
+      return {};
+    }
+  }
+}
+
+/**
+ * Live slot fill for a date = max(availability counter, waiting orders).
+ * Also heals the availability doc when orders outnumber the counter.
+ */
 export function subscribePickupSlotCounts(
   dateIso: string,
   onChange: (counts: SlotCounts) => void,
@@ -42,12 +137,96 @@ export function subscribePickupSlotCounts(
     onChange(normalizeCounts(null, labels));
     return () => {};
   }
-  const ref = doc(getFirebaseDb(), "pickupAvailability", dateIso);
-  return onSnapshot(
-    ref,
-    (snap) => onChange(normalizeCounts(snap.data()?.slots, labels)),
-    () => onChange(normalizeCounts(null, labels))
+
+  let availability: SlotCounts = normalizeCounts(null, labels);
+  let waiting: SlotCounts = {};
+  let healQueued = false;
+
+  const emit = () => {
+    const merged = mergeCounts(availability, waiting, labels);
+    onChange(merged);
+
+    if (healQueued) return;
+    const under: SlotCounts = {};
+    let need = false;
+    for (const [label, count] of Object.entries(waiting)) {
+      if (count > (availability[label] ?? 0)) {
+        under[label] = count;
+        need = true;
+      }
+    }
+    if (!need) return;
+    healQueued = true;
+    void ensureAvailabilityAtLeast(dateIso, under).finally(() => {
+      healQueued = false;
+    });
+  };
+
+  const availRef = doc(getFirebaseDb(), "pickupAvailability", dateIso);
+  const unsubAvail = onSnapshot(
+    availRef,
+    (snap) => {
+      availability = normalizeCounts(snap.data()?.slots, labels);
+      emit();
+    },
+    () => {
+      availability = normalizeCounts(null, labels);
+      emit();
+    }
   );
+
+  let unsubOrders = () => {};
+  try {
+    unsubOrders = onSnapshot(
+      query(
+        collection(getFirebaseDb(), "orders"),
+        where("pickup.date", "==", dateIso)
+      ),
+      (snap) => {
+        waiting = waitingCountsFromOrdersSnap(
+          snap.docs.map((d) => ({
+            data: () => d.data() as Record<string, unknown>,
+          })),
+          dateIso
+        );
+        emit();
+      },
+      () => {
+        /* index / permission — fall back to full collection */
+        unsubOrders = onSnapshot(
+          collection(getFirebaseDb(), "orders"),
+          (snap) => {
+            waiting = waitingCountsFromOrdersSnap(
+              snap.docs.map((d) => ({
+                data: () => d.data() as Record<string, unknown>,
+              })),
+              dateIso
+            );
+            emit();
+          },
+          () => {
+            waiting = {};
+            emit();
+          }
+        );
+      }
+    );
+  } catch {
+    unsubOrders = onSnapshot(collection(getFirebaseDb(), "orders"), (snap) => {
+      waiting = waitingCountsFromOrdersSnap(
+        snap.docs.map((d) => ({
+          data: () => d.data() as Record<string, unknown>,
+        })),
+        dateIso
+      );
+      emit();
+    });
+  }
+
+  return () => {
+    unsubAvail();
+    unsubOrders();
+  };
 }
 
 async function capacityForSlot(dateIso: string, slot: string) {
@@ -59,16 +238,20 @@ async function capacityForSlot(dateIso: string, slot: string) {
 }
 
 export async function reservePickupSlot(dateIso: string, slot: string) {
-  const label = slot.trim();
+  const label = normalizeSlotLabel(slot);
   if (!dateIso || !label) {
     throw new Error("Invalid time window.");
   }
-  const capacity = await capacityForSlot(dateIso, label);
+  const [capacity, waiting] = await Promise.all([
+    capacityForSlot(dateIso, label),
+    loadWaitingSlotCounts(dateIso),
+  ]);
+  const waitingForSlot = waiting[label] ?? 0;
   const ref = doc(getFirebaseDb(), "pickupAvailability", dateIso);
   await runTransaction(getFirebaseDb(), async (tx) => {
     const snap = await tx.get(ref);
     const counts = normalizeCounts(snap.data()?.slots);
-    const current = counts[label] ?? 0;
+    const current = Math.max(counts[label] ?? 0, waitingForSlot);
     if (current >= capacity) {
       throw new Error("That time window is full. Pick another slot.");
     }
@@ -85,7 +268,7 @@ export async function reservePickupSlot(dateIso: string, slot: string) {
 }
 
 export async function releasePickupSlot(dateIso: string, slot: string) {
-  const label = slot.trim();
+  const label = normalizeSlotLabel(slot);
   if (!dateIso || !label) return;
   const ref = doc(getFirebaseDb(), "pickupAvailability", dateIso);
   try {
@@ -110,10 +293,14 @@ export async function releasePickupSlot(dateIso: string, slot: string) {
 }
 
 export async function getPickupSlotCount(dateIso: string, slot: string) {
+  const label = normalizeSlotLabel(slot);
   try {
-    const snap = await getDoc(doc(getFirebaseDb(), "pickupAvailability", dateIso));
+    const [snap, waiting] = await Promise.all([
+      getDoc(doc(getFirebaseDb(), "pickupAvailability", dateIso)),
+      loadWaitingSlotCounts(dateIso),
+    ]);
     const counts = normalizeCounts(snap.data()?.slots);
-    return counts[slot] ?? 0;
+    return Math.max(counts[label] ?? 0, waiting[label] ?? 0);
   } catch {
     return 0;
   }
@@ -124,9 +311,10 @@ export async function setDaySlotCounts(dateIso: string, counts: SlotCounts) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(dateIso)) return;
   const cleaned: SlotCounts = {};
   for (const [label, value] of Object.entries(counts)) {
+    const key = normalizeSlotLabel(label);
     const n = Number(value ?? 0);
-    if (!label.trim() || !Number.isFinite(n) || n <= 0) continue;
-    cleaned[label.trim()] = Math.floor(n);
+    if (!key || !Number.isFinite(n) || n <= 0) continue;
+    cleaned[key] = Math.floor(n);
   }
   await setDoc(
     doc(getFirebaseDb(), "pickupAvailability", dateIso),
@@ -151,10 +339,11 @@ export async function ensureAvailabilityAtLeast(
       const next = normalizeCounts(snap.data()?.slots);
       let changed = false;
       for (const [label, value] of Object.entries(counts)) {
+        const key = normalizeSlotLabel(label);
         const n = Math.floor(Number(value ?? 0));
-        if (!label.trim() || !Number.isFinite(n) || n <= 0) continue;
-        if (n > (next[label] ?? 0)) {
-          next[label] = n;
+        if (!key || !Number.isFinite(n) || n <= 0) continue;
+        if (n > (next[key] ?? 0)) {
+          next[key] = n;
           changed = true;
         }
       }
@@ -178,7 +367,10 @@ export function resolveSlotCapacity(
   override: DayOverride | null | undefined,
   label: string
 ) {
-  return slotCapacityForDay(schedule, override, label) || SLOT_CAPACITY;
+  return (
+    slotCapacityForDay(schedule, override, normalizeSlotLabel(label)) ||
+    SLOT_CAPACITY
+  );
 }
 
 export { subscribeDayOverride };

@@ -24,6 +24,7 @@ import { getFirebaseDb } from "@/lib/firebase";
 import {
   setDaySlotCounts,
   ensureAvailabilityAtLeast,
+  normalizeSlotLabel,
   type SlotCounts,
 } from "@/lib/pickup-availability";
 import {
@@ -132,7 +133,9 @@ export function AdminSchedulePanel({
             : null;
         const date = typeof pickup?.date === "string" ? pickup.date : "";
         if (!date) return;
-        const slot = typeof pickup?.slot === "string" ? pickup.slot.trim() : "";
+        const slot = normalizeSlotLabel(
+          typeof pickup?.slot === "string" ? pickup.slot : ""
+        );
         next.push({ date, slot });
       });
       setOrderPickups(next);
