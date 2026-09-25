@@ -2040,9 +2040,6 @@ export function AdminOrdersPanel({
             <>
               <div className="queue-heading">
                 <h1 className="ops-list-title">History</h1>
-                <span className="ops-all-tab is-static">
-                  {listReady ? counts.history : "…"}
-                </span>
               </div>
               <div className="ops-history-toolbar">
                 <label className="ops-search">
