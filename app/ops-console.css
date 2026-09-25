@@ -366,21 +366,39 @@
   opacity: 0.6;
   cursor: wait;
 }
-.admin-page .ops-history-date {
-  margin: 0 0 10px;
+.admin-page .ops-history-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
-.admin-page .ops-history-cal-toggle {
-  margin-top: 0;
+.admin-page .ops-history-toolbar .ops-search {
+  flex: 1;
+  margin: 0;
+}
+.admin-page .ops-history-cal-btn {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border: 0;
+  border-radius: 10px;
+  background: #e4f4fa;
   color: var(--ops-primary);
-  font-size: 13px;
-  font-weight: 750;
+  cursor: pointer;
+}
+.admin-page .ops-history-cal-btn:hover,
+.admin-page .ops-history-cal-btn.is-open,
+.admin-page .ops-history-cal-btn.has-date {
+  background: var(--ops-navy);
+  color: #fff;
 }
 .admin-page .ops-history-date-active {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  margin-bottom: 8px;
+  margin: 10px 0 0;
   padding: 8px 10px;
   border-radius: 8px;
   background: #e4f4fa;
@@ -397,10 +415,60 @@
   text-decoration: underline;
   cursor: pointer;
 }
-.admin-page .ops-history-cal {
-  margin-top: 10px;
+.admin-page .ops-history-cal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  place-items: center;
+  padding: 16px;
 }
-.admin-page .ops-history-cal .book-cal-day.has-orders:not(.is-disabled):not(.is-active) {
+.admin-page .ops-history-cal-backdrop {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  background: rgba(15, 23, 42, 0.35);
+  cursor: pointer;
+}
+.admin-page .ops-history-cal-popover {
+  position: relative;
+  z-index: 1;
+  width: min(100%, 340px);
+  padding: 14px;
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.22);
+}
+.admin-page .ops-history-cal-popover-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.admin-page .ops-history-cal-popover-head strong {
+  color: var(--ops-navy);
+  font-size: 14px;
+  font-weight: 800;
+}
+.admin-page .ops-history-cal-close {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--ops-wash);
+  color: var(--ops-muted);
+  cursor: pointer;
+}
+.admin-page .ops-history-cal-popover .book-cal {
+  margin: 0;
+  border: 0;
+  padding: 0;
+  border-radius: 0;
+}
+.admin-page .ops-history-cal-popover .book-cal-day.has-orders:not(.is-disabled):not(.is-active) {
   font-weight: 800;
   color: var(--ops-navy);
 }

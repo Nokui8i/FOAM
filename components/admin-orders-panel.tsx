@@ -2027,64 +2027,60 @@ export function AdminOrdersPanel({
         )}
       >
         <div className="ops-list-head">
-          <div className="queue-heading">
-            <h1 className="ops-list-title">
-              {mode === "future"
-                ? "Future"
-                : mode === "history"
-                  ? "History"
-                  : "Orders"}
-            </h1>
-            {mode === "history" ? (
-              <span className="ops-all-tab is-static">
-                {listReady ? counts.history : "…"}
-              </span>
-            ) : null}
-          </div>
-          <label className="ops-search">
-            <Search size={15} aria-hidden />
-            <input
-              value={queryText}
-              onChange={(e) => setQueryText(e.target.value)}
-              aria-label="Search orders"
-            />
-          </label>
-
           {mode === "history" ? (
-            <div className="ops-history-date">
-              {historyDay ? (
-                <div className="ops-history-date-active">
-                  <span>{formatPickupDate(historyDay, true)}</span>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setHistoryDay(null);
-                      setShowHistoryCalendar(false);
-                    }}
-                  >
-                    Show all
-                  </button>
-                </div>
-              ) : null}
+            <div className="ops-history-toolbar">
+              <label className="ops-search">
+                <Search size={15} aria-hidden />
+                <input
+                  value={queryText}
+                  onChange={(e) => setQueryText(e.target.value)}
+                  aria-label="Search history"
+                />
+              </label>
               <button
                 type="button"
-                className="book-more-dates ops-history-cal-toggle"
+                className={cn(
+                  "ops-history-cal-btn",
+                  showHistoryCalendar && "is-open",
+                  historyDay && "has-date"
+                )}
+                aria-label="Pick a date from the calendar"
+                aria-expanded={showHistoryCalendar}
                 onClick={() => setShowHistoryCalendar((v) => !v)}
               >
-                {showHistoryCalendar
-                  ? "Hide calendar"
-                  : "Pick a date from the calendar"}
+                <History size={20} aria-hidden />
               </button>
-              {showHistoryCalendar ? (
-                <HistoryCalendar
-                  value={historyDay}
-                  datesWithOrders={historyDatesWithOrders}
-                  onChange={(iso) => {
-                    setHistoryDay(iso);
-                    setShowHistoryCalendar(false);
-                  }}
+            </div>
+          ) : (
+            <>
+              <div className="queue-heading">
+                <h1 className="ops-list-title">
+                  {mode === "future" ? "Future" : "Orders"}
+                </h1>
+              </div>
+              <label className="ops-search">
+                <Search size={15} aria-hidden />
+                <input
+                  value={queryText}
+                  onChange={(e) => setQueryText(e.target.value)}
+                  aria-label="Search orders"
                 />
-              ) : null}
+              </label>
+            </>
+          )}
+
+          {mode === "history" && historyDay ? (
+            <div className="ops-history-date-active">
+              <span>{formatPickupDate(historyDay, true)}</span>
+              <button
+                type="button"
+                onClick={() => {
+                  setHistoryDay(null);
+                  setShowHistoryCalendar(false);
+                }}
+              >
+                Show all
+              </button>
             </div>
           ) : null}
 
@@ -2405,6 +2401,45 @@ export function AdminOrdersPanel({
           </article>
         )}
       </section>
+
+      {mode === "history" && showHistoryCalendar
+        ? createPortal(
+            <div className="ops-history-cal-overlay" role="presentation">
+              <button
+                type="button"
+                className="ops-history-cal-backdrop"
+                aria-label="Close calendar"
+                onClick={() => setShowHistoryCalendar(false)}
+              />
+              <div
+                className="ops-history-cal-popover"
+                role="dialog"
+                aria-label="Pick a history date"
+              >
+                <div className="ops-history-cal-popover-head">
+                  <strong>Pick a date</strong>
+                  <button
+                    type="button"
+                    className="ops-history-cal-close"
+                    aria-label="Close"
+                    onClick={() => setShowHistoryCalendar(false)}
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
+                <HistoryCalendar
+                  value={historyDay}
+                  datesWithOrders={historyDatesWithOrders}
+                  onChange={(iso) => {
+                    setHistoryDay(iso);
+                    setShowHistoryCalendar(false);
+                  }}
+                />
+              </div>
+            </div>,
+            document.querySelector(".admin-page") ?? document.body
+          )
+        : null}
     </>
   );
 }
