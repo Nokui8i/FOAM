@@ -18,6 +18,8 @@ import {
   CalendarDays,
   Camera,
   Check,
+  ChevronLeft,
+  ChevronRight,
   ClipboardList,
   Clock,
   History,
@@ -43,13 +45,17 @@ import {
   MIN_ORDER_USD,
   RATE_STANDARD_PER_LB_USD,
   RATE_WEEKLY_PER_LB_USD,
+  toIsoDate,
 } from "@/lib/booking";
 import {
   DRY_CLEAN_CATALOG_DEFAULT,
   subscribeDryCleanCatalog,
   type DryCleanCatalogItem,
 } from "@/lib/dry-clean-catalog";
-import { deleteOrderCompletely } from "@/lib/data-retention";
+import {
+  DATA_RETENTION_DAYS,
+  deleteOrderCompletely,
+} from "@/lib/data-retention";
 import { getFirebaseDb } from "@/lib/firebase";
 import { uploadOrderPhoto } from "@/lib/order-photos";
 import {
@@ -386,6 +392,7 @@ export function AdminOrdersPanel({
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [showHistoryCalendar, setShowHistoryCalendar] = useState(false);
   const catalogRef = useRef<HTMLDivElement>(null);
 
   const futureWeekDays = useMemo(() => buildFutureWeekDays(), []);
@@ -413,6 +420,14 @@ export function AdminOrdersPanel({
   function setFutureDay(next: string) {
     replaceQuery({
       day: next === futureWeekDays[0] ? null : next,
+      id: null,
+      view: null,
+    });
+  }
+
+  function setHistoryDay(next: string | null) {
+    replaceQuery({
+      day: next,
       id: null,
       view: null,
     });
@@ -507,11 +522,28 @@ export function AdminOrdersPanel({
     return firstWithOrders ?? futureWeekDays[0] ?? "";
   }, [mode, dayParam, futureWeekDays, futureDayCounts]);
 
+  const historyDay = useMemo(() => {
+    if (mode !== "history") return null;
+    if (dayParam && /^\d{4}-\d{2}-\d{2}$/.test(dayParam)) return dayParam;
+    return null;
+  }, [mode, dayParam]);
+
+  const historyDatesWithOrders = useMemo(() => {
+    const set = new Set<string>();
+    for (const row of rows) {
+      if (!isHistoryOrder(row.status)) continue;
+      const date = row.pickup.date || "";
+      if (date) set.add(date);
+    }
+    return set;
+  }, [rows]);
+
   const filtered = useMemo(() => {
     const q = queryText.trim().toLowerCase();
     const matched = rows.filter((row) => {
       if (mode === "history") {
         if (!isHistoryOrder(row.status)) return false;
+        if (historyDay && (row.pickup.date || "") !== historyDay) return false;
       } else {
         if (isCancelledOrder(row.status)) return false;
         if (mode === "future") {
@@ -566,6 +598,7 @@ export function AdminOrdersPanel({
     mode,
     selectedFutureDay,
     futureWeekEnd,
+    historyDay,
   ]);
 
   // Prefer URL selection across all rows so a status/tab change does not close the card.
@@ -2017,6 +2050,44 @@ export function AdminOrdersPanel({
             />
           </label>
 
+          {mode === "history" ? (
+            <div className="ops-history-date">
+              {historyDay ? (
+                <div className="ops-history-date-active">
+                  <span>{formatPickupDate(historyDay, true)}</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setHistoryDay(null);
+                      setShowHistoryCalendar(false);
+                    }}
+                  >
+                    Show all
+                  </button>
+                </div>
+              ) : null}
+              <button
+                type="button"
+                className="book-more-dates ops-history-cal-toggle"
+                onClick={() => setShowHistoryCalendar((v) => !v)}
+              >
+                {showHistoryCalendar
+                  ? "Hide calendar"
+                  : "Pick a date from the calendar"}
+              </button>
+              {showHistoryCalendar ? (
+                <HistoryCalendar
+                  value={historyDay}
+                  datesWithOrders={historyDatesWithOrders}
+                  onChange={(iso) => {
+                    setHistoryDay(iso);
+                    setShowHistoryCalendar(false);
+                  }}
+                />
+              ) : null}
+            </div>
+          ) : null}
+
           {mode === "today" ? (
             <div className="ops-filter-row" role="group" aria-label="Order filters">
               {ROW_FILTERS.map((item) => (
@@ -2099,7 +2170,9 @@ export function AdminOrdersPanel({
                     ? "No pickups beyond this week."
                     : `No pickups on ${formatPickupDate(selectedFutureDay)}.`
                   : mode === "history"
-                    ? "Delivered orders appear here."
+                    ? historyDay
+                      ? `No delivered orders on ${formatPickupDate(historyDay)}.`
+                      : "Delivered orders appear here."
                     : "Live orders will appear here."}
               </p>
             ) : (
@@ -2333,5 +2406,113 @@ export function AdminOrdersPanel({
         )}
       </section>
     </>
+  );
+}
+
+function HistoryCalendar({
+  value,
+  datesWithOrders,
+  onChange,
+}: {
+  value: string | null;
+  datesWithOrders: Set<string>;
+  onChange: (iso: string) => void;
+}) {
+  const today = useMemo(() => opsTodayIso(), []);
+  const min = useMemo(() => {
+    const d = new Date(`${today}T12:00:00`);
+    d.setDate(d.getDate() - DATA_RETENTION_DAYS);
+    return d;
+  }, [today]);
+  const max = useMemo(() => new Date(`${today}T12:00:00`), [today]);
+  const [cursor, setCursor] = useState(() => {
+    const base = value ? new Date(`${value}T12:00:00`) : max;
+    return new Date(base.getFullYear(), base.getMonth(), 1);
+  });
+
+  const monthLabel = cursor.toLocaleDateString("en-US", {
+    month: "long",
+    year: "numeric",
+  });
+
+  const cells = useMemo(() => {
+    const year = cursor.getFullYear();
+    const month = cursor.getMonth();
+    const first = new Date(year, month, 1);
+    const startPad = first.getDay();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const list: Array<{ iso: string; day: number } | null> = [];
+    for (let i = 0; i < startPad; i += 1) list.push(null);
+    for (let day = 1; day <= daysInMonth; day += 1) {
+      list.push({ iso: toIsoDate(new Date(year, month, day)), day });
+    }
+    while (list.length % 7 !== 0) list.push(null);
+    return list;
+  }, [cursor]);
+
+  const canPrev =
+    new Date(cursor.getFullYear(), cursor.getMonth(), 1) >
+    new Date(min.getFullYear(), min.getMonth(), 1);
+  const canNext =
+    new Date(cursor.getFullYear(), cursor.getMonth(), 1) <
+    new Date(max.getFullYear(), max.getMonth(), 1);
+
+  return (
+    <div className="book-cal ops-history-cal">
+      <div className="book-cal-head">
+        <button
+          type="button"
+          className="book-cal-nav"
+          disabled={!canPrev}
+          onClick={() =>
+            setCursor(new Date(cursor.getFullYear(), cursor.getMonth() - 1, 1))
+          }
+          aria-label="Previous month"
+        >
+          <ChevronLeft size={18} />
+        </button>
+        <strong>{monthLabel}</strong>
+        <button
+          type="button"
+          className="book-cal-nav"
+          disabled={!canNext}
+          onClick={() =>
+            setCursor(new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1))
+          }
+          aria-label="Next month"
+        >
+          <ChevronRight size={18} />
+        </button>
+      </div>
+      <div className="book-cal-week">
+        {["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"].map((d) => (
+          <span key={d}>{d}</span>
+        ))}
+      </div>
+      <div className="book-cal-grid">
+        {cells.map((cell, i) => {
+          if (!cell) return <span key={`e-${i}`} className="book-cal-empty" />;
+          const inRange = cell.iso >= toIsoDate(min) && cell.iso <= today;
+          const hasOrders = datesWithOrders.has(cell.iso);
+          const open = inRange && hasOrders;
+          return (
+            <button
+              key={cell.iso}
+              type="button"
+              disabled={!open}
+              className={cn(
+                "book-cal-day",
+                value === cell.iso && "is-active",
+                !open && "is-disabled",
+                hasOrders && open && "has-orders"
+              )}
+              onClick={() => onChange(cell.iso)}
+            >
+              {cell.day}
+            </button>
+          );
+        })}
+      </div>
+    </div>
   );
 }

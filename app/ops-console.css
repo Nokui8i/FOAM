@@ -366,6 +366,44 @@
   opacity: 0.6;
   cursor: wait;
 }
+.admin-page .ops-history-date {
+  margin: 0 0 10px;
+}
+.admin-page .ops-history-cal-toggle {
+  margin-top: 0;
+  color: var(--ops-primary);
+  font-size: 13px;
+  font-weight: 750;
+}
+.admin-page .ops-history-date-active {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: #e4f4fa;
+  color: var(--ops-navy);
+  font-size: 13px;
+  font-weight: 750;
+}
+.admin-page .ops-history-date-active button {
+  border: 0;
+  background: transparent;
+  color: var(--ops-primary);
+  font-size: 12px;
+  font-weight: 750;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.admin-page .ops-history-cal {
+  margin-top: 10px;
+}
+.admin-page .ops-history-cal .book-cal-day.has-orders:not(.is-disabled):not(.is-active) {
+  font-weight: 800;
+  color: var(--ops-navy);
+}
 .admin-page .ops-search {
   height: 42px;
   display: flex;
