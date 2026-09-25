@@ -386,6 +386,7 @@ export type FoamOrder = {
     promoCode?: string;
     promoDiscountType?: "percent" | "fixed";
     promoDiscountValue?: number;
+    promoIncludesFee?: boolean;
     promoLabel?: string;
     finalTotalPending?: boolean;
     repeatDiscountEligible?: boolean;

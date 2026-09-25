@@ -448,6 +448,7 @@ function BookingAppInner() {
           promoCode: appliedPromo?.code ?? "",
           promoDiscountType: appliedPromo?.discountType ?? null,
           promoDiscountValue: appliedPromo?.discountValue ?? null,
+          promoIncludesFee: appliedPromo?.includesFee ?? false,
           promoLabel: appliedPromo ? formatPromoLabel(appliedPromo) : "",
           // Final $ after weigh — ops applies rate × lbs (min $50) + delivery + tip + dry cleaning.
           finalTotalPending: true,

@@ -63,7 +63,7 @@ import {
   formatPromoLabel,
   isPromoCurrentlyValid,
   loadPromoCode,
-  promoDiscountAmount,
+  promoDiscountForOrder,
   recordPromoUse,
 } from "@/lib/promo-codes";
 import {
@@ -1107,6 +1107,7 @@ export function AdminOrdersPanel({
     });
     const dryTotal = dryCleanItemsTotal(dryItems);
     const tip = selected.tip ?? selected.pricing?.tip ?? 0;
+    const fee = selected.pricing?.deliveryFee ?? DELIVERY_FEE_USD;
     const subtotal = Math.round((laundryPortion + dryTotal) * 100) / 100;
 
     let promoOff = 0;
@@ -1117,10 +1118,16 @@ export function AdminOrdersPanel({
       const live = await loadPromoCode(code);
       const snapType = selected.pricing?.promoDiscountType;
       const snapValue = selected.pricing?.promoDiscountValue;
+      const snapIncludesFee = selected.pricing?.promoIncludesFee === true;
       if (live) {
         const validity = isPromoCurrentlyValid(live);
         if (validity.ok) {
-          promoOff = promoDiscountAmount(subtotal, live);
+          promoOff = promoDiscountForOrder({
+            laundryPlusFee: laundryPortion,
+            dryTotal,
+            fee,
+            promo: live,
+          });
           promoLabel = formatPromoLabel(live);
           promoCodeUsed = live.code;
         }
@@ -1129,15 +1136,22 @@ export function AdminOrdersPanel({
         typeof snapValue === "number" &&
         snapValue > 0
       ) {
-        promoOff = promoDiscountAmount(subtotal, {
-          discountType: snapType,
-          discountValue: snapValue,
+        promoOff = promoDiscountForOrder({
+          laundryPlusFee: laundryPortion,
+          dryTotal,
+          fee,
+          promo: {
+            discountType: snapType,
+            discountValue: snapValue,
+            includesFee: snapIncludesFee,
+          },
         });
         promoLabel =
           selected.pricing?.promoLabel ||
           formatPromoLabel({
             discountType: snapType,
             discountValue: snapValue,
+            includesFee: snapIncludesFee,
           });
         promoCodeUsed = code.toUpperCase();
       }
@@ -1278,6 +1292,7 @@ export function AdminOrdersPanel({
     let promoLine = "";
     const promoType = selected.pricing?.promoDiscountType;
     const promoValue = selected.pricing?.promoDiscountValue;
+    const promoIncludesFee = selected.pricing?.promoIncludesFee === true;
     const promoCode = (selected.promoCode || selected.pricing?.promoCode || "").trim();
     if (
       promoCode &&
@@ -1285,15 +1300,22 @@ export function AdminOrdersPanel({
       typeof promoValue === "number" &&
       promoValue > 0
     ) {
-      promoOff = promoDiscountAmount(subtotalBeforePromo, {
-        discountType: promoType,
-        discountValue: promoValue,
+      promoOff = promoDiscountForOrder({
+        laundryPlusFee,
+        dryTotal,
+        fee,
+        promo: {
+          discountType: promoType,
+          discountValue: promoValue,
+          includesFee: promoIncludesFee,
+        },
       });
       promoLine =
         selected.pricing?.promoLabel ||
         formatPromoLabel({
           discountType: promoType,
           discountValue: promoValue,
+          includesFee: promoIncludesFee,
         });
       if (promoOff > 0) {
         lines.push({

@@ -23,6 +23,7 @@ const emptyForm = {
   code: "",
   discountType: "percent" as PromoDiscountType,
   discountValue: "",
+  includesFee: false,
   limitMode: "uses" as PromoLimitMode,
   maxUses: "",
   expiresAt: "",
@@ -67,6 +68,7 @@ export function AdminPromosPanel({
       code: promo.code,
       discountType: promo.discountType,
       discountValue: String(promo.discountValue),
+      includesFee: promo.includesFee,
       limitMode: promo.limitMode,
       maxUses: promo.maxUses != null ? String(promo.maxUses) : "",
       expiresAt: promo.expiresAt ?? "",
@@ -94,6 +96,7 @@ export function AdminPromosPanel({
           code: form.code,
           discountType: form.discountType,
           discountValue: value,
+          includesFee: form.includesFee,
           limitMode: form.limitMode,
           maxUses: form.maxUses ? Number(form.maxUses) : null,
           expiresAt: form.expiresAt || null,
@@ -230,6 +233,32 @@ export function AdminPromosPanel({
           </div>
 
           <fieldset className="ops-promos-limit">
+            <legend>Service fee</legend>
+            <label className="ops-promos-radio">
+              <input
+                type="radio"
+                name="promo-fee"
+                checked={!form.includesFee}
+                onChange={() =>
+                  setForm((f) => ({ ...f, includesFee: false }))
+                }
+              />
+              <span>Exclude fee — discount laundry / dry clean only</span>
+            </label>
+            <label className="ops-promos-radio">
+              <input
+                type="radio"
+                name="promo-fee"
+                checked={form.includesFee}
+                onChange={() =>
+                  setForm((f) => ({ ...f, includesFee: true }))
+                }
+              />
+              <span>Include fee — discount also applies to pickup fee</span>
+            </label>
+          </fieldset>
+
+          <fieldset className="ops-promos-limit">
             <legend>Limit</legend>
             <label className="ops-promos-radio">
               <input
@@ -346,6 +375,8 @@ export function AdminPromosPanel({
                       <span>{formatPromoLabel(promo)}</span>
                     </div>
                     <p className="ops-promos-card-meta">
+                      {promo.includesFee ? "Includes fee" : "Excludes fee"}
+                      {" · "}
                       {promo.limitMode === "uses"
                         ? `${promo.usedCount} / ${promo.maxUses ?? "—"} uses`
                         : promo.expiresAt

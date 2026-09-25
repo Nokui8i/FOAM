@@ -22,6 +22,8 @@ export type PromoCode = {
   code: string;
   discountType: PromoDiscountType;
   discountValue: number;
+  /** When true, percent/fixed discount also applies to the pickup/delivery fee. */
+  includesFee: boolean;
   limitMode: PromoLimitMode;
   maxUses: number | null;
   usedCount: number;
@@ -47,11 +49,14 @@ export function promoDocId(code: string) {
   return normalizeCode(code);
 }
 
-export function formatPromoLabel(promo: Pick<PromoCode, "discountType" | "discountValue">) {
-  if (promo.discountType === "percent") {
-    return `${promo.discountValue}% off`;
-  }
-  return `$${Number(promo.discountValue).toFixed(2)} off`;
+export function formatPromoLabel(
+  promo: Pick<PromoCode, "discountType" | "discountValue" | "includesFee">
+) {
+  const base =
+    promo.discountType === "percent"
+      ? `${promo.discountValue}% off`
+      : `$${Number(promo.discountValue).toFixed(2)} off`;
+  return promo.includesFee ? `${base} (incl. fee)` : `${base} (excl. fee)`;
 }
 
 export function promoDiscountAmount(
@@ -64,6 +69,21 @@ export function promoDiscountAmount(
     return Math.round(subtotal * (pct / 100) * 100) / 100;
   }
   return Math.min(subtotal, Math.round(Math.max(0, promo.discountValue) * 100) / 100);
+}
+
+/** Discount base: laundry + dry (+ fee when includesFee). Tip is never discounted. */
+export function promoDiscountForOrder(opts: {
+  laundryPlusFee: number;
+  dryTotal: number;
+  fee: number;
+  promo: Pick<PromoCode, "discountType" | "discountValue" | "includesFee">;
+}) {
+  const full = Math.round((opts.laundryPlusFee + opts.dryTotal) * 100) / 100;
+  const fee = Math.max(0, opts.fee);
+  const base = opts.promo.includesFee
+    ? full
+    : Math.max(0, Math.round((full - fee) * 100) / 100);
+  return promoDiscountAmount(base, opts.promo);
 }
 
 function mapPromo(
@@ -96,6 +116,7 @@ function mapPromo(
       discountType === "percent"
         ? Math.min(100, Math.round(discountValue * 100) / 100)
         : Math.round(discountValue * 100) / 100,
+    includesFee: data.includesFee === true,
     limitMode,
     maxUses,
     usedCount,
@@ -184,6 +205,7 @@ export type SavePromoInput = {
   code: string;
   discountType: PromoDiscountType;
   discountValue: number;
+  includesFee: boolean;
   limitMode: PromoLimitMode;
   maxUses: number | null;
   expiresAt: string | null;
@@ -232,6 +254,7 @@ export async function savePromoCode(
       input.discountType === "percent"
         ? Math.min(100, Math.round(input.discountValue * 100) / 100)
         : Math.round(input.discountValue * 100) / 100,
+    includesFee: input.includesFee === true,
     limitMode: input.limitMode,
     maxUses: input.limitMode === "uses" ? Math.floor(input.maxUses!) : null,
     expiresAt: input.limitMode === "expires" ? input.expiresAt : null,
