@@ -243,7 +243,7 @@ export function AdminPromosPanel({
                   setForm((f) => ({ ...f, includesFee: false }))
                 }
               />
-              <span>Exclude fee — discount laundry / dry clean only</span>
+              <span>Exclude fee — laundry / dry clean only</span>
             </label>
             <label className="ops-promos-radio">
               <input
@@ -254,7 +254,7 @@ export function AdminPromosPanel({
                   setForm((f) => ({ ...f, includesFee: true }))
                 }
               />
-              <span>Include fee — discount also applies to pickup fee</span>
+              <span>Include fee — also applies to pickup fee</span>
             </label>
           </fieldset>
 
