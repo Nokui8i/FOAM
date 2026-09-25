@@ -17,6 +17,7 @@ import {
 } from "firebase/firestore";
 import { ArrowLeft, Check, ChevronDown, ChevronLeft, ChevronRight, Minus, Plus, Repeat, Shirt, Sparkles, X } from "lucide-react";
 
+import { OptionSheet } from "@/components/option-sheet";
 import { AddressAutocomplete } from "@/components/address-autocomplete";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/components/auth-provider";
@@ -27,7 +28,12 @@ import {
   orderRefFromId,
   trackPath,
 } from "@/lib/order-tracking";
-import { defaultProfile, getUserProfile, saveUserProfile } from "@/lib/user-profile";
+import {
+  defaultProfile,
+  getUserProfile,
+  legacyFieldsFromLaundryPrefs,
+  saveUserProfile,
+} from "@/lib/user-profile";
 import { ensureNextWeeklyOrder } from "@/lib/weekly-automation";
 import type { FoamOrder } from "@/lib/orders";
 import {
@@ -205,7 +211,14 @@ function BookingAppInner() {
     getUserProfile(user.uid)
       .then((profile) => {
         if (!alive || !profile) return;
-        setDraft((d) => ({ ...d, ...draftFromProfile(profile) }));
+        // Account Details + Preferences are the source of truth for signed-in
+        // users (contact, address, Access notes, wash prefs, washing notes).
+        setDraft((d) => ({
+          ...d,
+          ...draftFromProfile(profile),
+          saveDetailsToProfile: true,
+          savePrefsToProfile: true,
+        }));
       })
       .catch(() => {});
     return () => {
@@ -446,52 +459,46 @@ function BookingAppInner() {
         const existing = await getUserProfile(user.uid);
         if (existing) {
           const next = { ...existing };
-          let shouldSave = false;
 
           if (repeatActive && !existing.weeklyRepeatEnabled) {
             next.weeklyRepeatEnabled = true;
-            shouldSave = true;
           }
 
-          if (draft.saveDetailsToProfile) {
-            next.name = draft.name.trim() || existing.name;
-            next.phone = draft.phone.trim() || existing.phone;
-            next.address = draft.address.trim() || existing.address;
-            next.unit = draft.unit.trim();
-            next.city = draft.city.trim() || existing.city || LAS_VEGAS_CITY;
-            next.zip = draft.zip.trim() || existing.zip;
-            next.pickupNotes = draft.pickupNotes.trim();
-            shouldSave = true;
-          }
-
-          if (draft.savePrefsToProfile) {
-            next.laundryPrefs = {
-              pants: draft.pants,
-              dresses: draft.dresses,
-              detergent: draft.detergent,
-              softener: draft.softener,
-              whitesWashTemp: draft.whitesWashTemp,
-              colorsWashTemp: draft.colorsWashTemp,
-              whitesDryerHeat: draft.whitesDryerHeat,
-              colorsDryerHeat: draft.colorsDryerHeat,
-            };
-            // Keep legacy fields roughly in sync for Account UI
-            next.detergent = draft.detergent;
-            next.softener = draft.softener;
-            next.washTemp = draft.whitesWashTemp.includes("Warm")
-              ? "Warm"
-              : "Cold";
-            next.dryerTemp =
-              draft.whitesDryerHeat === "Regular" ? "Medium" : "Low";
-            next.foldStyle =
-              draft.pants.includes("Hanger") || draft.dresses.includes("Hanger")
-                ? "Hang shirts when possible"
-                : "Standard fold";
-            shouldSave = true;
-          }
-
-          if (shouldSave) await saveUserProfile(user.uid, next);
-        } else if (repeatActive) {
+          // Always sync Details + Preferences (incl. Access notes) back to account.
+          next.name = draft.name.trim() || existing.name;
+          next.phone = draft.phone.trim() || existing.phone;
+          next.address = draft.address.trim() || existing.address;
+          next.unit = draft.unit.trim();
+          next.city = draft.city.trim() || existing.city || LAS_VEGAS_CITY;
+          next.zip = draft.zip.trim() || existing.zip;
+          next.pickupNotes = draft.pickupNotes.trim();
+          next.laundryPrefs = {
+            pants: draft.pants,
+            dresses: draft.dresses,
+            detergent: draft.detergent,
+            softener: draft.softener,
+            whitesWashTemp: draft.whitesWashTemp,
+            colorsWashTemp: draft.colorsWashTemp,
+            whitesDryerHeat: draft.whitesDryerHeat,
+            colorsDryerHeat: draft.colorsDryerHeat,
+          };
+          Object.assign(
+            next,
+            legacyFieldsFromLaundryPrefs(next.laundryPrefs)
+          );
+          next.careNotes = draft.orderNotes.trim();
+          await saveUserProfile(user.uid, next);
+        } else {
+          const prefs = {
+            pants: draft.pants,
+            dresses: draft.dresses,
+            detergent: draft.detergent,
+            softener: draft.softener,
+            whitesWashTemp: draft.whitesWashTemp,
+            colorsWashTemp: draft.colorsWashTemp,
+            whitesDryerHeat: draft.whitesDryerHeat,
+            colorsDryerHeat: draft.colorsDryerHeat,
+          };
           const created = {
             ...defaultProfile(user.uid, user.email ?? draft.email.trim()),
             name: draft.name.trim() || user.displayName || "",
@@ -501,7 +508,10 @@ function BookingAppInner() {
             city: draft.city.trim() || LAS_VEGAS_CITY,
             zip: draft.zip.trim(),
             pickupNotes: draft.pickupNotes.trim(),
-            weeklyRepeatEnabled: true,
+            laundryPrefs: prefs,
+            ...legacyFieldsFromLaundryPrefs(prefs),
+            careNotes: draft.orderNotes.trim(),
+            weeklyRepeatEnabled: Boolean(repeatActive),
           };
           const { uid: _profileUid, ...rest } = created;
           void _profileUid;
@@ -872,24 +882,19 @@ function BookingAppInner() {
                   />
                 </Field>
                 <Field label="Access notes" wide>
-                  <input
-                    className={fieldClass}
+                  <textarea
+                    className={`${fieldClass} min-h-[4.5rem] resize-y py-2`}
+                    placeholder="Gate code, leave at door, building manager…"
                     value={draft.pickupNotes}
                     onChange={(e) => patch({ pickupNotes: e.target.value })}
                   />
                 </Field>
               </div>
               {user ? (
-                <label className="book-save-prefs mt-2">
-                  <input
-                    type="checkbox"
-                    checked={draft.saveDetailsToProfile}
-                    onChange={(e) =>
-                      patch({ saveDetailsToProfile: e.target.checked })
-                    }
-                  />
-                  Update my account with these contact &amp; address details
-                </label>
+                <p className="book-save-prefs mt-2 text-sm text-muted-foreground">
+                  Saved to your account Details (including Access notes) when you
+                  place this order.
+                </p>
               ) : null}
             </section>
           </div>
@@ -946,16 +951,9 @@ function BookingAppInner() {
                 <PrefRow label="Whites dryer" value={draft.whitesDryerHeat} onClick={() => setPicker("whitesDryerHeat")} />
                 <PrefRow label="Colors dryer" value={draft.colorsDryerHeat} onClick={() => setPicker("colorsDryerHeat")} />
                 {user ? (
-                  <label className="book-save-prefs">
-                    <input
-                      type="checkbox"
-                      checked={draft.savePrefsToProfile}
-                      onChange={(e) =>
-                        patch({ savePrefsToProfile: e.target.checked })
-                      }
-                    />
-                    Save as my account defaults
-                  </label>
+                  <p className="book-save-prefs text-sm text-muted-foreground">
+                    Saved to your account Preferences when you place this order.
+                  </p>
                 ) : null}
               </div>
             </section>
@@ -1261,77 +1259,6 @@ function GuestCheckoutGate({
           >
             Continue as guest
           </Button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function OptionSheet({
-  title,
-  options,
-  value,
-  images,
-  onSelect,
-  onClose,
-}: {
-  title: string;
-  options: readonly string[];
-  value: string;
-  images?: Partial<Record<string, string>>;
-  onSelect: (value: string) => void;
-  onClose: () => void;
-}) {
-  return (
-    <div className="book-modal-root" role="dialog" aria-modal="true" aria-label={title}>
-      <button
-        type="button"
-        className="book-modal-backdrop"
-        onClick={onClose}
-        aria-label="Close"
-      />
-      <div className="book-modal">
-        <div className="book-modal-head">
-          <p className="book-modal-title">{title}</p>
-          <button
-            type="button"
-            className="book-modal-close"
-            onClick={onClose}
-            aria-label="Close"
-          >
-            <X size={16} />
-          </button>
-        </div>
-        <div className="book-modal-list">
-          {options.map((option) => {
-            const active = value === option;
-            const imageSrc = images?.[option];
-            return (
-              <button
-                key={option}
-                type="button"
-                className={cn("book-modal-option", active && "is-active")}
-                onClick={() => onSelect(option)}
-              >
-                <span className="book-modal-option-main">
-                  {imageSrc ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={imageSrc}
-                      alt=""
-                      width={40}
-                      height={56}
-                      className="book-modal-option-img"
-                    />
-                  ) : (
-                    <span className="book-modal-option-img is-empty" aria-hidden />
-                  )}
-                  <span>{option}</span>
-                </span>
-                {active ? <Check size={16} strokeWidth={2.5} /> : null}
-              </button>
-            );
-          })}
         </div>
       </div>
     </div>

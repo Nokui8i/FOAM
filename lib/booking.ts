@@ -1,4 +1,5 @@
 import type { UserProfile } from "@/lib/user-profile";
+import { resolveLaundryPrefs } from "@/lib/user-profile";
 
 export const BOOKING_STEPS = ["services", "schedule", "address", "confirm"] as const;
 export type BookingStep = (typeof BOOKING_STEPS)[number];
@@ -182,62 +183,14 @@ export function emptyBookingDraft(): BookingDraft {
     tipCustom: "",
     setDefaultTip: false,
     promoCode: "",
-    savePrefsToProfile: false,
-    saveDetailsToProfile: false,
+    savePrefsToProfile: true,
+    saveDetailsToProfile: true,
   };
 }
 
 /** Prefill from saved account profile without locking the order to it. */
 export function draftFromProfile(profile: UserProfile): Partial<BookingDraft> {
-  const prefs = profile.laundryPrefs;
-
-  if (prefs) {
-    return {
-      name: profile.name,
-      email: profile.email,
-      phone: profile.phone,
-      address: profile.address,
-      unit: profile.unit,
-      city: profile.city,
-      zip: profile.zip,
-      pickupNotes: profile.pickupNotes,
-      detergent: prefs.detergent || "Persil",
-      softener: prefs.softener || "No softener",
-      whitesWashTemp: prefs.whitesWashTemp || "Cold wash",
-      colorsWashTemp: prefs.colorsWashTemp || "Cold wash",
-      whitesDryerHeat: prefs.whitesDryerHeat || "Low",
-      colorsDryerHeat: prefs.colorsDryerHeat || "Low",
-      pants: prefs.pants || "Folded",
-      dresses: prefs.dresses || "Folded",
-      repeatPickup: Boolean(profile.weeklyRepeatEnabled),
-    };
-  }
-
-  // Legacy profile fields (pre-laundryPrefs)
-  const wash =
-    profile.washTemp === "Warm" || profile.washTemp === "Hot"
-      ? "Warm wash"
-      : "Cold wash";
-  const dryer =
-    profile.dryerTemp === "High"
-      ? "Regular"
-      : profile.dryerTemp === "Low"
-        ? "Low"
-        : "Low";
-
-  let detergent = "Persil";
-  if (profile.detergent.toLowerCase().includes("hypo")) detergent = "All Free and Clear";
-  else if (profile.detergent.toLowerCase().includes("own")) detergent = "Will Provide Own";
-  else if (DETERGENT_BOOKING_OPTIONS.includes(profile.detergent as (typeof DETERGENT_BOOKING_OPTIONS)[number])) {
-    detergent = profile.detergent;
-  } else if (profile.detergent.toLowerCase().includes("organic")) detergent = "All Free and Clear";
-
-  let softener = "No softener";
-  if (profile.softener === "Standard" || profile.softener === "Downy") softener = "Downy";
-  else if (profile.softener === "White Vinegar") softener = "White Vinegar";
-  else if (SOFTENER_BOOKING_OPTIONS.includes(profile.softener as (typeof SOFTENER_BOOKING_OPTIONS)[number])) {
-    softener = profile.softener;
-  }
+  const prefs = resolveLaundryPrefs(profile);
 
   return {
     name: profile.name,
@@ -248,15 +201,18 @@ export function draftFromProfile(profile: UserProfile): Partial<BookingDraft> {
     city: profile.city,
     zip: profile.zip,
     pickupNotes: profile.pickupNotes,
-    detergent,
-    softener,
-    whitesWashTemp: wash,
-    colorsWashTemp: wash,
-    whitesDryerHeat: dryer,
-    colorsDryerHeat: dryer,
-    pants: profile.foldStyle.includes("Hang") ? "Hanger (Provide Own)" : "Folded",
-    dresses: profile.foldStyle.includes("Hang") ? "Hanger (Provide Own)" : "Folded",
+    detergent: prefs.detergent,
+    softener: prefs.softener,
+    whitesWashTemp: prefs.whitesWashTemp,
+    colorsWashTemp: prefs.colorsWashTemp,
+    whitesDryerHeat: prefs.whitesDryerHeat,
+    colorsDryerHeat: prefs.colorsDryerHeat,
+    pants: prefs.pants,
+    dresses: prefs.dresses,
+    orderNotes: profile.careNotes || "",
     repeatPickup: Boolean(profile.weeklyRepeatEnabled),
+    saveDetailsToProfile: true,
+    savePrefsToProfile: true,
   };
 }
 

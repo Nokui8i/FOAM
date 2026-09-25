@@ -20,6 +20,7 @@ import {
 
 import { AddressAutocomplete } from "@/components/address-autocomplete";
 import { AccountOrders } from "@/components/account-orders";
+import { OptionSheet } from "@/components/option-sheet";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/components/auth-provider";
 import { GoogleSignInButton } from "@/components/google-sign-in-button";
@@ -30,16 +31,26 @@ import {
   isLasVegasAddress,
 } from "@/lib/las-vegas";
 import {
-  DETERGENT_OPTIONS,
-  DRYER_TEMP_OPTIONS,
-  FOLD_OPTIONS,
-  SOFTENER_OPTIONS,
-  WASH_TEMP_OPTIONS,
+  defaultLaundryPrefs,
   defaultProfile,
   getUserProfile,
+  legacyFieldsFromLaundryPrefs,
+  resolveLaundryPrefs,
   saveUserProfile,
+  type LaundryPrefs,
   type UserProfile,
 } from "@/lib/user-profile";
+import {
+  DETERGENT_BOOKING_OPTIONS,
+  DETERGENT_IMAGES,
+  DRYER_HEAT_OPTIONS,
+  FOLD_ITEM_OPTIONS,
+  SOFTENER_BOOKING_OPTIONS,
+  WASH_TEMP_BOOKING_OPTIONS,
+  draftFromProfile,
+  loadBookingDraft,
+  saveBookingDraft,
+} from "@/lib/booking";
 import {
   cancelFutureWeeklyOrders,
 } from "@/lib/weekly-automation";
@@ -92,6 +103,7 @@ function AccountProfile({
     null
   );
   const [error, setError] = useState("");
+  const [prefPicker, setPrefPicker] = useState<keyof LaundryPrefs | null>(null);
   const panelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -105,12 +117,19 @@ function AccountProfile({
       .then((data) => {
         if (!alive) return;
         if (data) {
+          const prefs = resolveLaundryPrefs(data);
+          const legacy = legacyFieldsFromLaundryPrefs(prefs);
           setProfile({
             ...data,
+            ...legacy,
+            laundryPrefs: prefs,
             name: data.name.trim() || displayName || data.name,
           });
         } else {
-          setProfile(fallback);
+          setProfile({
+            ...fallback,
+            laundryPrefs: defaultLaundryPrefs(),
+          });
         }
       })
       .catch(() => {
@@ -181,6 +200,10 @@ function AccountProfile({
       }
     }
 
+    const laundryPrefs =
+      profile.laundryPrefs ?? resolveLaundryPrefs(profile);
+    const legacy = legacyFieldsFromLaundryPrefs(laundryPrefs);
+
     const next: Omit<UserProfile, "uid"> = {
       email,
       name: profile.name,
@@ -190,14 +213,14 @@ function AccountProfile({
       city: LAS_VEGAS_CITY,
       zip: profile.zip,
       pickupNotes: profile.pickupNotes,
-      detergent: profile.detergent,
-      softener: profile.softener,
-      washTemp: profile.washTemp,
-      dryerTemp: profile.dryerTemp,
-      foldStyle: profile.foldStyle,
+      detergent: panel === "preferences" ? legacy.detergent : profile.detergent,
+      softener: panel === "preferences" ? legacy.softener : profile.softener,
+      washTemp: panel === "preferences" ? legacy.washTemp : profile.washTemp,
+      dryerTemp: panel === "preferences" ? legacy.dryerTemp : profile.dryerTemp,
+      foldStyle: panel === "preferences" ? legacy.foldStyle : profile.foldStyle,
       separateColors: profile.separateColors,
       careNotes: profile.careNotes,
-      laundryPrefs: profile.laundryPrefs,
+      laundryPrefs,
       weeklyRepeatEnabled: profile.weeklyRepeatEnabled,
     };
 
@@ -205,6 +228,20 @@ function AccountProfile({
       await saveUserProfile(uid, next);
       setProfile({ uid, ...next });
       setSavedPanel(panel);
+      // Keep an in-progress booking draft in sync with Account Details/Preferences
+      // (contact, address, Access notes, wash prefs, washing notes).
+      const saved = loadBookingDraft();
+      if (saved) {
+        saveBookingDraft(
+          {
+            ...saved.draft,
+            ...draftFromProfile({ uid, ...next }),
+            saveDetailsToProfile: true,
+            savePrefsToProfile: true,
+          },
+          saved.step
+        );
+      }
     } catch {
       setError("Could not save your settings. Try again.");
     } finally {
@@ -476,10 +513,10 @@ function AccountProfile({
                   }
                 />
               </Field>
-              <Field label="Pickup notes" wide>
+              <Field label="Access notes" wide>
                 <textarea
                   className={`${inputClass} min-h-20 resize-y py-2`}
-                  placeholder="Gate code, leave at door, building manager..."
+                  placeholder="Gate code, leave at door, building manager…"
                   value={profile.pickupNotes}
                   onChange={(e) =>
                     setProfile({ ...profile, pickupNotes: e.target.value })
@@ -503,84 +540,109 @@ function AccountProfile({
           >
             <PanelIntro
               title="Laundry preferences"
-              helper="How we wash and finish your laundry by default."
+              helper="Same wash options as when you book — saved as your account defaults."
             />
             <div className="mt-4 rounded-lg border border-border bg-muted/40 p-3 sm:p-4">
               <p className="text-xs text-muted-foreground">
-                Weekly repeat is managed under{" "}
-                <button
-                  type="button"
-                  className="font-semibold text-foreground underline-offset-2 hover:underline"
-                  onClick={() => replaceQuery({ tab: null })}
-                >
-                  Details
-                </button>
-                . You can cancel there anytime; turning it on only happens when
-                you book a pickup.
+                These defaults fill the booking form when you&apos;re signed in.
+                You can still change them per order, or tick{" "}
+                <span className="font-semibold text-foreground">
+                  Save as my account defaults
+                </span>{" "}
+                on checkout.
               </p>
             </div>
             <div className="mt-4 grid gap-x-3 gap-y-3 sm:grid-cols-2">
-              <SelectField
-                label="Detergent"
-                value={profile.detergent}
-                options={[...DETERGENT_OPTIONS]}
-                onChange={(value) =>
-                  setProfile({ ...profile, detergent: value })
-                }
-              />
-              <SelectField
-                label="Softener"
-                value={profile.softener}
-                options={[...SOFTENER_OPTIONS]}
-                onChange={(value) =>
-                  setProfile({ ...profile, softener: value })
-                }
-              />
-              <SelectField
-                label="Wash temperature"
-                value={profile.washTemp}
-                options={[...WASH_TEMP_OPTIONS]}
-                onChange={(value) =>
-                  setProfile({ ...profile, washTemp: value })
-                }
-              />
-              <SelectField
-                label="Dryer temperature"
-                value={profile.dryerTemp}
-                options={[...DRYER_TEMP_OPTIONS]}
-                onChange={(value) =>
-                  setProfile({ ...profile, dryerTemp: value })
-                }
-              />
-              <SelectField
-                label="Fold style"
-                wide
-                value={profile.foldStyle}
-                options={[...FOLD_OPTIONS]}
-                onChange={(value) =>
-                  setProfile({ ...profile, foldStyle: value })
-                }
-              />
-              <label className="flex min-h-9 cursor-pointer items-center gap-2.5 rounded-md border border-border bg-muted/40 px-3 sm:col-span-2">
-                <input
-                  type="checkbox"
-                  className="size-3.5 shrink-0 accent-(--color-accent-strong)"
-                  checked={profile.separateColors}
-                  onChange={(e) =>
-                    setProfile({
-                      ...profile,
-                      separateColors: e.target.checked,
-                    })
-                  }
-                />
-                <span className="text-sm font-medium">
-                  Separate lights and darks
-                </span>
-              </label>
-              <Field label="Care notes" wide>
+              {(
+                [
+                  {
+                    key: "pants",
+                    label: "Pants",
+                    options: FOLD_ITEM_OPTIONS,
+                  },
+                  {
+                    key: "dresses",
+                    label: "Dresses",
+                    options: FOLD_ITEM_OPTIONS,
+                  },
+                  {
+                    key: "detergent",
+                    label: "Detergent",
+                    options: DETERGENT_BOOKING_OPTIONS,
+                  },
+                  {
+                    key: "softener",
+                    label: "Softener",
+                    options: SOFTENER_BOOKING_OPTIONS,
+                  },
+                  {
+                    key: "whitesWashTemp",
+                    label: "Whites wash",
+                    options: WASH_TEMP_BOOKING_OPTIONS,
+                  },
+                  {
+                    key: "colorsWashTemp",
+                    label: "Colors wash",
+                    options: WASH_TEMP_BOOKING_OPTIONS,
+                  },
+                  {
+                    key: "whitesDryerHeat",
+                    label: "Whites dryer",
+                    options: DRYER_HEAT_OPTIONS,
+                  },
+                  {
+                    key: "colorsDryerHeat",
+                    label: "Colors dryer",
+                    options: DRYER_HEAT_OPTIONS,
+                  },
+                ] as const
+              ).map((field) => {
+                const prefs =
+                  profile.laundryPrefs ?? resolveLaundryPrefs(profile);
+                const value = prefs[field.key];
+                const imageSrc =
+                  field.key === "detergent"
+                    ? DETERGENT_IMAGES[
+                        value as keyof typeof DETERGENT_IMAGES
+                      ]
+                    : undefined;
+                return (
+                  <Field key={field.key} label={field.label}>
+                    <button
+                      type="button"
+                      className={`${inputClass} flex items-center gap-2.5 pr-3 text-left`}
+                      onClick={() => setPrefPicker(field.key)}
+                    >
+                      {field.key === "detergent" ? (
+                        imageSrc ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={imageSrc}
+                            alt=""
+                            width={28}
+                            height={40}
+                            className="h-10 w-7 shrink-0 object-contain"
+                          />
+                        ) : (
+                          <span
+                            className="inline-block h-10 w-7 shrink-0 rounded bg-muted"
+                            aria-hidden
+                          />
+                        )
+                      ) : null}
+                      <span className="min-w-0 flex-1 truncate">{value}</span>
+                      <ChevronDown
+                        className="size-3.5 shrink-0 text-muted-foreground"
+                        aria-hidden
+                      />
+                    </button>
+                  </Field>
+                );
+              })}
+              <Field label="Washing notes" wide>
                 <textarea
                   className={`${inputClass} min-h-20 resize-y py-2`}
-                  placeholder="Allergies, delicate items, stain notes..."
+                  placeholder="Stains, mud, delicate items, allergies…"
                   value={profile.careNotes}
                   onChange={(e) =>
                     setProfile({ ...profile, careNotes: e.target.value })
@@ -593,6 +655,61 @@ function AccountProfile({
             ) : null}
             <SaveRow saved={savedPanel === "preferences"} saving={saving} />
           </form>
+        ) : null}
+
+        {prefPicker ? (
+          <OptionSheet
+            title={
+              (
+                {
+                  pants: "Pants",
+                  dresses: "Dresses",
+                  detergent: "Detergent",
+                  softener: "Softener",
+                  whitesWashTemp: "Whites wash",
+                  colorsWashTemp: "Colors wash",
+                  whitesDryerHeat: "Whites dryer",
+                  colorsDryerHeat: "Colors dryer",
+                } as const
+              )[prefPicker]
+            }
+            options={
+              prefPicker === "pants" || prefPicker === "dresses"
+                ? FOLD_ITEM_OPTIONS
+                : prefPicker === "detergent"
+                  ? DETERGENT_BOOKING_OPTIONS
+                  : prefPicker === "softener"
+                    ? SOFTENER_BOOKING_OPTIONS
+                    : prefPicker === "whitesWashTemp" ||
+                        prefPicker === "colorsWashTemp"
+                      ? WASH_TEMP_BOOKING_OPTIONS
+                      : DRYER_HEAT_OPTIONS
+            }
+            value={
+              (profile.laundryPrefs ?? resolveLaundryPrefs(profile))[
+                prefPicker
+              ]
+            }
+            images={
+              prefPicker === "detergent" ? DETERGENT_IMAGES : undefined
+            }
+            onClose={() => setPrefPicker(null)}
+            onSelect={(value) => {
+              const current =
+                profile.laundryPrefs ?? resolveLaundryPrefs(profile);
+              const nextPrefs: LaundryPrefs = {
+                ...current,
+                [prefPicker]: value,
+              };
+              const legacy = legacyFieldsFromLaundryPrefs(nextPrefs);
+              setProfile({
+                ...profile,
+                ...legacy,
+                laundryPrefs: nextPrefs,
+              });
+              setPrefPicker(null);
+            }}
+          />
         ) : null}
 
         {activeTab === "Orders" ? <AccountOrders uid={uid} /> : null}
