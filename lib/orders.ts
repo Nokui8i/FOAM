@@ -246,6 +246,15 @@ export function isWaitingForPickup(status: OrderStatus) {
 }
 
 export function isDoneOrder(status: OrderStatus) {
+  return status === "delivered";
+}
+
+export function isCancelledOrder(status: OrderStatus) {
+  return status === "cancelled";
+}
+
+/** Closed orders kept in Ops History (until retention purge or manual delete). */
+export function isHistoryOrder(status: OrderStatus) {
   return status === "delivered" || status === "cancelled";
 }
 

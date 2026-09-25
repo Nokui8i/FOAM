@@ -17,11 +17,14 @@ import {
   CalendarDays,
   ChevronDown,
   Headphones,
+  History,
   LogOut,
+  Shirt,
   Truck,
 } from "lucide-react";
 
 import { AdminAlertsPanel } from "@/components/admin-alerts-panel";
+import { AdminCatalogPanel } from "@/components/admin-catalog-panel";
 import { AdminContactsPanel } from "@/components/admin-contacts-panel";
 import { AdminOrdersPanel } from "@/components/admin-orders-panel";
 import { Button } from "@/components/ui/button";
@@ -29,6 +32,7 @@ import { getFirebaseAuth, getFirebaseDb } from "@/lib/firebase";
 import { purgeExpiredOpsDataOncePerSession } from "@/lib/data-retention";
 import {
   isFuturePickupOrder,
+  isHistoryOrder,
   isReadyForDelivery,
   isWaitingTodayOrder,
   isWashingOrder,
@@ -43,15 +47,17 @@ import {
 } from "@/lib/admin-alerts";
 import { reconcileWeeklyQueues } from "@/lib/weekly-automation";
 
-type AdminTab = "orders" | "future" | "support" | "alerts";
+type AdminTab = "orders" | "future" | "history" | "support" | "alerts" | "catalog";
 type MobileView = "list" | "detail";
 
 const TAB_FROM_PARAM: Record<string, AdminTab> = {
   orders: "orders",
   future: "future",
+  history: "history",
   support: "support",
   contacts: "support",
   alerts: "alerts",
+  catalog: "catalog",
 };
 
 function parseAdminTab(raw: string | null): AdminTab {
@@ -140,6 +146,7 @@ function AdminAppInner() {
   const [alertsTodoCount, setAlertsTodoCount] = useState(0);
   const [ordersCount, setOrdersCount] = useState(0);
   const [futureCount, setFutureCount] = useState(0);
+  const [historyCount, setHistoryCount] = useState(0);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const accountMenuRef = useRef<HTMLDivElement>(null);
 
@@ -198,11 +205,15 @@ function AdminAppInner() {
     const unsubOrders = onSnapshot(collection(db, "orders"), (snap) => {
       let todayActive = 0;
       let future = 0;
+      let history = 0;
       let alertsTodo = 0;
       for (const docSnap of snap.docs) {
         const data = docSnap.data() as Record<string, unknown>;
         const order = orderStubFromDoc(data);
         const status = order.status;
+        if (isHistoryOrder(status)) {
+          history += 1;
+        }
         if (status !== "cancelled" && status !== "delivered") {
           const pickupDate = order.pickup.date;
           const window = isInPickupReminderWindow(pickupDate);
@@ -223,6 +234,7 @@ function AdminAppInner() {
       }
       setOrdersCount(todayActive);
       setFutureCount(future);
+      setHistoryCount(history);
       setAlertsTodoCount(alertsTodo);
     });
     return () => {
@@ -476,6 +488,15 @@ function AdminAppInner() {
             </button>
             <button
               type="button"
+              className={cn("nav-button", tab === "history" && "active")}
+              onClick={() => setDestination("history")}
+            >
+              <History size={18} aria-hidden />
+              <span>History</span>
+              <b>{historyCount}</b>
+            </button>
+            <button
+              type="button"
               className={cn("nav-button", tab === "support" && "active")}
               onClick={() => setDestination("support")}
             >
@@ -491,6 +512,14 @@ function AdminAppInner() {
               <Bell size={18} aria-hidden />
               <span>Alerts</span>
               <b>{alertsTodoCount}</b>
+            </button>
+            <button
+              type="button"
+              className={cn("nav-button", tab === "catalog" && "active")}
+              onClick={() => setDestination("catalog")}
+            >
+              <Shirt size={18} aria-hidden />
+              <span>Catalog</span>
             </button>
           </nav>
 
@@ -544,10 +573,16 @@ function AdminAppInner() {
             mobileView === "detail" && "is-detail-open"
           )}
         >
-            {tab === "orders" || tab === "future" ? (
+            {tab === "orders" || tab === "future" || tab === "history" ? (
               <AdminOrdersPanel
                 key={tab}
-                mode={tab === "future" ? "future" : "today"}
+                mode={
+                  tab === "future"
+                    ? "future"
+                    : tab === "history"
+                      ? "history"
+                      : "today"
+                }
                 adminEmail={user.email ?? ""}
                 mobileView={mobileView}
                 onMobileViewChange={setMobileView}
@@ -558,6 +593,12 @@ function AdminAppInner() {
                 mobileView={mobileView}
                 onMobileViewChange={setMobileView}
                 onTodoCountChange={setAlertsTodoCount}
+              />
+            ) : tab === "catalog" ? (
+              <AdminCatalogPanel
+                adminEmail={user.email ?? ""}
+                mobileView={mobileView}
+                onMobileViewChange={setMobileView}
               />
             ) : (
               <AdminContactsPanel

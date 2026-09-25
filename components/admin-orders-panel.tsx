@@ -20,10 +20,10 @@ import {
   Check,
   ClipboardList,
   Clock,
+  History,
   LockKeyhole,
   Mail,
   MapPin,
-  MessageCircle,
   Minus,
   PackageCheck,
   Phone,
@@ -31,6 +31,7 @@ import {
   Scale,
   Search,
   Shirt,
+  Trash2,
   Truck,
   UserRound,
   X,
@@ -45,10 +46,10 @@ import {
 } from "@/lib/booking";
 import {
   DRY_CLEAN_CATALOG_DEFAULT,
-  saveDryCleanCatalog,
   subscribeDryCleanCatalog,
   type DryCleanCatalogItem,
 } from "@/lib/dry-clean-catalog";
+import { deleteOrderCompletely } from "@/lib/data-retention";
 import { getFirebaseDb } from "@/lib/firebase";
 import { uploadOrderPhoto } from "@/lib/order-photos";
 import {
@@ -58,9 +59,11 @@ import {
   dryCleanItemsTotal,
   formatOrderAddress,
   compareOrdersByPickupSchedule,
+  isCancelledOrder,
   isDoneOrder,
   isEnRouteToPickup,
   isFuturePickupOrder,
+  isHistoryOrder,
   isReadyForDelivery,
   isWaitingForPickup,
   isWaitingTodayOrder,
@@ -86,15 +89,14 @@ import { BUSINESS_WHATSAPP } from "@/lib/site-config";
 import { cn } from "@/lib/utils";
 import { useQueryReplace } from "@/lib/use-query-replace";
 
-type Filter = "waiting" | "progress" | "ready" | "done" | "all";
+type Filter = "waiting" | "progress" | "ready" | "all";
 type MobileView = "list" | "detail";
-type OrdersMode = "today" | "future";
+type OrdersMode = "today" | "future" | "history";
 
 const FILTERS: { id: Filter; label: string }[] = [
   { id: "waiting", label: "Waiting" },
   { id: "progress", label: "In Progress" },
   { id: "ready", label: "Ready" },
-  { id: "done", label: "Done" },
   { id: "all", label: "All" },
 ];
 
@@ -186,7 +188,7 @@ function DriverNotesBlock({
 const FILTER_IDS = new Set<string>(FILTERS.map((f) => f.id));
 
 function parseFilter(raw: string | null, mode: OrdersMode): Filter {
-  if (mode === "future") return "all";
+  if (mode === "future" || mode === "history") return "all";
   if (raw && FILTER_IDS.has(raw)) return raw as Filter;
   return "waiting";
 }
@@ -195,7 +197,6 @@ function filterForStatus(status: OrderStatus): Filter {
   if (isWaitingForPickup(status)) return "waiting";
   if (isWashingOrder(status)) return "progress";
   if (isReadyForDelivery(status)) return "ready";
-  if (isDoneOrder(status)) return "done";
   return "all";
 }
 
@@ -379,15 +380,11 @@ export function AdminOrdersPanel({
   const [dryItems, setDryItems] = useState<DryCleanItem[]>([]);
   const [dryQuery, setDryQuery] = useState("");
   const [openCatalog, setOpenCatalog] = useState(false);
-  const [catalogMode, setCatalogMode] = useState<"add" | "edit">("add");
   const [catalog, setCatalog] = useState<DryCleanCatalogItem[]>(
     DRY_CLEAN_CATALOG_DEFAULT
   );
-  const [catalogDraft, setCatalogDraft] = useState<DryCleanCatalogItem[]>([]);
-  const [catalogSaving, setCatalogSaving] = useState(false);
-  const [newCatalogName, setNewCatalogName] = useState("");
-  const [newCatalogPrice, setNewCatalogPrice] = useState("");
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const catalogRef = useRef<HTMLDivElement>(null);
 
@@ -407,7 +404,7 @@ export function AdminOrdersPanel({
 
   /** Move the list tab with the order, but keep the open card. */
   function syncFilterToOrder(order: FoamOrder) {
-    if (mode === "future") return;
+    if (mode === "future" || mode === "history") return;
     const next = filterForStatus(order.status);
     if (next === filter) return;
     setFilter(next, { keepSelection: true });
@@ -473,8 +470,13 @@ export function AdminOrdersPanel({
       waiting: rows.filter((r) => isWaitingTodayOrder(r)).length,
       progress: rows.filter((r) => isWashingOrder(r.status)).length,
       ready: rows.filter((r) => isReadyForDelivery(r.status)).length,
-      done: rows.filter((r) => isDoneOrder(r.status)).length,
-      all: rows.filter((r) => !isFuturePickupOrder(r)).length,
+      all: rows.filter(
+        (r) =>
+          !isFuturePickupOrder(r) &&
+          !isCancelledOrder(r.status) &&
+          !isDoneOrder(r.status)
+      ).length,
+      history: rows.filter((r) => isHistoryOrder(r.status)).length,
     }),
     [rows]
   );
@@ -508,20 +510,25 @@ export function AdminOrdersPanel({
   const filtered = useMemo(() => {
     const q = queryText.trim().toLowerCase();
     const matched = rows.filter((row) => {
-      if (mode === "future") {
-        if (!isFuturePickupOrder(row)) return false;
-        const date = row.pickup.date || "";
-        if (selectedFutureDay === "later") {
-          if (!(futureWeekEnd && date > futureWeekEnd)) return false;
-        } else if (date !== selectedFutureDay) {
-          return false;
-        }
+      if (mode === "history") {
+        if (!isHistoryOrder(row.status)) return false;
       } else {
-        if (isFuturePickupOrder(row)) return false;
-        if (filter === "waiting" && !isWaitingTodayOrder(row)) return false;
-        if (filter === "progress" && !isWashingOrder(row.status)) return false;
-        if (filter === "ready" && !isReadyForDelivery(row.status)) return false;
-        if (filter === "done" && !isDoneOrder(row.status)) return false;
+        if (isCancelledOrder(row.status)) return false;
+        if (mode === "future") {
+          if (!isFuturePickupOrder(row)) return false;
+          const date = row.pickup.date || "";
+          if (selectedFutureDay === "later") {
+            if (!(futureWeekEnd && date > futureWeekEnd)) return false;
+          } else if (date !== selectedFutureDay) {
+            return false;
+          }
+        } else {
+          if (isFuturePickupOrder(row)) return false;
+          if (isDoneOrder(row.status)) return false;
+          if (filter === "waiting" && !isWaitingTodayOrder(row)) return false;
+          if (filter === "progress" && !isWashingOrder(row.status)) return false;
+          if (filter === "ready" && !isReadyForDelivery(row.status)) return false;
+        }
       }
       if (!q) return true;
       const hay = [
@@ -540,6 +547,14 @@ export function AdminOrdersPanel({
       return hay.includes(q);
     });
 
+    if (mode === "history") {
+      return [...matched].sort((a, b) => {
+        const dateCmp = (b.pickup.date || "").localeCompare(a.pickup.date || "");
+        if (dateCmp !== 0) return dateCmp;
+        return compareOrdersByPickupSchedule(b, a);
+      });
+    }
+
     if (mode === "future" || filter === "waiting" || filter === "ready") {
       return [...matched].sort(compareOrdersByPickupSchedule);
     }
@@ -554,17 +569,34 @@ export function AdminOrdersPanel({
   ]);
 
   // Prefer URL selection across all rows so a status/tab change does not close the card.
-  const selected =
+  const selectedCandidate =
     (selectedId ? rows.find((row) => row.id === selectedId) ?? null : null) ??
     filtered[0] ??
     null;
+  const selected =
+    mode === "history"
+      ? selectedCandidate && isHistoryOrder(selectedCandidate.status)
+        ? selectedCandidate
+        : filtered[0] ?? null
+      : selectedCandidate && !isCancelledOrder(selectedCandidate.status)
+        ? selectedCandidate
+        : filtered[0] ?? null;
 
   // Keep the open card visible in the list even if its tab just changed.
   const listRows = useMemo(() => {
     if (!selected) return filtered;
+    if (mode !== "history" && isCancelledOrder(selected.status)) return filtered;
     if (filtered.some((row) => row.id === selected.id)) return filtered;
     return [selected, ...filtered];
-  }, [filtered, selected]);
+  }, [filtered, selected, mode]);
+
+  useEffect(() => {
+    if (!selectedId || mode === "history") return;
+    const row = rows.find((r) => r.id === selectedId);
+    if (row && isCancelledOrder(row.status)) {
+      replaceQuery({ id: null, view: null });
+    }
+  }, [rows, selectedId, replaceQuery, mode]);
 
   useEffect(() => {
     if (!selected) return;
@@ -632,6 +664,26 @@ export function AdminOrdersPanel({
     selected?.weightLbs,
     selected?.finalTotal,
   ]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function deleteHistoryOrder(order: FoamOrder) {
+    const ok = window.confirm(
+      `Delete order ${orderDisplayId(order.id)} permanently?\n\nThis removes the order, tracking link, and photos. Cannot be undone.`
+    );
+    if (!ok) return;
+    setDeleting(true);
+    setError("");
+    setOkMsg("");
+    try {
+      await deleteOrderCompletely(order.id);
+      replaceQuery({ id: null, view: null });
+      setOkMsg("Order deleted.");
+      onMobileViewChange?.("list");
+    } catch {
+      setError("Could not delete this order. Try again.");
+    } finally {
+      setDeleting(false);
+    }
+  }
 
   async function patchOrderDoc(
     order: FoamOrder,
@@ -741,30 +793,9 @@ export function AdminOrdersPanel({
     );
   }, [dryQuery, catalog]);
 
-  function openDryCatalog(mode: "add" | "edit" = "add") {
-    setCatalogMode(mode);
+  function openDryCatalog() {
     setDryQuery("");
-    setCatalogDraft(catalog.map((item) => ({ ...item })));
-    setNewCatalogName("");
-    setNewCatalogPrice("");
     setOpenCatalog(true);
-  }
-
-  async function persistCatalogDraft() {
-    setCatalogSaving(true);
-    setError("");
-    try {
-      const saved = await saveDryCleanCatalog(catalogDraft, adminEmail);
-      setCatalog(saved);
-      setOkMsg("Dry clean catalog saved.");
-      setCatalogMode("add");
-    } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Could not save catalog."
-      );
-    } finally {
-      setCatalogSaving(false);
-    }
   }
 
   function setDryItemQty(item: DryCleanCatalogItem, qty: number) {
@@ -1171,15 +1202,6 @@ export function AdminOrdersPanel({
             <h3>Head to the pickup</h3>
             <DriverNotesBlock accessNotes={selected.pickup.notes} />
             <div className="stage-actions">
-              <a
-                className="secondary-action"
-                href={waUrl(selected.contact.phone, customerMsg)}
-                target="_blank"
-                rel="noreferrer"
-              >
-                <MessageCircle size={16} aria-hidden />
-                Message customer
-              </a>
               <Button
                 type="button"
                 className="primary-action"
@@ -1347,17 +1369,10 @@ export function AdminOrdersPanel({
                 <button
                   type="button"
                   className="ops-soft-add"
-                  onClick={() => openDryCatalog("add")}
+                  onClick={() => openDryCatalog()}
                 >
                   <Plus size={16} aria-hidden />
                   Add more items
-                </button>
-                <button
-                  type="button"
-                  className="ops-soft-add is-secondary"
-                  onClick={() => openDryCatalog("edit")}
-                >
-                  Edit catalog
                 </button>
               </div>
 
@@ -1435,11 +1450,7 @@ export function AdminOrdersPanel({
                           onClick={(e) => e.stopPropagation()}
                         >
                           <div className="ops-catalog-modal-head">
-                            <h4>
-                              {catalogMode === "edit"
-                                ? "Edit dry clean catalog"
-                                : "Add dry clean items"}
-                            </h4>
+                            <h4>Add dry clean items</h4>
                             <button
                               type="button"
                               className="ops-catalog-modal-close"
@@ -1449,35 +1460,6 @@ export function AdminOrdersPanel({
                               <X size={16} />
                             </button>
                           </div>
-                          <div className="ops-catalog-mode-row">
-                            <button
-                              type="button"
-                              className={cn(
-                                "ops-catalog-mode-btn",
-                                catalogMode === "add" && "is-active"
-                              )}
-                              onClick={() => setCatalogMode("add")}
-                            >
-                              Add to order
-                            </button>
-                            <button
-                              type="button"
-                              className={cn(
-                                "ops-catalog-mode-btn",
-                                catalogMode === "edit" && "is-active"
-                              )}
-                              onClick={() => {
-                                setCatalogMode("edit");
-                                setCatalogDraft(
-                                  catalog.map((item) => ({ ...item }))
-                                );
-                              }}
-                            >
-                              Edit prices
-                            </button>
-                          </div>
-                          {catalogMode === "add" ? (
-                            <>
                           <label className="ops-search is-compact">
                             <Search size={14} aria-hidden />
                             <input
@@ -1554,145 +1536,6 @@ export function AdminOrdersPanel({
                           >
                             Done
                           </button>
-                            </>
-                          ) : (
-                            <>
-                              <div className="ops-catalog-edit-add">
-                                <input
-                                  value={newCatalogName}
-                                  onChange={(e) =>
-                                    setNewCatalogName(e.target.value)
-                                  }
-                                  placeholder="Item name"
-                                  aria-label="New item name"
-                                />
-                                <input
-                                  type="number"
-                                  min={0}
-                                  step={0.05}
-                                  value={newCatalogPrice}
-                                  onChange={(e) =>
-                                    setNewCatalogPrice(e.target.value)
-                                  }
-                                  placeholder="Price"
-                                  aria-label="New item price"
-                                />
-                                <button
-                                  type="button"
-                                  className="ops-catalog-mode-btn is-active"
-                                  onClick={() => {
-                                    const name = newCatalogName.trim();
-                                    const price = Number(newCatalogPrice);
-                                    if (!name || !Number.isFinite(price) || price < 0) {
-                                      setError("Enter a name and valid price.");
-                                      return;
-                                    }
-                                    setCatalogDraft((current) => {
-                                      const without = current.filter(
-                                        (row) =>
-                                          row.name.toLowerCase() !==
-                                          name.toLowerCase()
-                                      );
-                                      return [
-                                        ...without,
-                                        {
-                                          name,
-                                          price: Math.round(price * 100) / 100,
-                                        },
-                                      ].sort((a, b) =>
-                                        a.name.localeCompare(b.name)
-                                      );
-                                    });
-                                    setNewCatalogName("");
-                                    setNewCatalogPrice("");
-                                    setError("");
-                                  }}
-                                >
-                                  Add
-                                </button>
-                              </div>
-                              <div className="ops-catalog-list is-edit">
-                                {catalogDraft.map((item, index) => (
-                                  <div
-                                    key={`${item.name}-${index}`}
-                                    className="ops-catalog-item is-edit"
-                                  >
-                                    <input
-                                      className="ops-catalog-edit-name"
-                                      value={item.name}
-                                      onChange={(e) => {
-                                        const name = e.target.value;
-                                        setCatalogDraft((current) =>
-                                          current.map((row, i) =>
-                                            i === index ? { ...row, name } : row
-                                          )
-                                        );
-                                      }}
-                                      aria-label="Item name"
-                                    />
-                                    <input
-                                      className="ops-catalog-edit-price"
-                                      type="number"
-                                      min={0}
-                                      step={0.05}
-                                      value={item.price}
-                                      onChange={(e) => {
-                                        const price = Number(e.target.value);
-                                        setCatalogDraft((current) =>
-                                          current.map((row, i) =>
-                                            i === index
-                                              ? {
-                                                  ...row,
-                                                  price: Number.isFinite(price)
-                                                    ? price
-                                                    : 0,
-                                                }
-                                              : row
-                                          )
-                                        );
-                                      }}
-                                      aria-label={`${item.name} price`}
-                                    />
-                                    <button
-                                      type="button"
-                                      className="ops-soft-thumb-remove"
-                                      aria-label={`Remove ${item.name}`}
-                                      onClick={() =>
-                                        setCatalogDraft((current) =>
-                                          current.filter((_, i) => i !== index)
-                                        )
-                                      }
-                                    >
-                                      <X size={12} />
-                                    </button>
-                                  </div>
-                                ))}
-                              </div>
-                              <div className="ops-catalog-edit-actions">
-                                <button
-                                  type="button"
-                                  className="ops-catalog-modal-done is-secondary"
-                                  disabled={catalogSaving}
-                                  onClick={() => {
-                                    setCatalogDraft(
-                                      catalog.map((item) => ({ ...item }))
-                                    );
-                                    setCatalogMode("add");
-                                  }}
-                                >
-                                  Cancel
-                                </button>
-                                <button
-                                  type="button"
-                                  className="ops-catalog-modal-done"
-                                  disabled={catalogSaving}
-                                  onClick={() => void persistCatalogDraft()}
-                                >
-                                  {catalogSaving ? "Saving…" : "Save catalog"}
-                                </button>
-                              </div>
-                            </>
-                          )}
                         </div>
                       </div>
                     </div>,
@@ -1872,6 +1715,37 @@ export function AdminOrdersPanel({
   function renderWorkspaceBody() {
     if (!selected) return null;
 
+    if (mode === "history") {
+      const cancelled = isCancelledOrder(selected.status);
+      return (
+        <section className="stage future-stage">
+          <History size={38} aria-hidden />
+          <div className="stage-copy">
+            <small>{cancelled ? "CANCELLED" : "DELIVERED"}</small>
+            <h3>{formatPickupDate(selected.pickup.date, true)}</h3>
+            <p>
+              {formatSlotShort(selected.pickup.slot)}
+              {selected.finalTotal != null
+                ? ` · $${Number(selected.finalTotal).toFixed(2)}`
+                : ""}
+              {cancelled && selected.cancelReason
+                ? ` · ${selected.cancelReason}`
+                : ""}
+            </p>
+            <button
+              type="button"
+              className="ops-history-delete"
+              disabled={deleting || saving}
+              onClick={() => void deleteHistoryOrder(selected)}
+            >
+              <Trash2 size={15} aria-hidden />
+              {deleting ? "Deleting…" : "Delete permanently"}
+            </button>
+          </div>
+        </section>
+      );
+    }
+
     if (mode === "future") {
       return (
         <section className="stage future-stage">
@@ -1912,35 +1786,65 @@ export function AdminOrdersPanel({
       const prefRows = showPrefs
         ? washPreferenceRows(selected.preferences)
         : [];
-      const notes = (selected.orderNotes ?? "").trim();
+      const washingNotes = (selected.orderNotes ?? "").trim();
+      const showWashBlock = showPrefs || Boolean(washingNotes);
       return (
-        <section
-          className={cn(
-            "stage locked-stage",
-            (showPrefs || notes) && "has-prefs"
-          )}
-        >
-          <div className="lock-illustration" aria-hidden>
-            <div className="machine-dial">
-              <Shirt size={30} />
+        <>
+          <section
+            className={cn(
+              "stage locked-stage",
+              showWashBlock && "has-prefs"
+            )}
+          >
+            <div className="lock-illustration" aria-hidden>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                className="ops-laundry-stage-art"
+                src={encodeURI(
+                  "/ChatGPT Image Sep 24, 2026, 02_51_15 PM.png"
+                )}
+                alt=""
+                width={270}
+                height={270}
+              />
             </div>
-          </div>
-          <div className="stage-copy">
-            <small>
-              CHARGED
-              {selected.finalTotal != null
-                ? ` · $${selected.finalTotal.toFixed(2)}`
-                : ""}
-            </small>
-            <h3>At the laundry</h3>
-            <p>
-              {servicesSummary(selected)}
-              {selected.weightLbs != null ? ` · ${selected.weightLbs} lb` : ""}
-            </p>
-            <div className="calm-lock" role="status">
-              <LockKeyhole size={16} />
-              Billing is locked after charge
+            <div className="stage-copy">
+              <small>
+                CHARGED
+                {selected.finalTotal != null
+                  ? ` · $${selected.finalTotal.toFixed(2)}`
+                  : ""}
+              </small>
+              <h3>At the laundry</h3>
+              <p>
+                {servicesSummary(selected)}
+                {selected.weightLbs != null ? ` · ${selected.weightLbs} lb` : ""}
+              </p>
+              <div className="calm-lock" role="status">
+                <LockKeyhole size={16} />
+                Billing is locked after charge
+              </div>
             </div>
+            {showWashBlock ? (
+              <div className="ops-wash-prefs">
+                {showPrefs ? (
+                  <>
+                    <h4>Wash preferences</h4>
+                    <dl>
+                      {prefRows.map((row) => (
+                        <div key={row.label} className="ops-wash-pref-row">
+                          <dt>{row.label}</dt>
+                          <dd>{row.value}</dd>
+                        </div>
+                      ))}
+                    </dl>
+                  </>
+                ) : null}
+                <DriverNotesBlock washingNotes={washingNotes || undefined} />
+              </div>
+            ) : null}
+          </section>
+          <div className="ops-stage-footer">
             <Button
               type="button"
               className="primary-action"
@@ -1951,27 +1855,7 @@ export function AdminOrdersPanel({
               <ArrowRight size={16} />
             </Button>
           </div>
-          {showPrefs || notes ? (
-            <div className="ops-wash-prefs">
-              {showPrefs ? (
-                <>
-                  <h4>Wash preferences</h4>
-                  <dl>
-                    {prefRows.map((row) => (
-                      <div key={row.label} className="ops-wash-pref-row">
-                        <dt>{row.label}</dt>
-                        <dd>{row.value}</dd>
-                      </div>
-                    ))}
-                  </dl>
-                </>
-              ) : null}
-              {notes ? (
-                <DriverNotesBlock washingNotes={notes} />
-              ) : null}
-            </div>
-          ) : null}
-        </section>
+        </>
       );
     }
 
@@ -2029,7 +1913,7 @@ export function AdminOrdersPanel({
               </div>
             </div>
           )}
-          <div className="ops-action-row" style={{ marginTop: "0.85rem" }}>
+          <div className="ops-action-row is-pair" style={{ marginTop: "0.85rem" }}>
             {stageBackLabel ? (
               <button
                 type="button"
@@ -2057,8 +1941,18 @@ export function AdminOrdersPanel({
 
     // stage 3 — complete
     return (
-      <>
-        <div className="ops-stage-stats">
+      <div className="ops-complete-card">
+        <div className="ops-complete-hero">
+          <span className="ops-complete-mark" aria-hidden>
+            <PackageCheck size={28} />
+          </span>
+          <div className="ops-complete-copy">
+            <small>ORDER COMPLETE</small>
+            <h3>Delivered</h3>
+            <p>Pickup through drop-off is finished.</p>
+          </div>
+        </div>
+        <div className="ops-stage-stats is-complete">
           <div>
             <p className="ops-field-label">Total</p>
             <p className="ops-stage-stat-value">
@@ -2073,6 +1967,12 @@ export function AdminOrdersPanel({
               <p className="ops-stage-stat-value">{selected.weightLbs} lb</p>
             </div>
           ) : null}
+          {selected.services.bagCount ? (
+            <div>
+              <p className="ops-field-label">Bags</p>
+              <p className="ops-stage-stat-value">{selected.services.bagCount}</p>
+            </div>
+          ) : null}
         </div>
         {stageBackLabel ? (
           <button
@@ -2085,7 +1985,7 @@ export function AdminOrdersPanel({
             {stageBackLabel}
           </button>
         ) : null}
-      </>
+      </div>
     );
   }
 
@@ -2100,7 +2000,11 @@ export function AdminOrdersPanel({
         <div className="ops-list-head">
           <div className="queue-heading">
             <h1 className="ops-list-title">
-              {mode === "future" ? "Future" : "Orders"}
+              {mode === "future"
+                ? "Future"
+                : mode === "history"
+                  ? "History"
+                  : "Orders"}
             </h1>
             {mode === "today" ? (
               <button
@@ -2113,6 +2017,10 @@ export function AdminOrdersPanel({
               >
                 All {listReady ? counts.all : "…"}
               </button>
+            ) : mode === "history" ? (
+              <span className="ops-all-tab is-static">
+                {listReady ? counts.history : "…"}
+              </span>
             ) : null}
           </div>
           <label className="ops-search">
@@ -2140,7 +2048,7 @@ export function AdminOrdersPanel({
                 </button>
               ))}
             </div>
-          ) : (
+          ) : mode === "future" ? (
             <div
               className="ops-day-tabs"
               role="group"
@@ -2182,7 +2090,7 @@ export function AdminOrdersPanel({
                 </button>
               ) : null}
             </div>
-          )}
+          ) : null}
         </div>
 
         {error && !selected ? <p className="ops-error ops-pad">{error}</p> : null}
@@ -2205,7 +2113,9 @@ export function AdminOrdersPanel({
                   ? selectedFutureDay === "later"
                     ? "No pickups beyond this week."
                     : `No pickups on ${formatPickupDate(selectedFutureDay)}.`
-                  : "Live orders will appear here."}
+                  : mode === "history"
+                    ? "Delivered and cancelled orders appear here."
+                    : "Live orders will appear here."}
               </p>
             ) : (
               listRows.map((row) => (
@@ -2304,14 +2214,6 @@ export function AdminOrdersPanel({
                     <MapPin size={16} aria-hidden />
                     <span>{formatOrderAddress(selected)}</span>
                   </p>
-                  <DriverNotesBlock
-                    accessNotes={
-                      stage === 0 ? selected.pickup.notes : undefined
-                    }
-                    washingNotes={
-                      stage >= 1 ? selected.orderNotes : undefined
-                    }
-                  />
                   <div className="ops-detail-meta">
                     <span>
                       <CalendarDays size={14} aria-hidden />
@@ -2377,11 +2279,22 @@ export function AdminOrdersPanel({
 
             <div className="ops-detail-stack">
               <section className="ops-card ops-workflow-card">
-                <div className="ops-timeline" role="list">
+                {mode !== "history" && mode !== "future" ? (
+                <div
+                  className={cn(
+                    "ops-timeline",
+                    selected.status !== "cancelled" &&
+                      stage >= 3 &&
+                      "is-finished"
+                  )}
+                  role="list"
+                >
                   {ORDER_PIPELINE_STEPS.map((step, index) => {
                     const cancelled = selected.status === "cancelled";
+                    const isLast = index === ORDER_PIPELINE_STEPS.length - 1;
                     const done = !cancelled && stage > index;
                     const active = !cancelled && stage === index;
+                    const completed = done || (active && isLast);
                     const canJumpBack =
                       !cancelled &&
                       done &&
@@ -2396,6 +2309,7 @@ export function AdminOrdersPanel({
                           "ops-timeline-step",
                           done && "is-done",
                           active && "is-active",
+                          completed && isLast && "is-complete",
                           canJumpBack && "is-backable"
                         )}
                         disabled={!canJumpBack || saving || uploadingPhoto}
@@ -2409,7 +2323,7 @@ export function AdminOrdersPanel({
                       >
                         <div className="ops-timeline-node-row">
                           <span className="ops-timeline-dot">
-                            {done ? <Check size={12} /> : index + 1}
+                            {completed ? <Check size={12} /> : index + 1}
                           </span>
                         </div>
                         <span className="ops-timeline-label">{step.label}</span>
@@ -2417,9 +2331,10 @@ export function AdminOrdersPanel({
                     );
                   })}
                 </div>
+                ) : null}
 
                 <div className="ops-stage-card">
-                  {selected.status === "cancelled" ? (
+                  {mode !== "history" && selected.status === "cancelled" ? (
                     <div className="ops-stage-card-head">
                       <UserRound size={18} aria-hidden />
                       <h3>Order cancelled</h3>

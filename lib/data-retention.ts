@@ -209,6 +209,33 @@ export async function purgeExpiredOpsData(): Promise<RetentionPurgeResult> {
   return result;
 }
 
+/** Permanently delete one order + track + photos (admin History). */
+export async function deleteOrderCompletely(orderId: string): Promise<void> {
+  const db = getFirebaseDb();
+  const orderRef = doc(db, "orders", orderId);
+  const snap = await getDoc(orderRef);
+  if (!snap.exists()) {
+    await deleteOrderPhotos(orderId);
+    return;
+  }
+
+  const data = snap.data() as Record<string, unknown>;
+  const trackKey =
+    typeof data.trackKey === "string" ? data.trackKey.trim() : "";
+
+  await deleteOrderPhotos(orderId);
+
+  if (trackKey) {
+    try {
+      await deleteDoc(doc(db, "orderTracks", trackKey));
+    } catch {
+      /* track may already be gone */
+    }
+  }
+
+  await deleteDoc(orderRef);
+}
+
 /** Run at most once per browser session after admin login. */
 export async function purgeExpiredOpsDataOncePerSession(): Promise<RetentionPurgeResult | null> {
   if (typeof window === "undefined") return null;
