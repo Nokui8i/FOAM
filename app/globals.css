@@ -5137,6 +5137,7 @@
   --hp-muted: #5b6575;
   position: relative;
   z-index: 2;
+  display: block;
   margin-top: -2.5rem;
   margin-bottom: -2.5rem;
   padding: 3.5rem 1.25rem 4rem;
@@ -6016,19 +6017,6 @@
   font-size: 0.86rem;
   font-weight: 700;
   color: var(--color-accent-strong);
-}
-
-.home-pricing {
-  display: grid;
-  gap: 2rem;
-  align-items: center;
-}
-
-@media (min-width: 900px) {
-  .home-pricing {
-    grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
-    gap: 2.5rem;
-  }
 }
 
 .home-price-card {
