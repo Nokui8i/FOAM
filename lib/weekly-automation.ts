@@ -175,6 +175,9 @@ export async function ensureNextWeeklyOrder(
       bagCount: source.services.laundry
         ? Math.max(1, Number(source.services.bagCount) || 1)
         : 0,
+      preferences: source.preferences ?? {},
+      orderNotes: source.orderNotes ?? "",
+      pickupNotes: source.pickup.notes ?? "",
     }),
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
