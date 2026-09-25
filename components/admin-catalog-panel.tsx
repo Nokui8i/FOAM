@@ -15,7 +15,6 @@ type MobileView = "list" | "detail";
 
 export function AdminCatalogPanel({
   adminEmail,
-  mobileView,
   onMobileViewChange,
 }: {
   adminEmail: string;
@@ -100,167 +99,150 @@ export function AdminCatalogPanel({
   }
 
   return (
-    <>
-      <section
-        className={cn(
-          "ops-list-pane queue-plane",
-          mobileView === "detail" && "is-hidden-mobile"
-        )}
-      >
-        <div className="ops-list-head">
-          <div className="queue-heading">
-            <h1 className="ops-list-title">Catalog</h1>
-          </div>
-          <p className="ops-muted" style={{ margin: "8px 4px 0", fontSize: 13 }}>
+    <section className="ops-catalog-plane">
+      <header className="ops-catalog-plane-head">
+        <div>
+          <h1 className="ops-list-title">Catalog</h1>
+          <p className="ops-catalog-plane-lead">
             Admin-only dry clean prices. Drivers only add items to orders.
           </p>
         </div>
-        <div className="ops-list-scroll">
+        <div className="ops-catalog-plane-chip" aria-current="page">
+          <span className="ops-catalog-plane-chip-icon" aria-hidden>
+            <Shirt size={15} />
+          </span>
+          <span className="ops-catalog-plane-chip-copy">
+            <strong>Dry cleaning</strong>
+            <small>
+              {draft.length} {draft.length === 1 ? "item" : "items"}
+            </small>
+          </span>
+        </div>
+      </header>
+
+      {(okMsg || error) && (
+        <p className={cn("ops-flash", error ? "is-error" : "is-ok")}>
+          {error || okMsg}
+        </p>
+      )}
+
+      <div className="ops-catalog-plane-body">
+        <div className="ops-catalog-edit-add">
+          <input
+            value={newName}
+            onChange={(e) => setNewName(e.target.value)}
+            placeholder="Item name"
+            aria-label="New item name"
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                addItem();
+              }
+            }}
+          />
+          <input
+            type="number"
+            min={0}
+            step={0.05}
+            value={newPrice}
+            onChange={(e) => setNewPrice(e.target.value)}
+            placeholder="Price"
+            aria-label="New item price"
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                addItem();
+              }
+            }}
+          />
           <button
             type="button"
-            className="ops-row is-active"
-            onClick={() => onMobileViewChange("detail")}
+            className="ops-catalog-mode-btn is-active"
+            onClick={addItem}
           >
-            <span className="ops-row-icon">
-              <Shirt size={16} />
-            </span>
-            <span className="ops-row-main">
-              <span className="ops-row-name">Dry cleaning</span>
-              <span className="ops-row-meta">
-                {draft.length} items · edit prices
-              </span>
-            </span>
+            Add
           </button>
         </div>
-      </section>
 
-      <section
-        className={cn(
-          "ops-detail-pane task-plane",
-          mobileView === "list" && "is-hidden-mobile"
-        )}
-      >
-        <article className="ops-detail">
-          <div className="ops-detail-head">
-            <p className="ops-breadcrumb">
-              <span>Admin</span>
-              <span aria-hidden>›</span>
-              <span>Dry clean catalog</span>
-            </p>
-            <h2 className="ops-detail-title">Edit prices</h2>
-          </div>
-
-          {(okMsg || error) && (
-            <p className={cn("ops-flash", error ? "is-error" : "is-ok")}>
-              {error || okMsg}
-            </p>
-          )}
-
-          <div className="ops-detail-stack">
-            <div className="ops-stage-card ops-catalog-admin">
-              <div className="ops-catalog-edit-add">
+        <div className="ops-catalog-list is-edit">
+          {draft.length === 0 ? (
+            <p className="ops-catalog-empty">No items yet. Add the first price above.</p>
+          ) : (
+            draft.map((item, index) => (
+              <div
+                key={`${item.name}-${index}`}
+                className="ops-catalog-item is-edit"
+              >
                 <input
-                  value={newName}
-                  onChange={(e) => setNewName(e.target.value)}
-                  placeholder="Item name"
-                  aria-label="New item name"
+                  className="ops-catalog-edit-name"
+                  value={item.name}
+                  onChange={(e) => {
+                    const name = e.target.value;
+                    markDirty((current) =>
+                      current.map((row, i) =>
+                        i === index ? { ...row, name } : row
+                      )
+                    );
+                  }}
+                  aria-label="Item name"
                 />
                 <input
+                  className="ops-catalog-edit-price"
                   type="number"
                   min={0}
                   step={0.05}
-                  value={newPrice}
-                  onChange={(e) => setNewPrice(e.target.value)}
-                  placeholder="Price"
-                  aria-label="New item price"
+                  value={item.price}
+                  onChange={(e) => {
+                    const price = Number(e.target.value);
+                    markDirty((current) =>
+                      current.map((row, i) =>
+                        i === index
+                          ? {
+                              ...row,
+                              price: Number.isFinite(price) ? price : 0,
+                            }
+                          : row
+                      )
+                    );
+                  }}
+                  aria-label={`${item.name} price`}
                 />
                 <button
                   type="button"
-                  className="ops-catalog-mode-btn is-active"
-                  onClick={addItem}
+                  className="ops-soft-thumb-remove"
+                  aria-label={`Remove ${item.name}`}
+                  onClick={() =>
+                    markDirty((current) =>
+                      current.filter((_, i) => i !== index)
+                    )
+                  }
                 >
-                  Add
+                  <X size={12} />
                 </button>
               </div>
+            ))
+          )}
+        </div>
 
-              <div className="ops-catalog-list is-edit">
-                {draft.map((item, index) => (
-                  <div
-                    key={`${item.name}-${index}`}
-                    className="ops-catalog-item is-edit"
-                  >
-                    <input
-                      className="ops-catalog-edit-name"
-                      value={item.name}
-                      onChange={(e) => {
-                        const name = e.target.value;
-                        markDirty((current) =>
-                          current.map((row, i) =>
-                            i === index ? { ...row, name } : row
-                          )
-                        );
-                      }}
-                      aria-label="Item name"
-                    />
-                    <input
-                      className="ops-catalog-edit-price"
-                      type="number"
-                      min={0}
-                      step={0.05}
-                      value={item.price}
-                      onChange={(e) => {
-                        const price = Number(e.target.value);
-                        markDirty((current) =>
-                          current.map((row, i) =>
-                            i === index
-                              ? {
-                                  ...row,
-                                  price: Number.isFinite(price) ? price : 0,
-                                }
-                              : row
-                          )
-                        );
-                      }}
-                      aria-label={`${item.name} price`}
-                    />
-                    <button
-                      type="button"
-                      className="ops-soft-thumb-remove"
-                      aria-label={`Remove ${item.name}`}
-                      onClick={() =>
-                        markDirty((current) =>
-                          current.filter((_, i) => i !== index)
-                        )
-                      }
-                    >
-                      <X size={12} />
-                    </button>
-                  </div>
-                ))}
-              </div>
-
-              <div className="ops-catalog-edit-actions">
-                <button
-                  type="button"
-                  className="ops-catalog-modal-done is-secondary"
-                  disabled={saving || !dirty}
-                  onClick={resetDraft}
-                >
-                  Reset
-                </button>
-                <button
-                  type="button"
-                  className="ops-catalog-modal-done"
-                  disabled={saving || !dirty}
-                  onClick={() => void save()}
-                >
-                  {saving ? "Saving…" : "Save catalog"}
-                </button>
-              </div>
-            </div>
-          </div>
-        </article>
-      </section>
-    </>
+        <div className="ops-catalog-edit-actions">
+          <button
+            type="button"
+            className="ops-catalog-modal-done is-secondary"
+            disabled={saving || !dirty}
+            onClick={resetDraft}
+          >
+            Reset
+          </button>
+          <button
+            type="button"
+            className="ops-catalog-modal-done"
+            disabled={saving || !dirty}
+            onClick={() => void save()}
+          >
+            {saving ? "Saving…" : "Save catalog"}
+          </button>
+        </div>
+      </div>
+    </section>
   );
 }
