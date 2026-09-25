@@ -16,9 +16,9 @@ type SlotKey =
   | "minimum";
 
 /**
- * Digit boxes from desktop debug drag (panel 4, %), expanded left
- * so the live string includes "$". White is painted on the text itself
- * (no separate cover layer that can mask the currency glyph).
+ * Exact desktop debug-drag boxes (panel 4, %).
+ * Digits only — baked "$" stays in the art.
+ * White is the text chip's own background; insetL keeps it off the "$".
  */
 const SLOTS: Record<
   SlotKey,
@@ -29,55 +29,59 @@ const SLOTS: Record<
     height: number;
     color: string;
     weight: number;
+    insetL: number;
     fontScale: number;
   }
 > = {
   weeklyBig: {
-    // Pull left to bury baked "$" remnants, keep live "$2.35" inside
-    left: 13.9,
-    top: 23.2,
-    width: 20.4,
-    height: 11.2,
+    left: 19.91,
+    top: 23.54,
+    width: 14.35,
+    height: 10.68,
     color: "#0A1548",
     weight: 800,
-    fontScale: 1.72,
+    insetL: 0.35,
+    fontScale: 1.42,
   },
   ondemandBig: {
-    left: 42.0,
-    top: 22.95,
-    width: 20.8,
-    height: 11.7,
-    // Match "Only When You Need Us"
+    left: 48.03,
+    top: 23.29,
+    width: 14.71,
+    height: 11.19,
     color: "#2183D4",
     weight: 800,
-    fontScale: 1.72,
+    insetL: 0.4,
+    fontScale: 1.42,
   },
   feeWeekly: {
-    left: 15.2,
-    top: 50.55,
-    width: 4.35,
-    height: 3.55,
+    left: 15.63,
+    top: 50.69,
+    width: 3.98,
+    height: 3.41,
     color: "#0A1548",
     weight: 700,
-    fontScale: 1.35,
+    insetL: 1.25,
+    fontScale: 1.3,
   },
   feeOndemand: {
-    left: 47.2,
-    top: 53.3,
-    width: 4.45,
-    height: 3.65,
+    left: 47.64,
+    top: 53.44,
+    width: 4.09,
+    height: 3.51,
     color: "#2183D4",
     weight: 700,
-    fontScale: 1.35,
+    insetL: 1.25,
+    fontScale: 1.3,
   },
   minimum: {
-    left: 55.7,
-    top: 68.35,
-    width: 6.2,
-    height: 3.35,
+    left: 56.8,
+    top: 68.47,
+    width: 5.05,
+    height: 3.2,
     color: "#565656",
     weight: 700,
-    fontScale: 1.28,
+    insetL: 0.45,
+    fontScale: 1.25,
   },
 };
 
@@ -90,7 +94,7 @@ const SLOT_ORDER: SlotKey[] = [
 ];
 
 function money(n: number) {
-  return `$${n.toFixed(2)}`;
+  return n.toFixed(2);
 }
 
 export function HomePriceOverlay() {
@@ -122,6 +126,8 @@ export function HomePriceOverlay() {
     <div ref={rootRef} className="home-price-overlay" aria-hidden="true">
       {SLOT_ORDER.map((key) => {
         const slot = SLOTS[key];
+        const left = slot.left + slot.insetL;
+        const width = Math.max(slot.width - slot.insetL, 1.2);
         const fontPx =
           panelH > 0
             ? panelH * (slot.height / 100) * slot.fontScale
@@ -131,9 +137,9 @@ export function HomePriceOverlay() {
             key={key}
             className={`home-price-text is-${key}`}
             style={{
-              left: `${slot.left}%`,
+              left: `${left}%`,
               top: `${slot.top}%`,
-              width: `${slot.width}%`,
+              width: `${width}%`,
               height: `${slot.height}%`,
               color: slot.color,
               fontWeight: slot.weight,
