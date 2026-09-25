@@ -24,7 +24,7 @@ const SLOTS: Record<
     ondemand: { left: 48.2, top: 24.2, font: 0.082, color: "#2F7AD1" },
     feeWeekly: { left: 14.5, top: 52.5, font: 0.0175, color: "#0B1F3A" },
     feeOndemand: { left: 46.3, top: 53.9, font: 0.0175, color: "#2F7AD1" },
-    minimum: { left: 62.5, top: 64.5, font: 0.022, color: "#4A5568" },
+    minimum: { left: 55.8, top: 64.8, font: 0.022, color: "#4A5568" },
   },
   // Blank letterboxed in mobile pricing band (810px art in 2308px strip).
   mobile: {
@@ -32,7 +32,7 @@ const SLOTS: Record<
     ondemand: { left: 48.2, top: 40.5, font: 0.029, color: "#2F7AD1" },
     feeWeekly: { left: 14.5, top: 50.8, font: 0.0061, color: "#0B1F3A" },
     feeOndemand: { left: 46.3, top: 51.3, font: 0.0061, color: "#2F7AD1" },
-    minimum: { left: 62.5, top: 55.1, font: 0.0077, color: "#4A5568" },
+    minimum: { left: 55.8, top: 55.2, font: 0.0077, color: "#4A5568" },
   },
 };
 
