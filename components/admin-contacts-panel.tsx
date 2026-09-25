@@ -191,32 +191,26 @@ export function AdminContactsPanel({
             />
           </label>
 
-          <fieldset className="ops-radio-filters">
-            <legend>Status</legend>
-            <div className="ops-radio-filters-row">
-              {FILTERS.map((item) => (
-                <label
-                  key={item.id}
-                  className={cn(
-                    "ops-radio-label",
-                    filter === item.id && "is-active"
-                  )}
-                >
-                  <input
-                    type="radio"
-                    name="inquiries-status"
-                    value={item.id}
-                    checked={filter === item.id}
-                    onChange={() => setFilter(item.id)}
-                  />
-                  <span>
-                    {item.label}
-                    <span className="ops-radio-count">{counts[item.id]}</span>
-                  </span>
-                </label>
-              ))}
-            </div>
-          </fieldset>
+          <div
+            className="ops-filter-row is-alerts"
+            role="group"
+            aria-label="Support filters"
+          >
+            {FILTERS.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                className={cn(
+                  "ops-filter-chip",
+                  filter === item.id && "is-active"
+                )}
+                onClick={() => setFilter(item.id)}
+              >
+                {item.label}
+                <span className="ops-radio-count">{counts[item.id]}</span>
+              </button>
+            ))}
+          </div>
         </div>
 
         {error ? <p className="ops-error ops-pad">{error}</p> : null}
