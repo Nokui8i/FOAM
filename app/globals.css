@@ -5159,8 +5159,8 @@
 .home-price-text.is-minimum {
   letter-spacing: -0.02em;
   justify-content: flex-start;
-  padding: 0 0.04em;
-  overflow: hidden;
+  padding: 0 0.05em;
+  overflow: visible;
 }
 
 @media (min-width: 640px) {
