@@ -384,9 +384,53 @@
 .admin-page .ops-history-toolbar .ops-search {
   flex: 1;
   margin: 0;
+}
+.admin-page .ops-search {
+  height: 42px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 12px 0 10px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 9px;
+  color: var(--ops-muted);
+  background: var(--ops-wash);
+  box-shadow: inset 0 1px 3px rgba(22,50,74,.09), 0 1px 0 #fff;
+}
+.admin-page .ops-search svg {
+  position: static;
+  left: auto;
+  top: auto;
+  transform: none;
+  flex-shrink: 0;
+  width: 15px;
+  height: 15px;
+  pointer-events: none;
+}
+.admin-page .ops-search input {
+  min-width: 0;
+  flex: 1;
+  width: auto;
+  height: auto;
+  padding: 0;
+  border: 0;
+  outline: 0;
   box-shadow: none;
-  border: 1px solid var(--ops-border);
-  background: #fff;
+  color: var(--ops-ink);
+  background: transparent;
+  font-size: 13px;
+  transition: none;
+}
+.admin-page .ops-search input:focus {
+  border: 0;
+  outline: 0;
+  box-shadow: none;
+  background: transparent;
+}
+.admin-page .ops-search:focus-within {
+  border: 0;
+  box-shadow: inset 0 1px 3px rgba(22,50,74,.09), 0 1px 0 #fff;
 }
 .admin-page .ops-history-cal-btn {
   flex: 0 0 auto;
@@ -485,30 +529,6 @@
 .admin-page .ops-history-cal-popover .book-cal-day.has-orders:not(.is-disabled):not(.is-active) {
   font-weight: 800;
   color: var(--ops-navy);
-}
-.admin-page .ops-search {
-  height: 42px;
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  margin: 12px 0 10px;
-  padding: 0 12px;
-  border: 0;
-  border-radius: 9px;
-  color: var(--ops-muted);
-  background: var(--ops-wash);
-  box-shadow: inset 0 1px 3px rgba(22,50,74,.09), 0 1px 0 #fff;
-}
-.admin-page .ops-search input {
-  min-width: 0;
-  flex: 1;
-  height: auto;
-  padding: 0;
-  border: 0;
-  outline: 0;
-  color: var(--ops-ink);
-  background: transparent;
-  font-size: 13px;
 }
 .admin-page .ops-catalog-modal .ops-search {
   height: 40px;
