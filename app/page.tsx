@@ -18,8 +18,8 @@ const MOBILE_PANELS = [
   { start: 11869, end: MOBILE_ARTWORK_HEIGHT, shortBlend: true },
 ] as const;
 
-const DESKTOP_SRC = "/home-mockup-desktop-v22.webp";
-const MOBILE_SRC = "/home-mockup-mobile-v19.webp";
+const DESKTOP_SRC = "/home-mockup-desktop-v22.jpg";
+const MOBILE_SRC = "/home-mockup-mobile-v19.jpg";
 
 export default function Home() {
   return (
