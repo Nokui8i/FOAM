@@ -1479,14 +1479,17 @@
   cursor: pointer;
 }
 .admin-page .ops-catalog-editor-list {
-  flex: 1 1 auto;
+  flex: 1 1 0;
   min-height: 0;
   display: flex;
   flex-direction: column;
   gap: 10px;
-  overflow: auto;
-  overscroll-behavior: contain;
-  padding: 2px 2px 4px 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: auto;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+  padding: 2px 6px 4px 0;
 }
 .admin-page .ops-catalog-editor-row {
   flex: 0 0 auto;
@@ -2507,6 +2510,19 @@
     padding: 16px 16px 22px;
     overflow-x: hidden;
     overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: auto;
+    touch-action: pan-y;
+  }
+  .admin-page .ops-catalog-editor {
+    flex: 0 0 auto;
+    min-height: auto;
+  }
+  .admin-page .ops-catalog-editor-list {
+    flex: 0 0 auto;
+    min-height: auto;
+    max-height: none;
+    overflow: visible;
   }
   .admin-page .ops-catalog-plane-head {
     flex-direction: column;

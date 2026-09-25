@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type WheelEvent } from "react";
 import { Shirt, X } from "lucide-react";
 
 import {
@@ -12,6 +12,11 @@ import {
 import { cn } from "@/lib/utils";
 
 type MobileView = "list" | "detail";
+
+/** Number inputs trap wheel/trackpad — blur so the catalog list keeps scrolling. */
+function releaseScrollOnWheel(e: WheelEvent<HTMLInputElement>) {
+  e.currentTarget.blur();
+}
 
 export function AdminCatalogPanel({
   adminEmail,
@@ -148,6 +153,7 @@ export function AdminCatalogPanel({
             onChange={(e) => setNewPrice(e.target.value)}
             placeholder="Price"
             aria-label="New item price"
+            onWheel={releaseScrollOnWheel}
             onKeyDown={(e) => {
               if (e.key === "Enter") {
                 e.preventDefault();
@@ -199,6 +205,7 @@ export function AdminCatalogPanel({
                     );
                   }}
                   aria-label={`${item.name} price`}
+                  onWheel={releaseScrollOnWheel}
                 />
                 <button
                   type="button"
