@@ -5129,88 +5129,158 @@
   top: 66%;
 }
 
-/* Live $/lb overlays on the pricing mockup panel (cover baked-in numbers). */
+/* Live $/lb + fee + minimum overlays on the pricing mockup panel. */
 .home-price-overlay {
   position: absolute;
   inset: 0;
   z-index: 3;
   pointer-events: none;
-  container-type: size;
 }
 
 .home-price-cover {
   position: absolute;
+  z-index: 1;
   background: #fff;
 }
 
 .home-price-text {
   position: absolute;
+  z-index: 2;
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   margin: 0;
   padding: 0;
   font-family: var(--font-display);
   font-weight: 800;
-  line-height: 0.92;
-  letter-spacing: -0.045em;
+  line-height: 1;
+  letter-spacing: -0.04em;
   white-space: nowrap;
 }
 
+/* —— Desktop (panel 3840×2160) —— */
 .home-price-overlay.is-desktop .home-price-cover.is-weekly,
 .home-price-overlay.is-desktop .home-price-text.is-weekly {
-  left: 15.75%;
-  top: 27.2%;
-  width: 16.4%;
-  height: 7.5%;
+  left: 15.85%;
+  top: 27.45%;
+  width: 17.1%;
+  height: 7.35%;
 }
-
 .home-price-overlay.is-desktop .home-price-cover.is-ondemand,
 .home-price-overlay.is-desktop .home-price-text.is-ondemand {
-  left: 42.7%;
-  top: 27.2%;
-  width: 15.4%;
-  height: 7.5%;
+  left: 43.5%;
+  top: 27.45%;
+  width: 15.3%;
+  height: 7.35%;
 }
-
-.home-price-overlay.is-desktop .home-price-text {
-  font-size: 6.65cqh;
+.home-price-overlay.is-desktop .home-price-cover.is-fee-weekly,
+.home-price-overlay.is-desktop .home-price-text.is-fee-weekly {
+  left: 16.85%;
+  top: 50.85%;
+  width: 4.15%;
+  height: 2.15%;
 }
-
+.home-price-overlay.is-desktop .home-price-cover.is-fee-ondemand,
+.home-price-overlay.is-desktop .home-price-text.is-fee-ondemand {
+  left: 46.35%;
+  top: 50.85%;
+  width: 4.15%;
+  height: 2.15%;
+}
+.home-price-overlay.is-desktop .home-price-cover.is-minimum,
+.home-price-overlay.is-desktop .home-price-text.is-minimum {
+  left: 52.4%;
+  top: 66.85%;
+  width: 5.8%;
+  height: 2.05%;
+}
 .home-price-overlay.is-desktop .home-price-text.is-weekly {
   color: #060c3f;
+  justify-content: center;
+  letter-spacing: -0.05em;
 }
-
 .home-price-overlay.is-desktop .home-price-text.is-ondemand {
   color: #0d81dd;
+  justify-content: center;
+  letter-spacing: -0.05em;
+}
+.home-price-overlay.is-desktop .home-price-text.is-fee-weekly {
+  color: #060c3f;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+.home-price-overlay.is-desktop .home-price-text.is-fee-ondemand {
+  color: #0d81dd;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+.home-price-overlay.is-desktop .home-price-text.is-minimum {
+  color: #3a3f4a;
+  font-weight: 600;
+  letter-spacing: -0.02em;
 }
 
+/* —— Mobile (stacked cards) —— */
 .home-price-overlay.is-mobile .home-price-cover.is-weekly,
 .home-price-overlay.is-mobile .home-price-text.is-weekly {
   left: 22%;
-  top: 5.2%;
+  top: 5.0%;
   width: 56%;
-  height: 9.2%;
+  height: 9.4%;
 }
-
 .home-price-overlay.is-mobile .home-price-cover.is-ondemand,
 .home-price-overlay.is-mobile .home-price-text.is-ondemand {
   left: 22%;
-  top: 26.4%;
+  top: 26.0%;
   width: 56%;
-  height: 9.2%;
+  height: 9.4%;
 }
-
-.home-price-overlay.is-mobile .home-price-text {
-  font-size: 7.6cqh;
+.home-price-overlay.is-mobile .home-price-cover.is-fee-weekly,
+.home-price-overlay.is-mobile .home-price-text.is-fee-weekly {
+  left: 33.5%;
+  top: 20.4%;
+  width: 14%;
+  height: 2.4%;
 }
-
+.home-price-overlay.is-mobile .home-price-cover.is-fee-ondemand,
+.home-price-overlay.is-mobile .home-price-text.is-fee-ondemand {
+  left: 33.5%;
+  top: 41.5%;
+  width: 14%;
+  height: 2.4%;
+}
+.home-price-overlay.is-mobile .home-price-cover.is-minimum,
+.home-price-overlay.is-mobile .home-price-text.is-minimum {
+  left: 48%;
+  top: 62.2%;
+  width: 16%;
+  height: 2.3%;
+}
+.home-price-overlay.is-mobile .home-price-text.is-weekly,
+.home-price-overlay.is-mobile .home-price-text.is-ondemand {
+  justify-content: center;
+  letter-spacing: -0.05em;
+}
 .home-price-overlay.is-mobile .home-price-text.is-weekly {
   color: #060c3f;
 }
-
 .home-price-overlay.is-mobile .home-price-text.is-ondemand {
   color: #0d81dd;
+}
+.home-price-overlay.is-mobile .home-price-text.is-fee-weekly {
+  color: #060c3f;
+  font-weight: 600;
+  justify-content: center;
+}
+.home-price-overlay.is-mobile .home-price-text.is-fee-ondemand {
+  color: #111;
+  font-weight: 600;
+  justify-content: center;
+}
+.home-price-overlay.is-mobile .home-price-text.is-minimum {
+  color: #3a3f4a;
+  font-weight: 600;
+  justify-content: center;
 }
 
 @media (min-width: 640px) {
