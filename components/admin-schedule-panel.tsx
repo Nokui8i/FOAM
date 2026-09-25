@@ -284,16 +284,23 @@ export function AdminSchedulePanel({
         <div>
           <h1 className="ops-list-title">Schedule</h1>
         </div>
-        <div className="ops-catalog-plane-chip" aria-current="page">
-          <span className="ops-catalog-plane-chip-icon" aria-hidden>
-            <Clock3 size={16} />
-          </span>
-          <span className="ops-catalog-plane-chip-copy">
-            <strong>Pickup windows</strong>
-            <small>
-              {slots.filter((s) => s.enabled).length} open · {slots.length} total
-            </small>
-          </span>
+        <div className="ops-schedule-head-actions">
+          <div className="ops-catalog-plane-chip" aria-current="page">
+            <span className="ops-catalog-plane-chip-icon" aria-hidden>
+              <Clock3 size={16} />
+            </span>
+            <span className="ops-catalog-plane-chip-copy">
+              <strong>Pickup windows</strong>
+            </span>
+          </div>
+          <button
+            type="button"
+            className="ops-schedule-save"
+            disabled={saving}
+            onClick={() => void saveAll()}
+          >
+            {saving ? "Saving…" : "Save"}
+          </button>
         </div>
       </header>
 
@@ -446,14 +453,9 @@ export function AdminSchedulePanel({
                 >
                   <div className="ops-schedule-day-copy">
                     <strong>{row.label}</strong>
-                    <span className={cn(row.booked > 0 && "is-booked")}>
-                      {row.booked > 0
-                        ? `${row.booked} booked`
-                        : "0 booked"}
-                      {!row.orphan ? ` · capacity ${row.capacity}` : ""}
-                      {row.orphan ? " · previous window" : ""}
-                      {!row.orphan && !row.enabled ? " · off globally" : ""}
-                    </span>
+                    {row.booked > 0 ? (
+                      <span className="is-booked">{row.booked} booked</span>
+                    ) : null}
                   </div>
                   {!row.orphan ? (
                     <label className="ops-schedule-toggle">
@@ -476,15 +478,6 @@ export function AdminSchedulePanel({
           </div>
         </section>
       </div>
-
-      <button
-        type="button"
-        className="ops-catalog-editor-btn ops-schedule-save"
-        disabled={saving}
-        onClick={() => void saveAll()}
-      >
-        {saving ? "Saving…" : "Save"}
-      </button>
 
       {showCalendar
         ? createPortal(

@@ -2016,14 +2016,38 @@
 .admin-page .ops-promos-field.is-compact input {
   min-height: 38px;
 }
+.admin-page .ops-schedule-head-actions {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+.admin-page .ops-schedule-head-actions .ops-catalog-plane-chip {
+  min-height: 44px;
+  padding: 8px 14px 8px 10px;
+}
 .admin-page .ops-schedule-save {
-  width: 100%;
-  min-height: 48px;
-  margin-top: 4px;
-  font-size: 16px;
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 18px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--ops-primary);
+  color: #fff;
+  font-size: 14px;
   font-weight: 800;
   letter-spacing: .02em;
-  text-transform: uppercase;
+  cursor: pointer;
+}
+.admin-page .ops-schedule-save:hover:not(:disabled) {
+  filter: brightness(0.96);
+}
+.admin-page .ops-schedule-save:disabled {
+  opacity: .65;
+  cursor: wait;
 }
 .admin-page .stage-copy small,
 .admin-page .ops-field-label {
