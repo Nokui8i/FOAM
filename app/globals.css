@@ -5129,6 +5129,90 @@
   top: 66%;
 }
 
+/* Live $/lb overlays on the pricing mockup panel (cover baked-in numbers). */
+.home-price-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+  container-type: size;
+}
+
+.home-price-cover {
+  position: absolute;
+  background: #fff;
+}
+
+.home-price-text {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  padding: 0;
+  font-family: var(--font-display);
+  font-weight: 800;
+  line-height: 0.92;
+  letter-spacing: -0.045em;
+  white-space: nowrap;
+}
+
+.home-price-overlay.is-desktop .home-price-cover.is-weekly,
+.home-price-overlay.is-desktop .home-price-text.is-weekly {
+  left: 15.75%;
+  top: 27.2%;
+  width: 16.4%;
+  height: 7.5%;
+}
+
+.home-price-overlay.is-desktop .home-price-cover.is-ondemand,
+.home-price-overlay.is-desktop .home-price-text.is-ondemand {
+  left: 42.7%;
+  top: 27.2%;
+  width: 15.4%;
+  height: 7.5%;
+}
+
+.home-price-overlay.is-desktop .home-price-text {
+  font-size: 6.65cqh;
+}
+
+.home-price-overlay.is-desktop .home-price-text.is-weekly {
+  color: #060c3f;
+}
+
+.home-price-overlay.is-desktop .home-price-text.is-ondemand {
+  color: #0d81dd;
+}
+
+.home-price-overlay.is-mobile .home-price-cover.is-weekly,
+.home-price-overlay.is-mobile .home-price-text.is-weekly {
+  left: 22%;
+  top: 5.2%;
+  width: 56%;
+  height: 9.2%;
+}
+
+.home-price-overlay.is-mobile .home-price-cover.is-ondemand,
+.home-price-overlay.is-mobile .home-price-text.is-ondemand {
+  left: 22%;
+  top: 26.4%;
+  width: 56%;
+  height: 9.2%;
+}
+
+.home-price-overlay.is-mobile .home-price-text {
+  font-size: 7.6cqh;
+}
+
+.home-price-overlay.is-mobile .home-price-text.is-weekly {
+  color: #060c3f;
+}
+
+.home-price-overlay.is-mobile .home-price-text.is-ondemand {
+  color: #0d81dd;
+}
+
 @media (min-width: 640px) {
   .home-full {
     padding-top: 0;

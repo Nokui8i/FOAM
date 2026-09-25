@@ -17,6 +17,7 @@ import {
   REPEAT_DISCOUNT_PERCENT,
 } from "@/lib/booking";
 import { getFirebaseDb } from "@/lib/firebase";
+import { loadLaundryRates } from "@/lib/laundry-rates";
 import {
   buildOrderTrackDoc,
   makeTrackKey,
@@ -108,7 +109,8 @@ export async function ensureNextWeeklyOrder(
     return { created: false, nextDate, reason: "already-queued" };
   }
 
-  const pricing = pricingForOrder({ weeklyAutomation: true });
+  const rates = await loadLaundryRates();
+  const pricing = pricingForOrder({ weeklyAutomation: true, rates });
   const trackKey = makeTrackKey();
   const tip = Number(source.tip ?? source.pricing?.tip ?? 0) || 0;
 

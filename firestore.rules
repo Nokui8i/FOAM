@@ -212,7 +212,7 @@ service cloud.firestore {
     }
 
     match /config/{docId} {
-      allow read: if isAdmin() || docId == 'pickupSchedule';
+      allow read: if isAdmin() || docId == 'pickupSchedule' || docId == 'laundryRates';
       allow write: if isAdmin() && (
         (
           docId == 'dryCleanCatalog'
@@ -227,6 +227,27 @@ service cloud.firestore {
           && request.resource.data.slots is list
           && request.resource.data.slots.size() > 0
           && request.resource.data.slots.size() <= 24
+        )
+        || (
+          docId == 'laundryRates'
+          && request.resource.data.keys().hasAll([
+            'weeklyPerLb',
+            'standardPerLb',
+            'deliveryFee',
+            'minimumOrder'
+          ])
+          && request.resource.data.weeklyPerLb is number
+          && request.resource.data.standardPerLb is number
+          && request.resource.data.deliveryFee is number
+          && request.resource.data.minimumOrder is number
+          && request.resource.data.weeklyPerLb > 0
+          && request.resource.data.standardPerLb > 0
+          && request.resource.data.deliveryFee > 0
+          && request.resource.data.minimumOrder > 0
+          && request.resource.data.weeklyPerLb < 100
+          && request.resource.data.standardPerLb < 100
+          && request.resource.data.deliveryFee < 100
+          && request.resource.data.minimumOrder < 1000
         )
       );
     }

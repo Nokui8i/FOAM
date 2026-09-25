@@ -2022,6 +2022,15 @@
   align-items: center;
   gap: 10px;
 }
+.admin-page .ops-schedule-rates {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0 0 4px;
+}
+.admin-page .ops-schedule-rates .ops-promos-field input {
+  min-height: 40px;
+}
 .admin-page .ops-schedule-head-actions .ops-catalog-plane-chip {
   min-height: 44px;
   padding: 8px 14px 8px 10px;
@@ -3043,6 +3052,9 @@
   }
   .admin-page .ops-schedule-layout {
     grid-template-columns: 1fr;
+  }
+  .admin-page .ops-schedule-rates {
+    grid-template-columns: 1fr 1fr;
   }
   .admin-page .ops-schedule-window {
     grid-template-columns: 1fr 1fr;

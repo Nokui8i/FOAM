@@ -83,6 +83,12 @@ import {
   type PickupSchedule,
 } from "@/lib/pickup-schedule";
 import {
+  DEFAULT_LAUNDRY_RATES,
+  formatRateUsd,
+  subscribeLaundryRates,
+  type LaundryRates,
+} from "@/lib/laundry-rates";
+import {
   formatPromoLabel,
   validatePromoCode,
   type PromoCode,
@@ -172,6 +178,7 @@ function BookingAppInner() {
     closed: false,
     slots: {},
   });
+  const [rates, setRates] = useState<LaundryRates>(DEFAULT_LAUNDRY_RATES);
   const dates = useMemo(() => nextPickupDates(7), []);
   const scheduleLabels = useMemo(
     () => schedule.slots.filter((s) => s.enabled).map((s) => s.label),
@@ -182,8 +189,9 @@ function BookingAppInner() {
       orderEstimate(draft, {
         repeatDiscountEligible,
         weeklyAutomation: Boolean(user) && draft.repeatPickup,
+        rates,
       }),
-    [draft, repeatDiscountEligible, user]
+    [draft, repeatDiscountEligible, user, rates]
   );
 
   function setStep(next: BookingStep) {
@@ -216,6 +224,7 @@ function BookingAppInner() {
   }, [dates, draft.pickupDate]);
 
   useEffect(() => subscribePickupSchedule(setSchedule), []);
+  useEffect(() => subscribeLaundryRates(setRates), []);
 
   useEffect(() => {
     if (!draft.pickupDate) {
@@ -470,7 +479,10 @@ function BookingAppInner() {
 
       const wantsRepeat = draft.repeatPickup;
       const repeatActive = Boolean(user) && wantsRepeat;
-      const pricing = pricingForOrder({ weeklyAutomation: repeatActive });
+      const pricing = pricingForOrder({
+        weeklyAutomation: repeatActive,
+        rates,
+      });
       const tip = resolvedTip(draft);
       const trackKey = makeTrackKey();
       const payload = {
@@ -889,7 +901,9 @@ function BookingAppInner() {
                 <span className="book-repeat-lines">
                   <span>Same day &amp; time every week</span>
                   <span>
-                    Weekly rate <b>$2.35/lb</b> (vs $2.60 on-demand) + $5 pickup
+                    Weekly rate <b>{formatRateUsd(rates.weeklyPerLb)}/lb</b>{" "}
+                    (vs {formatRateUsd(rates.standardPerLb)} on-demand) +{" "}
+                    {formatRateUsd(rates.deliveryFee)} pickup
                   </span>
                   <span>
                     <b>10% off</b> on your next automated pickup
@@ -1172,11 +1186,11 @@ function BookingAppInner() {
               ) : null}{" "}
               at pickup — {estimate.pricing.tier === "weekly" ? (
                 <>
-                  weekly rate <b>$2.35/lb</b>
+                  weekly rate <b>{formatRateUsd(rates.weeklyPerLb)}/lb</b>
                 </>
               ) : (
                 <>
-                  standard rate <b>$2.60/lb</b>
+                  standard rate <b>{formatRateUsd(rates.standardPerLb)}/lb</b>
                 </>
               )}
               , <b>$5</b> pickup &amp; delivery, <b>$50</b> minimum
@@ -1230,6 +1244,7 @@ function BookingAppInner() {
       {guestGateOpen ? (
         <GuestCheckoutGate
           wantsRepeat={draft.repeatPickup}
+          weeklyRateLabel={`${formatRateUsd(rates.weeklyPerLb)}/lb`}
           onContinueGuest={continueAsGuest}
           onSignUp={signUpForBenefits}
           onClose={() => setGuestGateOpen(false)}
@@ -1359,11 +1374,13 @@ function PrefRow({
 
 function GuestCheckoutGate({
   wantsRepeat,
+  weeklyRateLabel,
   onContinueGuest,
   onSignUp,
   onClose,
 }: {
   wantsRepeat: boolean;
+  weeklyRateLabel: string;
   onContinueGuest: () => void;
   onSignUp: () => void;
   onClose: () => void;
@@ -1392,14 +1409,14 @@ function GuestCheckoutGate({
               </p>
               <p>
                 Sign in or create an account to lock in the weekly rate{" "}
-                <b>$2.35/lb</b>, automation, and <b>10% off</b> your next
-                automated pickup.
+                <b>{weeklyRateLabel}</b>, automation, and <b>10% off</b> your
+                next automated pickup.
               </p>
             </>
           ) : (
             <p>
-              Sign in or create an account for <b>member benefits</b> like
-              weekly rate <b>$2.35/lb</b>, repeat pickups, and <b>10% off</b>{" "}
+              Sign in or create an account for <b>member benefits</b> like weekly
+              rate <b>{weeklyRateLabel}</b>, repeat pickups, and <b>10% off</b>{" "}
               your next automated order.
             </p>
           )}

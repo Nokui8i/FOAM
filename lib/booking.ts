@@ -71,15 +71,22 @@ export type PricingTier = "weekly" | "standard";
 
 export function pricingForOrder(opts: {
   weeklyAutomation: boolean;
+  rates?: {
+    weeklyPerLb?: number;
+    standardPerLb?: number;
+    deliveryFee?: number;
+    minimumOrder?: number;
+  };
 }) {
   const tier: PricingTier = opts.weeklyAutomation ? "weekly" : "standard";
+  const weekly = opts.rates?.weeklyPerLb ?? RATE_WEEKLY_PER_LB_USD;
+  const standard = opts.rates?.standardPerLb ?? RATE_STANDARD_PER_LB_USD;
   return {
     mode: "weighed_at_pickup" as const,
     tier,
-    laundryRatePerLb:
-      tier === "weekly" ? RATE_WEEKLY_PER_LB_USD : RATE_STANDARD_PER_LB_USD,
-    deliveryFee: DELIVERY_FEE_USD,
-    minimumOrder: MIN_ORDER_USD,
+    laundryRatePerLb: tier === "weekly" ? weekly : standard,
+    deliveryFee: opts.rates?.deliveryFee ?? DELIVERY_FEE_USD,
+    minimumOrder: opts.rates?.minimumOrder ?? MIN_ORDER_USD,
     repeatDiscountPercent: REPEAT_DISCOUNT_PERCENT,
   };
 }
@@ -373,13 +380,23 @@ export function resolvedTip(draft: BookingDraft) {
 
 export function orderEstimate(
   draft: BookingDraft,
-  opts: { repeatDiscountEligible?: boolean; weeklyAutomation?: boolean } = {}
+  opts: {
+    repeatDiscountEligible?: boolean;
+    weeklyAutomation?: boolean;
+    rates?: {
+      weeklyPerLb?: number;
+      standardPerLb?: number;
+      deliveryFee?: number;
+      minimumOrder?: number;
+    };
+  } = {}
 ) {
   const tip = resolvedTip(draft);
   const hasLaundry = draft.laundry;
   const hasDryCleaning = draft.dryCleaning;
   const pricing = pricingForOrder({
     weeklyAutomation: Boolean(opts.weeklyAutomation),
+    rates: opts.rates,
   });
 
   // Final laundry $ is weighed at pickup — estimate only exposes known fees/tip.
