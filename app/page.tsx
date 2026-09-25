@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { HomePriceOverlay } from "@/components/home-price-overlay";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { BOOKING_PATH } from "@/lib/site-config";
@@ -16,6 +17,9 @@ const MOBILE_PANELS = [
   { start: 9561, end: 11869, shortBlend: true },
   { start: 11869, end: MOBILE_ARTWORK_HEIGHT, shortBlend: true },
 ] as const;
+
+const DESKTOP_SRC = "/home-mockup-desktop-v22.png";
+const MOBILE_SRC = "/home-mockup-mobile-v19.png";
 
 export default function Home() {
   return (
@@ -43,7 +47,7 @@ export default function Home() {
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src="/home-mockup-mobile-v18.png"
+                  src={MOBILE_SRC}
                   alt=""
                   width={1440}
                   height={MOBILE_ARTWORK_HEIGHT}
@@ -53,12 +57,9 @@ export default function Home() {
                   }}
                 />
                 {index > 0 && (
-                  // Keep headings crisp when they begin immediately below a seam.
-                  // This duplicate uses the same cached asset and restores only a
-                  // softly feathered area around the centered heading.
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
-                    src="/home-mockup-mobile-v18.png"
+                    src={MOBILE_SRC}
                     alt=""
                     width={1440}
                     height={MOBILE_ARTWORK_HEIGHT}
@@ -69,6 +70,7 @@ export default function Home() {
                     }}
                   />
                 )}
+                {index === 4 ? <HomePriceOverlay variant="mobile" /> : null}
               </div>
             );
           })}
@@ -79,8 +81,6 @@ export default function Home() {
             role="img"
             aria-label="FOAM laundry: More time for what matters. Pickup, wash, fold and delivery in Las Vegas — how it works, services, pricing, and schedule a pickup."
           >
-            {/* Six equal 3840 × 2160 panels from the original desktop artwork.
-                Each layer reuses the same URL, so the browser caches one asset. */}
             {Array.from({ length: 6 }, (_, index) => (
               <div
                 key={index}
@@ -89,12 +89,13 @@ export default function Home() {
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src="/home-mockup-desktop-v21.png"
+                  src={DESKTOP_SRC}
                   alt=""
                   width={3840}
                   height={12960}
                   style={{ top: `${index * -100}%` }}
                 />
+                {index === 4 ? <HomePriceOverlay variant="desktop" /> : null}
               </div>
             ))}
           </div>

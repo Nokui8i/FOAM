@@ -5129,6 +5129,33 @@
   top: 66%;
 }
 
+/* Live rates on blank $ placeholders in the pricing mockup panel. */
+.home-price-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+}
+
+.home-price-text {
+  position: absolute;
+  margin: 0;
+  padding: 0;
+  font-family: var(--font-display);
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.045em;
+  white-space: nowrap;
+  transform: translateY(-0.05em);
+}
+
+.home-price-text.is-feeWeekly,
+.home-price-text.is-feeOndemand,
+.home-price-text.is-minimum {
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
 @media (min-width: 640px) {
   .home-full {
     padding-top: 0;
