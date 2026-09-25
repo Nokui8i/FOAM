@@ -1751,7 +1751,16 @@ export function AdminOrdersPanel({
     if (mode === "history") {
       return (
         <section className="stage future-stage">
-          <History size={38} aria-hidden />
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            className="ops-history-stage-art"
+            src={encodeURI(
+              "/ChatGPT Image Sep 25, 2026, 10_29_17 AM.png"
+            )}
+            alt=""
+            width={160}
+            height={160}
+          />
           <div className="stage-copy">
             <small>DELIVERED</small>
             <h3>{formatPickupDate(selected.pickup.date, true)}</h3>
@@ -2028,29 +2037,37 @@ export function AdminOrdersPanel({
       >
         <div className="ops-list-head">
           {mode === "history" ? (
-            <div className="ops-history-toolbar">
-              <label className="ops-search">
-                <Search size={15} aria-hidden />
-                <input
-                  value={queryText}
-                  onChange={(e) => setQueryText(e.target.value)}
-                  aria-label="Search history"
-                />
-              </label>
-              <button
-                type="button"
-                className={cn(
-                  "ops-history-cal-btn",
-                  showHistoryCalendar && "is-open",
-                  historyDay && "has-date"
-                )}
-                aria-label="Pick a date from the calendar"
-                aria-expanded={showHistoryCalendar}
-                onClick={() => setShowHistoryCalendar((v) => !v)}
-              >
-                <History size={20} aria-hidden />
-              </button>
-            </div>
+            <>
+              <div className="queue-heading">
+                <h1 className="ops-list-title">History</h1>
+                <span className="ops-all-tab is-static">
+                  {listReady ? counts.history : "…"}
+                </span>
+              </div>
+              <div className="ops-history-toolbar">
+                <label className="ops-search">
+                  <Search size={15} aria-hidden />
+                  <input
+                    value={queryText}
+                    onChange={(e) => setQueryText(e.target.value)}
+                    aria-label="Search history"
+                  />
+                </label>
+                <button
+                  type="button"
+                  className={cn(
+                    "ops-history-cal-btn",
+                    showHistoryCalendar && "is-open",
+                    historyDay && "has-date"
+                  )}
+                  aria-label="Pick a date from the calendar"
+                  aria-expanded={showHistoryCalendar}
+                  onClick={() => setShowHistoryCalendar((v) => !v)}
+                >
+                  <History size={20} aria-hidden />
+                </button>
+              </div>
+            </>
           ) : (
             <>
               <div className="queue-heading">

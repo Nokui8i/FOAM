@@ -370,6 +370,13 @@
   display: flex;
   align-items: center;
   gap: 8px;
+  margin-top: 12px;
+}
+.admin-page .ops-history-stage-art {
+  justify-self: center;
+  width: min(160px, 42vw);
+  height: auto;
+  object-fit: contain;
 }
 .admin-page .ops-history-toolbar .ops-search {
   flex: 1;
