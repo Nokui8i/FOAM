@@ -185,17 +185,9 @@ export function TrackOrderEdit({
 
   return (
     <div className="track-edit">
-      <div className="track-edit-head">
-        <h2>Edit order</h2>
-        <p>Update requests anytime before pickup. Date &amp; time only before your window starts.</p>
-      </div>
-
       {canReschedule ? (
         <section className="track-edit-block">
           <h3>Pickup date &amp; time</h3>
-          <p className="mb-2 text-sm text-muted-foreground">
-            Choose a new day and time window for pickup.
-          </p>
           <div className="book-day-pills">
             {nextPickupDates(7).map((iso) => {
               const d = new Date(`${iso}T12:00:00`);
@@ -261,11 +253,6 @@ export function TrackOrderEdit({
             {formatPickupDate(pickupDate)}
             {pickupSlot ? ` · ${pickupSlot}` : ""}
           </p>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {status === "confirmed"
-              ? "Driver is on the way — schedule is locked."
-              : "Schedule is locked once your pickup window starts. Contact FOAM to reschedule."}
-          </p>
         </section>
       )}
 
@@ -283,7 +270,6 @@ export function TrackOrderEdit({
       <section className="book-prefs track-edit-prefs">
         <div className="book-prefs-head">
           <strong>Wash preferences</strong>
-          <small>How you want your clothes handled</small>
         </div>
         <div className="book-prefs-body">
           {PREF_META.map((row) => (

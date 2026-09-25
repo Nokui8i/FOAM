@@ -13,7 +13,6 @@ import { formatPickupDate } from "@/lib/booking";
 import { getFirebaseDb } from "@/lib/firebase";
 import {
   canEditOrderRequests,
-  canRescheduleOrder,
 } from "@/lib/order-edit";
 import {
   ORDER_STATUS_LABELS,
@@ -288,22 +287,12 @@ function TrackBody() {
           {showEdit ? (
             <Button type="button" size="sm" onClick={() => setEditing(true)}>
               Edit order
-              {canRescheduleOrder(status, pickupDate, pickupSlot)
-                ? ""
-                : " (requests)"}
             </Button>
           ) : null}
           <Button variant="outline" size="sm" asChild>
             <Link href="/account">Back</Link>
           </Button>
         </div>
-        {showEdit && !canRescheduleOrder(status, pickupDate, pickupSlot) ? (
-          <p className="mt-2 text-xs text-muted-foreground">
-            You can still change wash preferences and notes. Date &amp; time
-            lock once your pickup window starts (or when the driver is on the
-            way).
-          </p>
-        ) : null}
       </div>
     </article>
   );
