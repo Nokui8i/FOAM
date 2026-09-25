@@ -33,6 +33,27 @@ const SLOTS: Record<
     fontScale: number;
   }
 > = {
+  feeWeekly: {
+    // Start after baked "$"; keep width to digits only so we don't cover "Service"
+    left: 17.05,
+    top: 50.69,
+    width: 2.7,
+    height: 3.41,
+    color: "#0A1548",
+    weight: 700,
+    insetL: 0,
+    fontScale: 1.15,
+  },
+  feeOndemand: {
+    left: 48.95,
+    top: 53.44,
+    width: 2.8,
+    height: 3.51,
+    color: "#2183D4",
+    weight: 700,
+    insetL: 0,
+    fontScale: 1.15,
+  },
   weeklyBig: {
     left: 19.91,
     top: 23.54,
@@ -40,8 +61,8 @@ const SLOTS: Record<
     height: 10.68,
     color: "#0A1548",
     weight: 800,
-    insetL: 0.35,
-    fontScale: 1.42,
+    insetL: 0.55,
+    fontScale: 1.55,
   },
   ondemandBig: {
     left: 48.03,
@@ -50,28 +71,8 @@ const SLOTS: Record<
     height: 11.19,
     color: "#2183D4",
     weight: 800,
-    insetL: 0.4,
-    fontScale: 1.42,
-  },
-  feeWeekly: {
-    left: 15.63,
-    top: 50.69,
-    width: 3.98,
-    height: 3.41,
-    color: "#0A1548",
-    weight: 700,
-    insetL: 1.25,
-    fontScale: 1.3,
-  },
-  feeOndemand: {
-    left: 47.64,
-    top: 53.44,
-    width: 4.09,
-    height: 3.51,
-    color: "#2183D4",
-    weight: 700,
-    insetL: 1.25,
-    fontScale: 1.3,
+    insetL: 0.6,
+    fontScale: 1.55,
   },
   minimum: {
     left: 56.8,
