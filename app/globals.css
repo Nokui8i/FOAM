@@ -5148,7 +5148,7 @@
   position: absolute;
   z-index: 2;
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: flex-start;
   margin: 0;
   padding: 0;

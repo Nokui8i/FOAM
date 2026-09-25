@@ -17,7 +17,9 @@ type SlotKey =
 
 /**
  * Positions from desktop debug drag (panel 4, %).
- * Boxes cover digits only — baked "$" stays in the art to the left.
+ * Boxes target digits only — baked "$" stays in the art to the left.
+ * coverInsetL pushes the white mask right so it never eats the "$".
+ * fontScale lifts Manrope glyph height to fill the debug box edge-to-edge.
  */
 const SLOTS: Record<
   SlotKey,
@@ -28,6 +30,8 @@ const SLOTS: Record<
     height: number;
     color: string;
     weight: number;
+    coverInsetL: number;
+    fontScale: number;
   }
 > = {
   weeklyBig: {
@@ -35,32 +39,43 @@ const SLOTS: Record<
     top: 23.54,
     width: 14.35,
     height: 10.68,
-    color: "#232656",
+    // Match baked "$" / title ink on the navy card
+    color: "#0A1548",
     weight: 800,
+    coverInsetL: 1.15,
+    fontScale: 1.28,
   },
   ondemandBig: {
     left: 48.03,
     top: 23.29,
     width: 14.71,
     height: 11.19,
-    color: "#2783D3",
+    // Match baked "$" / "Only When You Need Us" on the blue card
+    color: "#0875D0",
     weight: 800,
+    coverInsetL: 1.2,
+    fontScale: 1.28,
   },
   feeWeekly: {
     left: 15.63,
     top: 50.69,
     width: 3.98,
     height: 3.41,
-    color: "#232656",
+    color: "#0A1548",
     weight: 700,
+    // Fee DBUG left sits on/near "$" — start mask after it
+    coverInsetL: 1.35,
+    fontScale: 1.18,
   },
   feeOndemand: {
     left: 47.64,
     top: 53.44,
     width: 4.09,
     height: 3.51,
-    color: "#2783D3",
+    color: "#0875D0",
     weight: 700,
+    coverInsetL: 1.35,
+    fontScale: 1.18,
   },
   minimum: {
     left: 56.8,
@@ -69,6 +84,8 @@ const SLOTS: Record<
     height: 3.2,
     color: "#565656",
     weight: 700,
+    coverInsetL: 0.55,
+    fontScale: 1.15,
   },
 };
 
@@ -113,27 +130,30 @@ export function HomePriceOverlay() {
     <div ref={rootRef} className="home-price-overlay" aria-hidden="true">
       {SLOT_ORDER.map((key) => {
         const slot = SLOTS[key];
-        // Debug box height = exact glyph height (top edge → bottom edge).
+        const textLeft = slot.left + slot.coverInsetL;
+        const textWidth = Math.max(slot.width - slot.coverInsetL, 1.5);
+        // Debug box height × scale so Manrope digits fill top→bottom like the art.
         const fontPx =
-          panelH > 0 ? panelH * (slot.height / 100) : undefined;
+          panelH > 0
+            ? panelH * (slot.height / 100) * slot.fontScale
+            : undefined;
         return (
           <div key={key}>
             <span
               className="home-price-cover"
               style={{
-                // Never expand left — that clips the baked-in "$".
-                left: `${slot.left}%`,
-                top: `${slot.top - 0.12}%`,
-                width: `${slot.width + 0.25}%`,
-                height: `${slot.height + 0.28}%`,
+                left: `${textLeft}%`,
+                top: `${slot.top - 0.1}%`,
+                width: `${textWidth + 0.35}%`,
+                height: `${slot.height + 0.35}%`,
               }}
             />
             <span
               className={`home-price-text is-${key}`}
               style={{
-                left: `${slot.left}%`,
+                left: `${textLeft}%`,
                 top: `${slot.top}%`,
-                width: `${slot.width}%`,
+                width: `${textWidth}%`,
                 height: `${slot.height}%`,
                 color: slot.color,
                 fontWeight: slot.weight,
