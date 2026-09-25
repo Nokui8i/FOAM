@@ -158,11 +158,18 @@ export async function ensureNextWeeklyOrder(
     createdAt: serverTimestamp(),
   };
 
-  const ref = await addDoc(collection(db, "orders"), payload);
   try {
     await reservePickupSlot(nextDate, source.pickup.slot);
   } catch {
-    /* capacity soft — still keep the weekly order */
+    return { created: false, nextDate, reason: "capacity" };
+  }
+
+  let ref;
+  try {
+    ref = await addDoc(collection(db, "orders"), payload);
+  } catch (err) {
+    await releasePickupSlot(nextDate, source.pickup.slot);
+    throw err;
   }
   await setDoc(doc(db, "orderTracks", trackKey), {
     ...buildOrderTrackDoc({

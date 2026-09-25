@@ -4,6 +4,7 @@ import {
   onSnapshot,
   runTransaction,
   serverTimestamp,
+  setDoc,
 } from "firebase/firestore";
 
 import { SLOT_CAPACITY } from "@/lib/booking";
@@ -115,6 +116,60 @@ export async function getPickupSlotCount(dateIso: string, slot: string) {
     return counts[slot] ?? 0;
   } catch {
     return 0;
+  }
+}
+
+/** Rewrite day counters from live waiting pickups (source of truth). */
+export async function setDaySlotCounts(dateIso: string, counts: SlotCounts) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateIso)) return;
+  const cleaned: SlotCounts = {};
+  for (const [label, value] of Object.entries(counts)) {
+    const n = Number(value ?? 0);
+    if (!label.trim() || !Number.isFinite(n) || n <= 0) continue;
+    cleaned[label.trim()] = Math.floor(n);
+  }
+  await setDoc(
+    doc(getFirebaseDb(), "pickupAvailability", dateIso),
+    {
+      slots: cleaned,
+      updatedAt: serverTimestamp(),
+    },
+    { merge: false }
+  );
+}
+
+/** Raise counters when waiting orders outnumber the availability doc. */
+export async function ensureAvailabilityAtLeast(
+  dateIso: string,
+  counts: SlotCounts
+) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateIso)) return;
+  const ref = doc(getFirebaseDb(), "pickupAvailability", dateIso);
+  try {
+    await runTransaction(getFirebaseDb(), async (tx) => {
+      const snap = await tx.get(ref);
+      const next = normalizeCounts(snap.data()?.slots);
+      let changed = false;
+      for (const [label, value] of Object.entries(counts)) {
+        const n = Math.floor(Number(value ?? 0));
+        if (!label.trim() || !Number.isFinite(n) || n <= 0) continue;
+        if (n > (next[label] ?? 0)) {
+          next[label] = n;
+          changed = true;
+        }
+      }
+      if (!changed) return;
+      tx.set(
+        ref,
+        {
+          slots: next,
+          updatedAt: serverTimestamp(),
+        },
+        { merge: true }
+      );
+    });
+  } catch {
+    /* best-effort */
   }
 }
 

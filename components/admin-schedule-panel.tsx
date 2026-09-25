@@ -22,17 +22,18 @@ import {
 } from "@/lib/booking";
 import { getFirebaseDb } from "@/lib/firebase";
 import {
+  setDaySlotCounts,
+  ensureAvailabilityAtLeast,
+  type SlotCounts,
+} from "@/lib/pickup-availability";
+import {
   isCancelledOrder,
+  isWaitingForPickup,
   normalizeOrderStatus,
   type OrderStatus,
 } from "@/lib/orders";
 import {
-  subscribePickupSlotCounts,
-  type SlotCounts,
-} from "@/lib/pickup-availability";
-import {
   DEFAULT_SCHEDULE_SLOTS,
-  minutesToClock,
   newScheduleSlotId,
   saveDayOverride,
   savePickupSchedule,
@@ -97,7 +98,6 @@ export function AdminSchedulePanel({
     closed: false,
     slots: {},
   });
-  const [availability, setAvailability] = useState<SlotCounts>({});
   const [orderPickups, setOrderPickups] = useState<
     Array<{ date: string; slot: string }>
   >([]);
@@ -120,17 +120,12 @@ export function AdminSchedulePanel({
   useEffect(() => subscribeDayOverride(dayIso, setDayOverride), [dayIso]);
 
   useEffect(() => {
-    const labels = slots.map((s) => s.label);
-    return subscribePickupSlotCounts(dayIso, setAvailability, labels);
-  }, [dayIso, slots]);
-
-  useEffect(() => {
     return onSnapshot(collection(getFirebaseDb(), "orders"), (snap) => {
       const next: Array<{ date: string; slot: string }> = [];
       snap.forEach((docSnap) => {
         const data = docSnap.data() as Record<string, unknown>;
         const status = normalizeOrderStatus(data.status) as OrderStatus;
-        if (isCancelledOrder(status)) return;
+        if (isCancelledOrder(status) || !isWaitingForPickup(status)) return;
         const pickup =
           data.pickup && typeof data.pickup === "object"
             ? (data.pickup as Record<string, unknown>)
@@ -157,6 +152,11 @@ export function AdminSchedulePanel({
   const dayOrderCounts = ordersByDateSlot[dayIso] ?? {};
   const dayOrderTotal = ordersByDate[dayIso] ?? 0;
 
+  useEffect(() => {
+    if (!dayIso || Object.keys(dayOrderCounts).length === 0) return;
+    void ensureAvailabilityAtLeast(dayIso, dayOrderCounts);
+  }, [dayIso, dayOrderCounts]);
+
   const daySlotRows = useMemo(() => {
     const known = new Set(sortedSlots.map((s) => s.label));
     const rows = sortedSlots.map((slot) => ({
@@ -164,10 +164,7 @@ export function AdminSchedulePanel({
       label: slot.label,
       capacity: slot.capacity,
       enabled: slot.enabled,
-      booked: Math.max(
-        dayOrderCounts[slot.label] ?? 0,
-        availability[slot.label] ?? 0
-      ),
+      booked: dayOrderCounts[slot.label] ?? 0,
       orphan: false as boolean,
     }));
     for (const [label, count] of Object.entries(dayOrderCounts)) {
@@ -181,19 +178,8 @@ export function AdminSchedulePanel({
         orphan: true,
       });
     }
-    for (const [label, count] of Object.entries(availability)) {
-      if (known.has(label) || dayOrderCounts[label] || !(count > 0)) continue;
-      rows.push({
-        id: `avail-${label}`,
-        label,
-        capacity: 0,
-        enabled: false,
-        booked: count,
-        orphan: true,
-      });
-    }
     return rows;
-  }, [sortedSlots, dayOrderCounts, availability]);
+  }, [sortedSlots, dayOrderCounts]);
 
   const dayHasOverride =
     dayOverride.closed ||
@@ -266,6 +252,7 @@ export function AdminSchedulePanel({
       };
       const saved = await savePickupSchedule(slots, adminEmail);
       await saveDayOverride(dayIso, cleaned, adminEmail);
+      await setDaySlotCounts(dayIso, dayOrderCounts);
       setSlots(saved.map((s) => ({ ...s })));
       setDayOverride(cleaned);
       setOkMsg("Saved.");
