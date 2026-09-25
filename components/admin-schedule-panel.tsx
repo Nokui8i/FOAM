@@ -1,9 +1,23 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { CalendarDays, Clock3, Plus, Trash2 } from "lucide-react";
+import {
+  CalendarDays,
+  ChevronLeft,
+  ChevronRight,
+  Clock3,
+  Plus,
+  Trash2,
+  X,
+} from "lucide-react";
+import { createPortal } from "react-dom";
 
-import { bookingTodayIso, toIsoDate } from "@/lib/booking";
+import {
+  bookingTodayIso,
+  earliestPickupDate,
+  latestPickupDate,
+  toIsoDate,
+} from "@/lib/booking";
 import {
   subscribePickupSlotCounts,
   type SlotCounts,
@@ -37,6 +51,15 @@ function timeInputFromMinutes(total: number) {
   return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
 }
 
+function formatDayLabel(iso: string) {
+  const d = new Date(`${iso}T12:00:00`);
+  return d.toLocaleDateString("en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+  });
+}
+
 export function AdminSchedulePanel({
   adminEmail,
   onMobileViewChange,
@@ -48,6 +71,7 @@ export function AdminSchedulePanel({
   const today = bookingTodayIso();
   const [slots, setSlots] = useState<ScheduleSlot[]>(DEFAULT_SCHEDULE_SLOTS);
   const [dayIso, setDayIso] = useState(today);
+  const [showCalendar, setShowCalendar] = useState(false);
   const [dayOverride, setDayOverride] = useState<DayOverride>({
     closed: false,
     slots: {},
@@ -82,20 +106,17 @@ export function AdminSchedulePanel({
     [slots]
   );
 
+  const dayHasOverride =
+    dayOverride.closed ||
+    Object.values(dayOverride.slots).some((row) => row.closed);
+
   function patchSlot(id: string, patch: Partial<ScheduleSlot>) {
     setSlots((current) =>
       current.map((slot) => {
         if (slot.id !== id) return slot;
         const next = { ...slot, ...patch };
-        if (
-          patch.startMinutes != null ||
-          patch.endMinutes != null ||
-          patch.label == null
-        ) {
-          // Keep label in sync with times unless explicitly set.
-          if (patch.label === undefined) {
-            next.label = windowLabel(next.startMinutes, next.endMinutes);
-          }
+        if (patch.label === undefined) {
+          next.label = windowLabel(next.startMinutes, next.endMinutes);
         }
         return next;
       })
@@ -137,7 +158,7 @@ export function AdminSchedulePanel({
     try {
       const saved = await savePickupSchedule(slots, adminEmail);
       setSlots(saved.map((s) => ({ ...s })));
-      setOkMsg("Time windows saved.");
+      setOkMsg("Time windows saved for all days.");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not save windows.");
     } finally {
@@ -150,8 +171,18 @@ export function AdminSchedulePanel({
     setError("");
     setOkMsg("");
     try {
-      await saveDayOverride(dayIso, dayOverride, adminEmail);
-      setOkMsg(`Schedule updated for ${dayIso}.`);
+      // Capacity stays global — day overrides only close the day / windows.
+      const cleaned: DayOverride = {
+        closed: dayOverride.closed,
+        slots: Object.fromEntries(
+          Object.entries(dayOverride.slots)
+            .filter(([, row]) => row.closed)
+            .map(([label]) => [label, { closed: true }])
+        ),
+      };
+      await saveDayOverride(dayIso, cleaned, adminEmail);
+      setDayOverride(cleaned);
+      setOkMsg(`Day override saved for ${formatDayLabel(dayIso)}.`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not save day.");
     } finally {
@@ -159,23 +190,15 @@ export function AdminSchedulePanel({
     }
   }
 
-  function setDaySlot(
-    label: string,
-    patch: { closed?: boolean; capacity?: number | null }
-  ) {
+  function setDaySlotClosed(label: string, closed: boolean) {
     setDayOverride((current) => {
-      const prev = current.slots[label] ?? {};
-      const next = { ...prev };
-      if (patch.closed !== undefined) next.closed = patch.closed;
-      if (patch.capacity === null) delete next.capacity;
-      else if (patch.capacity !== undefined) next.capacity = patch.capacity;
-      return {
-        ...current,
-        slots: {
-          ...current.slots,
-          [label]: next,
-        },
-      };
+      const slotsMap = { ...current.slots };
+      if (closed) {
+        slotsMap[label] = { closed: true };
+      } else {
+        delete slotsMap[label];
+      }
+      return { ...current, slots: slotsMap };
     });
   }
 
@@ -185,8 +208,8 @@ export function AdminSchedulePanel({
         <div>
           <h1 className="ops-list-title">Schedule</h1>
           <p className="ops-catalog-plane-lead">
-            Open or close pickup days and hours, set capacity per window, and
-            add or edit time ranges customers can book.
+            Time windows and capacity are the same every day. Use the calendar
+            only to close a specific day, or close specific windows on that day.
           </p>
         </div>
         <div className="ops-catalog-plane-chip" aria-current="page">
@@ -211,15 +234,15 @@ export function AdminSchedulePanel({
       <div className="ops-schedule-layout">
         <section className="ops-schedule-card">
           <div className="ops-schedule-card-head">
-            <h2>Default time windows</h2>
+            <h2>Time windows (all days)</h2>
             <button type="button" className="ops-promos-link" onClick={addSlot}>
               <Plus size={14} aria-hidden />
               Add window
             </button>
           </div>
           <p className="ops-schedule-hint">
-            These apply every day unless you override a specific date on the
-            right. Capacity is max pickups per window.
+            Changes here apply collectively to every day. Capacity is the max
+            pickups allowed in that window.
           </p>
 
           <div className="ops-schedule-windows">
@@ -304,24 +327,25 @@ export function AdminSchedulePanel({
 
         <section className="ops-schedule-card">
           <div className="ops-schedule-card-head">
-            <h2>Day controls</h2>
-            <span className="ops-schedule-day-chip">
-              <CalendarDays size={14} aria-hidden />
-              {dayIso}
-            </span>
+            <h2>Close a day</h2>
+            <button
+              type="button"
+              className={cn(
+                "ops-history-cal-btn",
+                showCalendar && "is-open",
+                dayHasOverride && "has-date"
+              )}
+              aria-expanded={showCalendar}
+              onClick={() => setShowCalendar((v) => !v)}
+            >
+              <CalendarDays size={15} aria-hidden />
+              {formatDayLabel(dayIso)}
+            </button>
           </div>
-
-          <label className="ops-promos-field">
-            <span>Date</span>
-            <input
-              type="date"
-              min={today}
-              value={dayIso}
-              onChange={(e) =>
-                setDayIso(e.target.value || toIsoDate(new Date()))
-              }
-            />
-          </label>
+          <p className="ops-schedule-hint">
+            Pick a date on the calendar, then close the whole day or only
+            specific windows for that date. Capacity stays on the left.
+          </p>
 
           <label className="ops-schedule-toggle is-day">
             <input
@@ -336,8 +360,8 @@ export function AdminSchedulePanel({
             />
             <span>
               {dayOverride.closed
-                ? "Day closed — no bookings"
-                : "Day open for bookings"}
+                ? "Whole day closed — no bookings"
+                : "Day open (unless windows closed below)"}
             </span>
           </label>
 
@@ -348,17 +372,16 @@ export function AdminSchedulePanel({
             )}
           >
             {sortedSlots.map((slot) => {
-              const override = dayOverride.slots[slot.label] ?? {};
-              const closed = override.closed === true || !slot.enabled;
-              const capacity = override.capacity ?? slot.capacity;
+              const closed =
+                dayOverride.slots[slot.label]?.closed === true || !slot.enabled;
               const used = booked[slot.label] ?? 0;
               return (
-                <div key={slot.id} className="ops-schedule-day-row">
+                <div key={slot.id} className="ops-schedule-day-row is-simple">
                   <div className="ops-schedule-day-copy">
                     <strong>{slot.label}</strong>
                     <small>
-                      {used} booked · default capacity {slot.capacity}
-                      {!slot.enabled ? " · window off by default" : ""}
+                      {used} booked · capacity {slot.capacity}
+                      {!slot.enabled ? " · off in global windows" : ""}
                     </small>
                   </div>
                   <label className="ops-schedule-toggle">
@@ -367,26 +390,10 @@ export function AdminSchedulePanel({
                       checked={!closed && slot.enabled}
                       disabled={dayOverride.closed || !slot.enabled}
                       onChange={(e) =>
-                        setDaySlot(slot.label, { closed: !e.target.checked })
+                        setDaySlotClosed(slot.label, !e.target.checked)
                       }
                     />
-                    <span>{closed ? "Closed" : "Open"}</span>
-                  </label>
-                  <label className="ops-promos-field is-compact">
-                    <span>Capacity</span>
-                    <input
-                      type="number"
-                      min={Math.max(1, used)}
-                      max={200}
-                      value={capacity}
-                      disabled={dayOverride.closed || closed}
-                      onChange={(e) => {
-                        const n = Math.max(1, Number(e.target.value) || 1);
-                        setDaySlot(slot.label, {
-                          capacity: n === slot.capacity ? null : n,
-                        });
-                      }}
-                    />
+                    <span>{closed ? "Closed this day" : "Open this day"}</span>
                   </label>
                 </div>
               );
@@ -399,10 +406,149 @@ export function AdminSchedulePanel({
             disabled={savingDay}
             onClick={() => void saveDay()}
           >
-            {savingDay ? "Saving…" : "Save day"}
+            {savingDay ? "Saving…" : "Save day override"}
           </button>
         </section>
       </div>
+
+      {showCalendar
+        ? createPortal(
+            <div className="ops-history-cal-overlay" role="presentation">
+              <button
+                type="button"
+                className="ops-history-cal-backdrop"
+                aria-label="Close calendar"
+                onClick={() => setShowCalendar(false)}
+              />
+              <div
+                className="ops-history-cal-popover"
+                role="dialog"
+                aria-label="Pick a schedule date"
+              >
+                <div className="ops-history-cal-popover-head">
+                  <strong>Pick a date</strong>
+                  <button
+                    type="button"
+                    className="ops-history-cal-close"
+                    aria-label="Close"
+                    onClick={() => setShowCalendar(false)}
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
+                <ScheduleCalendar
+                  value={dayIso}
+                  onChange={(iso) => {
+                    setDayIso(iso);
+                    setShowCalendar(false);
+                  }}
+                />
+              </div>
+            </div>,
+            document.querySelector(".admin-page") ?? document.body
+          )
+        : null}
     </section>
+  );
+}
+
+function ScheduleCalendar({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (iso: string) => void;
+}) {
+  const min = useMemo(() => earliestPickupDate(), []);
+  const max = useMemo(() => latestPickupDate(), []);
+  const minIso = toIsoDate(min);
+  const maxIso = toIsoDate(max);
+  const [cursor, setCursor] = useState(() => {
+    const base = value ? new Date(`${value}T12:00:00`) : min;
+    return new Date(base.getFullYear(), base.getMonth(), 1);
+  });
+
+  const monthLabel = cursor.toLocaleDateString("en-US", {
+    month: "long",
+    year: "numeric",
+  });
+
+  const cells = useMemo(() => {
+    const year = cursor.getFullYear();
+    const month = cursor.getMonth();
+    const first = new Date(year, month, 1);
+    const startPad = first.getDay();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const list: Array<{ iso: string; day: number } | null> = [];
+    for (let i = 0; i < startPad; i += 1) list.push(null);
+    for (let day = 1; day <= daysInMonth; day += 1) {
+      list.push({ iso: toIsoDate(new Date(year, month, day)), day });
+    }
+    while (list.length % 7 !== 0) list.push(null);
+    return list;
+  }, [cursor]);
+
+  const canPrev =
+    new Date(cursor.getFullYear(), cursor.getMonth(), 1) >
+    new Date(min.getFullYear(), min.getMonth(), 1);
+  const canNext =
+    new Date(cursor.getFullYear(), cursor.getMonth(), 1) <
+    new Date(max.getFullYear(), max.getMonth(), 1);
+
+  return (
+    <div className="book-cal ops-history-cal">
+      <div className="book-cal-head">
+        <button
+          type="button"
+          className="book-cal-nav"
+          disabled={!canPrev}
+          onClick={() =>
+            setCursor(new Date(cursor.getFullYear(), cursor.getMonth() - 1, 1))
+          }
+          aria-label="Previous month"
+        >
+          <ChevronLeft size={18} />
+        </button>
+        <strong>{monthLabel}</strong>
+        <button
+          type="button"
+          className="book-cal-nav"
+          disabled={!canNext}
+          onClick={() =>
+            setCursor(new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1))
+          }
+          aria-label="Next month"
+        >
+          <ChevronRight size={18} />
+        </button>
+      </div>
+      <div className="book-cal-week">
+        {["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"].map((d) => (
+          <span key={d}>{d}</span>
+        ))}
+      </div>
+      <div className="book-cal-grid">
+        {cells.map((cell, i) => {
+          if (!cell) return <span key={`e-${i}`} className="book-cal-empty" />;
+          const open = cell.iso >= minIso && cell.iso <= maxIso;
+          return (
+            <button
+              key={cell.iso}
+              type="button"
+              disabled={!open}
+              className={cn(
+                "book-cal-day",
+                value === cell.iso && "is-active",
+                !open && "is-disabled",
+                open && "has-orders"
+              )}
+              onClick={() => onChange(cell.iso)}
+            >
+              {cell.day}
+            </button>
+          );
+        })}
+      </div>
+    </div>
   );
 }
