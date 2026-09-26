@@ -632,9 +632,8 @@ function OpsConsole({
             {accountMenuOpen ? (
               <div className="account-menu" role="menu">
                 {signOutConfirm ? (
-                  <>
+                  <div className="account-menu-confirm">
                     <strong>Sign out?</strong>
-                    <span>You will need to sign in again to use OPS.</span>
                     <div className="account-menu-actions">
                       <button
                         type="button"
@@ -672,7 +671,7 @@ function OpsConsole({
                         />
                       </button>
                     </div>
-                  </>
+                  </div>
                 ) : (
                   <>
                     <strong>Operations</strong>
