@@ -5135,6 +5135,7 @@
   inset: 0;
   z-index: 4;
   pointer-events: none;
+  container-type: size;
 }
 
 .home-price-overlay.is-dbug {
@@ -5236,6 +5237,48 @@
 
 .home-price-box-fee.is-ink {
   color: #00004b;
+}
+
+.home-price-min-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  width: 100%;
+  display: block;
+  text-align: center;
+  box-sizing: border-box;
+  padding: 0 2%;
+  pointer-events: none;
+  cursor: default;
+}
+
+.home-price-overlay.is-dbug .home-price-min-line {
+  pointer-events: auto;
+}
+
+.home-price-min-line.is-dbug {
+  outline: 1.5px dashed #ff6a00;
+  outline-offset: 2px;
+  padding-bottom: 14px;
+  cursor: grab;
+  touch-action: none;
+}
+
+.home-price-min-line.is-dbug:active {
+  cursor: grabbing;
+}
+
+.home-price-min-text {
+  margin: 0 auto;
+  width: 100%;
+  max-width: 100%;
+  font-family: var(--font-display);
+  font-weight: 400;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+  color: #333;
+  text-align: center;
+  white-space: nowrap;
 }
 
 .home-price-dbug-handle {
