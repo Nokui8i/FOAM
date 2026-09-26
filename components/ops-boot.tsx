@@ -22,7 +22,7 @@ export function useMarkOpsPageReady() {
   return useContext(OpsPageReadyContext);
 }
 
-/** Call once when the active OPS page has its first data paint. */
+/** Signals first console page data is ready (ignored after initial boot). */
 export function useOpsPageReadyWhen(ready: boolean) {
   const markReady = useMarkOpsPageReady();
   useEffect(() => {
@@ -33,26 +33,29 @@ export function useOpsPageReadyWhen(ready: boolean) {
 export function OpsBootProvider({
   authReady,
   consoleReady,
-  pageKey,
   children,
 }: {
   authReady: boolean;
   /** True when signed-in admin console is showing (not login / denied). */
   consoleReady: boolean;
-  pageKey: string;
   children: ReactNode;
 }) {
   const [visible, setVisible] = useState(true);
   const [exiting, setExiting] = useState(false);
+  const bootDoneRef = useRef(false);
   const generationRef = useRef(0);
   const startedAtRef = useRef(performance.now());
   const exitingRef = useRef(false);
 
-  const beginExit = useCallback(() => {
+  const beginExit = useCallback((permanent: boolean) => {
     if (exitingRef.current) return;
     exitingRef.current = true;
+    if (permanent) bootDoneRef.current = true;
     const gen = generationRef.current;
-    const remain = Math.max(0, MIN_MS - (performance.now() - startedAtRef.current));
+    const remain = Math.max(
+      0,
+      MIN_MS - (performance.now() - startedAtRef.current)
+    );
 
     window.setTimeout(() => {
       if (gen !== generationRef.current) return;
@@ -67,10 +70,26 @@ export function OpsBootProvider({
   }, []);
 
   const markReady = useCallback(() => {
-    beginExit();
-  }, [beginExit]);
+    if (bootDoneRef.current) return;
+    if (!consoleReady) return;
+    beginExit(true);
+  }, [beginExit, consoleReady]);
 
   useEffect(() => {
+    if (bootDoneRef.current) return;
+
+    if (!authReady) {
+      document.documentElement.classList.add("ops-booting");
+      return;
+    }
+
+    // Login / denied: hide splash for the form, but allow one more boot after sign-in.
+    if (!consoleReady) {
+      beginExit(false);
+      return;
+    }
+
+    // First time entering the console — cover until page data is ready.
     generationRef.current += 1;
     const gen = generationRef.current;
     startedAtRef.current = performance.now();
@@ -79,23 +98,15 @@ export function OpsBootProvider({
     setExiting(false);
     document.documentElement.classList.add("ops-booting");
 
-    if (!authReady) return;
-
-    // Login / access-denied screens: splash only until auth resolves.
-    if (!consoleReady) {
-      beginExit();
-      return;
-    }
-
     const maxTimer = window.setTimeout(() => {
-      if (gen !== generationRef.current) return;
-      beginExit();
+      if (gen !== generationRef.current || bootDoneRef.current) return;
+      beginExit(true);
     }, MAX_MS);
 
     return () => {
       window.clearTimeout(maxTimer);
     };
-  }, [authReady, consoleReady, pageKey, beginExit]);
+  }, [authReady, consoleReady, beginExit]);
 
   useEffect(() => {
     return () => {
