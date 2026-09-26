@@ -248,12 +248,28 @@
   bottom: calc(100% + 8px);
   display: grid;
   padding: 12px;
-  border-radius: 10px;
+  border-radius: 14px;
   color: var(--ops-ink);
   background: #fff;
   box-shadow: 0 20px 35px -14px rgba(22,50,74,.6);
 }
+.admin-page .account-menu:has(.account-menu-confirm) {
+  padding: 12px 10px 10px;
+  min-width: 188px;
+}
 .admin-page .account-menu strong { font-size: 13px; }
+.admin-page .account-menu-confirm {
+  display: grid;
+  gap: 8px;
+  justify-items: stretch;
+}
+.admin-page .account-menu-confirm > strong {
+  padding-inline: 4px;
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  text-align: center;
+}
 .admin-page .account-menu span { color: var(--ops-muted); font-size: 11px; overflow-wrap: anywhere; }
 .admin-page .account-menu button {
   min-height: 34px;
@@ -272,8 +288,8 @@
 .admin-page .account-menu-actions {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 6px;
-  margin-top: 10px;
+  gap: 2px;
+  margin-top: 0;
 }
 .admin-page .account-menu-actions .account-menu-img-btn {
   margin-top: 0;
@@ -301,6 +317,7 @@
 }
 .admin-page .account-menu-actions .account-menu-img-btn:active {
   filter: brightness(0.97);
+  transform: scale(0.985);
 }
 
 /* Queue */
