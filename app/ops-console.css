@@ -247,21 +247,28 @@
   right: 0;
   bottom: calc(100% + 8px);
   display: grid;
-  padding: 12px;
-  border-radius: 14px;
-  color: var(--ops-ink);
-  background: #fff;
-  box-shadow: 0 20px 35px -14px rgba(22,50,74,.6);
-}
-.admin-page .account-menu:has(.account-menu-confirm) {
   padding: 12px 10px 10px;
   min-width: 196px;
   border-radius: 14px;
+  color: #fff;
   background: linear-gradient(155deg, #17415e, var(--ops-navy));
   box-shadow: 0 18px 32px -16px rgba(8, 24, 40, 0.7);
   border: 1px solid rgba(255, 255, 255, 0.08);
 }
-.admin-page .account-menu strong { font-size: 13px; }
+.admin-page .account-menu strong {
+  font-size: 13px;
+  color: #fff;
+}
+.admin-page .account-menu-home {
+  display: grid;
+  gap: 6px;
+  justify-items: stretch;
+}
+.admin-page .account-menu-home > strong {
+  padding-inline: 4px;
+  font-size: 14px;
+  font-weight: 800;
+}
 .admin-page .account-menu-confirm {
   display: grid;
   gap: 8px;
@@ -274,9 +281,13 @@
   font-weight: 800;
   letter-spacing: -0.01em;
   text-align: center;
-  text-shadow: none;
 }
-.admin-page .account-menu span { color: var(--ops-muted); font-size: 11px; overflow-wrap: anywhere; }
+.admin-page .account-menu span {
+  padding-inline: 4px;
+  color: rgba(255, 255, 255, 0.62);
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
 .admin-page .account-menu button {
   min-height: 34px;
   margin-top: 10px;
@@ -297,8 +308,8 @@
   gap: 2px;
   margin-top: 0;
 }
-.admin-page .account-menu-actions .account-menu-img-btn {
-  margin-top: 0;
+.admin-page .account-menu .account-menu-img-btn {
+  margin-top: 2px;
   padding: 0;
   min-height: 0;
   display: block;
@@ -311,17 +322,17 @@
   cursor: pointer;
   overflow: hidden;
 }
-.admin-page .account-menu-actions .account-menu-img-btn img {
+.admin-page .account-menu .account-menu-img-btn img {
   display: block;
   width: 100%;
   height: auto;
   user-select: none;
   -webkit-user-drag: none;
 }
-.admin-page .account-menu-actions .account-menu-img-btn:hover {
+.admin-page .account-menu .account-menu-img-btn:hover {
   filter: brightness(1.04);
 }
-.admin-page .account-menu-actions .account-menu-img-btn:active {
+.admin-page .account-menu .account-menu-img-btn:active {
   filter: brightness(0.97);
   transform: scale(0.985);
 }

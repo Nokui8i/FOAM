@@ -633,7 +633,7 @@ function OpsConsole({
               <div className="account-menu" role="menu">
                 {signOutConfirm ? (
                   <div className="account-menu-confirm">
-                    <strong>Sign out?</strong>
+                    <strong>Are you sure?</strong>
                     <div className="account-menu-actions">
                       <button
                         type="button"
@@ -673,18 +673,26 @@ function OpsConsole({
                     </div>
                   </div>
                 ) : (
-                  <>
+                  <div className="account-menu-home">
                     <strong>Operations</strong>
                     <span>{user.email}</span>
                     <button
                       type="button"
+                      className="account-menu-img-btn"
                       role="menuitem"
+                      aria-label="Sign out"
                       onClick={() => setSignOutConfirm(true)}
                     >
-                      <LogOut size={15} aria-hidden />
-                      Sign out
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src="/ops-signout-menu.png"
+                        alt=""
+                        width={1363}
+                        height={345}
+                        draggable={false}
+                      />
                     </button>
-                  </>
+                  </div>
                 )}
               </div>
             ) : null}
