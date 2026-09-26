@@ -16,8 +16,8 @@ type SlotKey =
   | "minimum";
 
 /**
- * Desktop debug-drag digit boxes (panel 4, %).
- * Digits only — baked "$" stays in the art to the left of insetL.
+ * Locked from the user's desktop DBUG drag — do not shift these boxes.
+ * Digits only; baked "$" sits immediately to the left of each box.
  */
 const SLOTS: Record<
   SlotKey,
@@ -28,8 +28,6 @@ const SLOTS: Record<
     height: number;
     color: string;
     weight: number;
-    insetL: number;
-    fontScale: number;
   }
 > = {
   weeklyBig: {
@@ -39,40 +37,30 @@ const SLOTS: Record<
     height: 10.68,
     color: "#0A1548",
     weight: 800,
-    insetL: 1.1,
-    // Manrope glyph height ≈ 0.62 of em — scale so ink fills DBUG box
-    fontScale: 1.68,
   },
   ondemandBig: {
     left: 48.03,
     top: 23.29,
     width: 14.71,
     height: 11.19,
-    // Match "Only When You Need Us" ink
     color: "#1080E0",
     weight: 800,
-    insetL: 1.15,
-    fontScale: 1.68,
   },
   feeWeekly: {
-    left: 17.0,
+    left: 15.63,
     top: 50.69,
-    width: 4.55,
+    width: 3.98,
     height: 3.41,
     color: "#0A1548",
     weight: 700,
-    insetL: 0,
-    fontScale: 1.08,
   },
   feeOndemand: {
-    left: 48.9,
+    left: 47.64,
     top: 53.44,
-    width: 4.65,
+    width: 4.09,
     height: 3.51,
     color: "#1080E0",
     weight: 700,
-    insetL: 0,
-    fontScale: 1.08,
   },
   minimum: {
     left: 56.8,
@@ -81,8 +69,6 @@ const SLOTS: Record<
     height: 3.2,
     color: "#565656",
     weight: 700,
-    insetL: 0.55,
-    fontScale: 1.2,
   },
 };
 
@@ -127,28 +113,39 @@ export function HomePriceOverlay() {
     <div ref={rootRef} className="home-price-overlay" aria-hidden="true">
       {SLOT_ORDER.map((key) => {
         const slot = SLOTS[key];
-        const left = slot.left + slot.insetL;
-        const width = Math.max(slot.width - slot.insetL, 1.2);
+        // DBUG height = exact glyph height (top → bottom of the box).
         const fontPx =
-          panelH > 0
-            ? panelH * (slot.height / 100) * slot.fontScale
-            : undefined;
+          panelH > 0 ? panelH * (slot.height / 100) : undefined;
         return (
-          <span
-            key={key}
-            className={`home-price-text is-${key}`}
-            style={{
-              left: `${left}%`,
-              top: `${slot.top}%`,
-              width: `${width}%`,
-              height: `${slot.height}%`,
-              color: slot.color,
-              fontWeight: slot.weight,
-              fontSize: fontPx ? `${fontPx}px` : undefined,
-            }}
-          >
-            {values[key]}
-          </span>
+          <div key={key}>
+            {/*
+              White mask sits on the DBUG rect only.
+              Never expand left — that eats the baked "$".
+            */}
+            <span
+              className="home-price-cover"
+              style={{
+                left: `${slot.left}%`,
+                top: `${slot.top}%`,
+                width: `${slot.width}%`,
+                height: `${slot.height}%`,
+              }}
+            />
+            <span
+              className={`home-price-text is-${key}`}
+              style={{
+                left: `${slot.left}%`,
+                top: `${slot.top}%`,
+                width: `${slot.width}%`,
+                height: `${slot.height}%`,
+                color: slot.color,
+                fontWeight: slot.weight,
+                fontSize: fontPx ? `${fontPx}px` : undefined,
+              }}
+            >
+              {values[key]}
+            </span>
+          </div>
         );
       })}
     </div>
