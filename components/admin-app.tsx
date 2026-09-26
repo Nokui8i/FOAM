@@ -638,22 +638,38 @@ function OpsConsole({
                     <div className="account-menu-actions">
                       <button
                         type="button"
-                        className="is-cancel"
+                        className="account-menu-img-btn"
                         role="menuitem"
+                        aria-label="Cancel"
                         onClick={() => setSignOutConfirm(false)}
                       >
-                        Cancel
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src="/ops-signout-cancel.png"
+                          alt=""
+                          width={1161}
+                          height={261}
+                          draggable={false}
+                        />
                       </button>
                       <button
                         type="button"
+                        className="account-menu-img-btn"
                         role="menuitem"
+                        aria-label="Sign out"
                         onClick={() => {
                           setAccountMenuOpen(false);
                           void signOut(getFirebaseAuth());
                         }}
                       >
-                        <LogOut size={15} aria-hidden />
-                        Sign out
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src="/ops-signout-confirm.png"
+                          alt=""
+                          width={1171}
+                          height={269}
+                          draggable={false}
+                        />
                       </button>
                     </div>
                   </>

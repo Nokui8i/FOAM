@@ -272,17 +272,35 @@
 .admin-page .account-menu-actions {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 8px;
+  gap: 6px;
   margin-top: 10px;
 }
-.admin-page .account-menu-actions button {
+.admin-page .account-menu-actions .account-menu-img-btn {
   margin-top: 0;
-  justify-content: center;
-  white-space: nowrap;
+  padding: 0;
+  min-height: 0;
+  display: block;
+  width: 100%;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
+  line-height: 0;
+  cursor: pointer;
+  overflow: hidden;
 }
-.admin-page .account-menu-actions button.is-cancel {
-  color: var(--ops-ink);
-  background: #eef3f8;
+.admin-page .account-menu-actions .account-menu-img-btn img {
+  display: block;
+  width: 100%;
+  height: auto;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+.admin-page .account-menu-actions .account-menu-img-btn:hover {
+  filter: brightness(1.04);
+}
+.admin-page .account-menu-actions .account-menu-img-btn:active {
+  filter: brightness(0.97);
 }
 
 /* Queue */
