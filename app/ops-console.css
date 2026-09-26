@@ -254,21 +254,26 @@
   box-shadow: 0 20px 35px -14px rgba(22,50,74,.6);
 }
 .admin-page .account-menu:has(.account-menu-confirm) {
-  padding: 12px 10px 10px;
-  min-width: 188px;
+  padding: 0;
+  min-width: 196px;
+  background: transparent;
+  box-shadow: none;
+  border-radius: 0;
 }
 .admin-page .account-menu strong { font-size: 13px; }
 .admin-page .account-menu-confirm {
   display: grid;
-  gap: 8px;
+  gap: 6px;
   justify-items: stretch;
 }
 .admin-page .account-menu-confirm > strong {
   padding-inline: 4px;
+  color: #fff;
   font-size: 14px;
   font-weight: 800;
   letter-spacing: -0.01em;
   text-align: center;
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.35);
 }
 .admin-page .account-menu span { color: var(--ops-muted); font-size: 11px; overflow-wrap: anywhere; }
 .admin-page .account-menu button {
