@@ -53,7 +53,7 @@ export default function Home() {
                     top: `${-(start / height) * 100}%`,
                   }}
                 />
-                {index > 0 && (
+                {index > 0 && index !== 4 && (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src="/home-mockup-mobile-v22.png"
