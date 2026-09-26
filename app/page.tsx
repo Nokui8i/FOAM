@@ -13,9 +13,9 @@ const MOBILE_PANELS = [
   { start: 0, end: 2790, shortBlend: false },
   { start: 2790, end: 5217, shortBlend: false },
   { start: 5217, end: 6817, shortBlend: false },
-  { start: 6817, end: 9561, shortBlend: false },
-  // Pricing panel — no top shortBlend (avoids ghost headline at the seam).
-  { start: 9561, end: 11869, shortBlend: false },
+  { start: 6817, end: 9320, shortBlend: false },
+  // Full gen-mobile-05 pricing replacement (includes former header above 9561).
+  { start: 9320, end: 11869, shortBlend: false },
   { start: 11869, end: MOBILE_ARTWORK_HEIGHT, shortBlend: true },
 ] as const;
 
@@ -39,13 +39,13 @@ export default function Home() {
             return (
               <div
                 key={start}
-                className={`${styles.mobilePanel} ${index > 0 ? styles.mobileBlend : ""} ${shortBlend ? styles.mobileShortBlend : ""}`}
+                className={`${styles.mobilePanel} ${index > 0 && index !== 4 ? styles.mobileBlend : ""} ${shortBlend ? styles.mobileShortBlend : ""}`}
                 style={{ aspectRatio: `1440 / ${height}` }}
                 aria-hidden="true"
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src="/home-mockup-mobile-v23.png"
+                  src="/home-mockup-mobile-v24.png"
                   alt=""
                   width={1440}
                   height={MOBILE_ARTWORK_HEIGHT}
@@ -57,7 +57,7 @@ export default function Home() {
                 {index > 0 && index !== 4 && (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
-                    src="/home-mockup-mobile-v23.png"
+                    src="/home-mockup-mobile-v24.png"
                     alt=""
                     width={1440}
                     height={MOBILE_ARTWORK_HEIGHT}

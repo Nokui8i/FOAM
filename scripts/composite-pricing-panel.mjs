@@ -6,7 +6,7 @@ const MOB_BLANK = "preview-sections/gen-mobile-05-pricing.png";
 const DESK_BASE = "public/home-mockup-desktop-v21.png";
 const DESK_OUT = "public/home-mockup-desktop-v24";
 const MOB_BASE = "public/home-mockup-mobile-v18.png";
-const MOB_OUT = "public/home-mockup-mobile-v23";
+const MOB_OUT = "public/home-mockup-mobile-v24";
 
 function applyEdgeFade(rgba, w, h, fadeTop, fadeBot) {
   for (let y = 0; y < h; y++) {
@@ -74,24 +74,36 @@ async function buildDesktop() {
 async function buildMobile() {
   const meta = await sharp(MOB_BASE).metadata();
   const w = meta.width;
-  const start = 9561;
+  // Old mockup already drew "SIMPLE PRICING" above 9561 — replace from there
+  // so gen-mobile-05 fully deletes the previous pricing art.
+  const start = 9320;
   const end = 11869;
   const band = end - start;
-  // Soft blend only into the next panel — never stamp above `start`
-  // (a top fade was duplicating SIMPLE PRICING across the seam).
-  const fadeBot = Math.round(band * 0.05);
+  const fadeBot = Math.round(band * 0.04);
   const top = start;
   const span = band + fadeBot;
 
   const blankMeta = await sharp(MOB_BLANK).metadata();
+  // Opaque white buffer — full replace, no leftover base pixels showing through.
   const rgba = Buffer.alloc(w * span * 4, 255);
 
   const art = await sharp(MOB_BLANK)
-    .resize(w, band, { fit: "cover", position: "centre" })
+    .resize(w, band, { fit: "cover", position: "top" })
     .ensureAlpha()
     .raw()
     .toBuffer({ resolveWithObject: true });
-  stamp(rgba, w, art.data, w, band, 0, 0);
+
+  // Hard overwrite (ignore source alpha holes).
+  for (let y = 0; y < band; y++) {
+    for (let x = 0; x < w; x++) {
+      const si = (y * w + x) * 4;
+      const di = (y * w + x) * 4;
+      rgba[di] = art.data[si];
+      rgba[di + 1] = art.data[si + 1];
+      rgba[di + 2] = art.data[si + 2];
+      rgba[di + 3] = 255;
+    }
+  }
   applyEdgeFade(rgba, w, span, 0, fadeBot);
 
   const overlay = await sharp(rgba, {
@@ -109,7 +121,7 @@ async function buildMobile() {
   await sharp(composed)
     .jpeg({ quality: 88, mozjpeg: true })
     .toFile(`${MOB_OUT}.jpg`);
-  console.log("mobile", MOB_OUT, { w, top, span, fadeBot, blankMeta });
+  console.log("mobile", MOB_OUT, { w, start, end, band, span, fadeBot, blankMeta });
 }
 
 const only = process.argv[2];

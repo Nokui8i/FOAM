@@ -72,18 +72,18 @@ const DESKTOP_BOXES: Record<CardKey, BoxGeom> = {
   },
 };
 
-/** Stacked cards measured on the pricing band (9561–11869). */
+/** Stacked cards on full gen-mobile-05 pricing band. */
 const MOBILE_BOXES: Record<CardKey, BoxGeom> = {
   weekly: {
-    left: "22.87%",
+    left: "20.04%",
     top: "9.29%",
-    width: "54.26%",
+    width: "59.93%",
     height: "19.44%",
   },
   ondemand: {
-    left: "23.43%",
+    left: "20.65%",
     top: "30.21%",
-    width: "53.43%",
+    width: "59%",
     height: "18.84%",
   },
 };
