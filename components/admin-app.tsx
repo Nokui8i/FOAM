@@ -347,20 +347,9 @@ function AdminAppInner() {
   }
 
   const consoleReady = Boolean(user && allowed);
-  const pageKey = !authReady
-    ? "auth"
-    : !user
-      ? "login"
-      : !allowed
-        ? "denied"
-        : tab;
 
   return (
-    <OpsBootProvider
-      authReady={authReady}
-      consoleReady={consoleReady}
-      pageKey={pageKey}
-    >
+    <OpsBootProvider authReady={authReady} consoleReady={consoleReady}>
       {!authReady ? null : !user ? (
       <main className="ops-login">
         <section className="ops-login-form-pane">
@@ -472,7 +461,10 @@ function AdminAppInner() {
             <Button
               type="button"
               variant="outline"
-              onClick={() => void signOut(getFirebaseAuth())}
+              onClick={() => {
+                if (!window.confirm("Are you sure you want to sign out?")) return;
+                void signOut(getFirebaseAuth());
+              }}
             >
               Sign out
             </Button>
@@ -640,6 +632,9 @@ function OpsConsole({
                   type="button"
                   role="menuitem"
                   onClick={() => {
+                    if (!window.confirm("Are you sure you want to sign out?")) {
+                      return;
+                    }
                     setAccountMenuOpen(false);
                     void signOut(getFirebaseAuth());
                   }}
