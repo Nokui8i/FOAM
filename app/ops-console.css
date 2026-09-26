@@ -271,13 +271,14 @@
 }
 .admin-page .account-menu-actions {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr;
   gap: 8px;
   margin-top: 10px;
 }
 .admin-page .account-menu-actions button {
   margin-top: 0;
   justify-content: center;
+  white-space: nowrap;
 }
 .admin-page .account-menu-actions button.is-cancel {
   color: var(--ops-ink);
