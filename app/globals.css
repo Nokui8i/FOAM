@@ -5137,34 +5137,71 @@
   pointer-events: none;
 }
 
-.home-price-cover {
+.home-price-box {
   position: absolute;
-  z-index: 1;
-  background: #fff;
-}
-
-.home-price-text {
-  position: absolute;
-  z-index: 2;
   display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: flex-start;
-  margin: 0;
-  padding: 0;
+  justify-content: center;
+  text-align: center;
   box-sizing: border-box;
-  background: transparent;
+  padding: 4% 5% 5%;
   font-family: var(--font-display);
-  line-height: 1;
-  letter-spacing: -0.045em;
-  white-space: nowrap;
-  overflow: hidden;
+  line-height: 1.05;
 }
 
-.home-price-text.is-feeWeekly,
-.home-price-text.is-feeOndemand,
-.home-price-text.is-minimum {
-  letter-spacing: -0.02em;
+.home-price-box.is-weekly {
+  color: #00004b;
 }
+
+.home-price-box.is-ondemand {
+  color: #0079fe;
+}
+
+.home-price-box-amount {
+  margin: 0;
+  font-weight: 800;
+  font-size: clamp(2.4rem, 8.6cqh, 7.2rem);
+  letter-spacing: -0.04em;
+  line-height: 0.95;
+}
+
+.home-price-box-dollar {
+  font-size: 0.72em;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  margin-inline-end: 0.02em;
+}
+
+.home-price-box-unit {
+  margin: 0.35em 0 0;
+  font-weight: 500;
+  font-size: clamp(0.7rem, 2.15cqh, 1.55rem);
+  letter-spacing: -0.01em;
+  line-height: 1.1;
+}
+
+.home-price-box-title {
+  margin: 0.7em 0 0;
+  font-weight: 700;
+  font-size: clamp(0.95rem, 3.15cqh, 2.15rem);
+  letter-spacing: -0.025em;
+  line-height: 1.12;
+}
+
+.home-price-box-fee {
+  margin: 0.85em 0 0;
+  font-weight: 500;
+  font-size: clamp(0.58rem, 1.7cqh, 1.15rem);
+  letter-spacing: -0.01em;
+  line-height: 1.25;
+}
+
+/* Container queries against each card box */
+.home-price-box {
+  container-type: size;
+}
+
 
 @media (min-width: 640px) {
   .home-full {
