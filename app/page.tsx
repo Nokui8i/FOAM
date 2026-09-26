@@ -6,8 +6,11 @@ import { SiteFooter } from "@/components/site-footer";
 import { BOOKING_PATH } from "@/lib/site-config";
 import styles from "./desktop-panorama.module.css";
 
-const STICKY_BOOK_BTN_SRC = encodeURI(
+const STICKY_BOOK_BTN_DESKTOP_SRC = encodeURI(
   "/ChatGPT Image Sep 26, 2026, 12_18_21 PM.png"
+);
+const STICKY_BOOK_BTN_MOBILE_SRC = encodeURI(
+  "/ChatGPT Image Sep 26, 2026, 12_23_30 PM.png"
 );
 
 const MOBILE_ARTWORK_HEIGHT = 13469;
@@ -110,8 +113,17 @@ export default function Home() {
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            className="home-sticky-book-img"
-            src={STICKY_BOOK_BTN_SRC}
+            className="home-sticky-book-img home-sticky-book-img--mobile"
+            src={STICKY_BOOK_BTN_MOBILE_SRC}
+            alt=""
+            width={2138}
+            height={736}
+            draggable={false}
+          />
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            className="home-sticky-book-img home-sticky-book-img--desktop"
+            src={STICKY_BOOK_BTN_DESKTOP_SRC}
             alt=""
             width={1967}
             height={800}
