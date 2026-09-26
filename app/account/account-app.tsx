@@ -16,12 +16,14 @@ import {
   ChevronDown,
   CreditCard,
   LogOut,
+  Package,
+  Settings2,
+  UserRound,
 } from "lucide-react";
 
 import { AddressAutocomplete } from "@/components/address-autocomplete";
 import { AccountOrders } from "@/components/account-orders";
 import { OptionSheet } from "@/components/option-sheet";
-import { Button } from "@/components/ui/button";
 import { useAuth } from "@/components/auth-provider";
 import { GoogleSignInButton } from "@/components/google-sign-in-button";
 import { useQueryReplace } from "@/lib/use-query-replace";
@@ -74,8 +76,17 @@ function parseAccountTab(raw: string | null): TabName {
   return match?.[0] ?? "Details";
 }
 
-const inputClass =
-  "h-9 w-full rounded-md border border-border bg-white px-3 text-sm text-foreground outline-none transition placeholder:text-muted-foreground/70 hover:border-muted-foreground/50 focus:border-accent-strong focus:ring-2 focus:ring-accent-strong/15 disabled:cursor-not-allowed disabled:border-border disabled:bg-muted/70 disabled:text-muted-foreground";
+const inputClass = "account-ops-control";
+
+const TAB_META: Record<
+  TabName,
+  { icon: typeof UserRound; label: string }
+> = {
+  Details: { icon: UserRound, label: "Details" },
+  Preferences: { icon: Settings2, label: "Preferences" },
+  Orders: { icon: Package, label: "Orders" },
+  Payments: { icon: CreditCard, label: "Payments" },
+};
 
 function AccountProfile({
   uid,
@@ -295,452 +306,450 @@ function AccountProfile({
   }
 
   return (
-    <section className="mx-auto flex w-full max-w-3xl flex-col rounded-lg border border-border bg-white">
-      <header className="shrink-0 border-b border-border px-4 py-4 sm:px-5 sm:py-4">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="min-w-0">
-            <h1 className="font-display text-xl font-semibold leading-tight tracking-tight sm:text-2xl">
-              Hello{profile.name.trim() ? ` ${profile.name.trim()}` : ""}
-            </h1>
+    <div className="account-ops-shell">
+      <div className="account-ops-frame">
+        <aside className="account-ops-rail" aria-label="Account sections">
+          <div className="account-ops-brand">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/foam-ops-logo-on-dark.png"
+              alt="FOAM"
+              width={217}
+              height={72}
+            />
+            <small>ACCOUNT</small>
           </div>
-          <div className="flex shrink-0 flex-wrap gap-2">
-            <Button size="sm" className="flex-1 sm:flex-none" asChild>
-              <Link href={BOOKING_PATH}>
-                Book a Pickup <ArrowRight />
-              </Link>
-            </Button>
-            {isAdmin ? (
-              <Button size="sm" className="flex-1 sm:flex-none" variant="outline" asChild>
-                <Link href="/admin">Admin</Link>
-              </Button>
-            ) : null}
-            <Button
-              size="sm"
-              className="flex-1 sm:flex-none"
-              variant="outline"
+
+          <div
+            className="account-ops-nav"
+            role="tablist"
+            aria-label="Account sections"
+          >
+            {tabs.map((tab, index) => {
+              const isActive = activeTab === tab;
+              const Icon = TAB_META[tab].icon;
+              return (
+                <button
+                  key={tab}
+                  id={`tab-${tab.toLowerCase()}`}
+                  type="button"
+                  role="tab"
+                  aria-selected={isActive}
+                  aria-controls={`panel-${tab.toLowerCase()}`}
+                  tabIndex={isActive ? 0 : -1}
+                  onClick={() => chooseTab(tab)}
+                  onKeyDown={(event) => handleTabKeyDown(event, index)}
+                  className={cn("account-ops-nav-btn", isActive && "is-active")}
+                >
+                  <Icon aria-hidden />
+                  <span>{TAB_META[tab].label}</span>
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="account-ops-rail-foot">
+            <span className="account-ops-rail-email">{email}</span>
+            <button
               type="button"
+              className="account-ops-rail-signout"
               onClick={onSignOut}
             >
-              <LogOut /> Sign out
-            </Button>
+              <LogOut size={14} aria-hidden />
+              Sign out
+            </button>
           </div>
-        </div>
-      </header>
+        </aside>
 
-      <div className="shrink-0 px-4 pt-3 sm:px-5 sm:pt-4">
-        <div
-          className="grid grid-cols-4 gap-0.5 rounded-md bg-muted p-0.5"
-          role="tablist"
-          aria-label="Account sections"
-        >
-          {tabs.map((tab, index) => {
-            const isActive = activeTab === tab;
-            return (
-              <button
-                key={tab}
-                id={`tab-${tab.toLowerCase()}`}
-                type="button"
-                role="tab"
-                aria-selected={isActive}
-                aria-controls={`panel-${tab.toLowerCase()}`}
-                tabIndex={isActive ? 0 : -1}
-                onClick={() => chooseTab(tab)}
-                onKeyDown={(event) => handleTabKeyDown(event, index)}
-                className={cn(
-                  "min-h-9 min-w-0 rounded px-1 text-[11px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 sm:px-2.5 sm:text-sm",
-                  isActive
-                    ? "bg-accent-strong text-white shadow-sm"
-                    : "text-muted-foreground hover:bg-white/80 hover:text-foreground"
-                )}
-              >
-                {tab}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      <div ref={panelRef} className="px-4 py-5 sm:px-5 sm:py-5">
-        {activeTab === "Details" ? (
-          <form
-            id="panel-details"
-            role="tabpanel"
-            aria-labelledby="tab-details"
-            onSubmit={(event) => saveProfile(event, "details")}
-          >
-            <PanelIntro
-              title="Personal details"
-              helper="Contact and pickup address — reused on future bookings."
-            />
-            <div
-              className={cn(
-                "mt-4 rounded-lg border p-4",
-                profile.weeklyRepeatEnabled
-                  ? "border-teal-200 bg-teal-50/80"
-                  : "border-border bg-white"
-              )}
-            >
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                <div className="min-w-0">
-                  <p className="text-sm font-semibold text-foreground">
-                    Weekly repeat pickup
-                  </p>
-                  <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-                    {profile.weeklyRepeatEnabled
-                      ? "Active — same day & time every week at $2.35/lb + $5 service fee. Your next automated pickup includes 10% off."
-                      : "Weekly is only started when you book a pickup and turn on “Make this a repeat pickup”. After that, the next automated order gets 10% off."}
-                  </p>
-                </div>
-                {profile.weeklyRepeatEnabled ? (
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    className="shrink-0 border-teal-300 bg-white text-teal-900 hover:bg-teal-50"
-                    disabled={weeklyBusy || saving}
-                    onClick={() => void cancelWeeklyRepeat()}
-                  >
-                    {weeklyBusy ? "Cancelling…" : "Cancel weekly"}
-                  </Button>
-                ) : (
-                  <Button
-                    type="button"
-                    size="sm"
-                    className="shrink-0"
-                    asChild
-                  >
-                    <Link href={BOOKING_PATH}>Book to enable</Link>
-                  </Button>
-                )}
-              </div>
-              {profile.weeklyRepeatEnabled ? (
-                <p className="mt-3 text-xs font-medium text-amber-800">
-                  Cancelling stops future automated pickups and removes the 10%
-                  discount on the next automated order.
-                </p>
+        <section className="account-ops-plane">
+          <header className="account-ops-plane-head">
+            <h1>
+              Hello
+              {profile.name.trim() ? ` ${profile.name.trim()}` : ""}
+            </h1>
+            <div className="account-ops-plane-actions">
+              <Link href={BOOKING_PATH} className="account-ops-btn is-primary">
+                Book a Pickup <ArrowRight />
+              </Link>
+              {isAdmin ? (
+                <Link href="/ops" className="account-ops-btn is-ghost">
+                  OPS
+                </Link>
               ) : null}
-              {weeklyNote || weeklyBusy ? (
-                <p
+              <button
+                type="button"
+                className="account-ops-btn is-ghost"
+                onClick={onSignOut}
+              >
+                <LogOut /> Sign out
+              </button>
+            </div>
+          </header>
+
+          <div className="account-ops-mobile-actions">
+            <span className="account-ops-rail-email">{email}</span>
+          </div>
+
+          <div ref={panelRef} className="account-ops-plane-body">
+            {activeTab === "Details" ? (
+              <form
+                id="panel-details"
+                role="tabpanel"
+                aria-labelledby="tab-details"
+                onSubmit={(event) => saveProfile(event, "details")}
+              >
+                <PanelIntro
+                  title="Personal details"
+                  helper="Contact and pickup address — reused on future bookings."
+                />
+                <div
                   className={cn(
-                    "mt-2 text-xs font-medium",
-                    profile.weeklyRepeatEnabled
-                      ? "text-teal-800"
-                      : "text-muted-foreground"
+                    "account-ops-weekly",
+                    profile.weeklyRepeatEnabled && "is-active"
                   )}
                 >
-                  {weeklyBusy ? "Updating…" : weeklyNote}
-                </p>
-              ) : null}
-            </div>
-            <div className="mt-4 grid gap-x-3 gap-y-3 sm:grid-cols-2">
-              <Field label="Full name">
-                <input
-                  className={inputClass}
-                  autoComplete="name"
-                  required
-                  value={profile.name}
-                  onChange={(e) =>
-                    setProfile({ ...profile, name: e.target.value })
-                  }
-                />
-              </Field>
-              <Field label="Email">
-                <input
-                  className={inputClass}
-                  type="email"
-                  autoComplete="email"
-                  value={email}
-                  disabled
-                  readOnly
-                />
-              </Field>
-              <Field label="Phone">
-                <input
-                  className={inputClass}
-                  type="tel"
-                  autoComplete="tel"
-                  value={profile.phone}
-                  onChange={(e) =>
-                    setProfile({ ...profile, phone: e.target.value })
-                  }
-                />
-              </Field>
-              <Field label="Street address" wide>
-                <AddressAutocomplete
-                  className={inputClass}
-                  value={profile.address}
-                  onAddressChange={(address) =>
-                    setProfile({ ...profile, address })
-                  }
-                  onPlaceSelect={(place) =>
-                    setProfile({
-                      ...profile,
-                      address: place.address,
-                      city: LAS_VEGAS_CITY,
-                      zip: place.zip || profile.zip,
-                      unit: place.unit || profile.unit,
-                    })
-                  }
-                />
-              </Field>
-              <Field label="Apt / unit">
-                <input
-                  className={inputClass}
-                  autoComplete="address-line2"
-                  value={profile.unit}
-                  onChange={(e) =>
-                    setProfile({ ...profile, unit: e.target.value })
-                  }
-                />
-              </Field>
-              <Field label="City">
-                <input
-                  className={inputClass}
-                  value={LAS_VEGAS_CITY}
-                  readOnly
-                  aria-readonly="true"
-                />
-              </Field>
-              <Field label="ZIP">
-                <input
-                  className={inputClass}
-                  inputMode="numeric"
-                  autoComplete="postal-code"
-                  placeholder="891xx"
-                  value={profile.zip}
-                  onChange={(e) =>
-                    setProfile({ ...profile, zip: e.target.value })
-                  }
-                />
-              </Field>
-              <Field label="Access notes" wide>
-                <textarea
-                  className={`${inputClass} min-h-20 resize-y py-2`}
-                  placeholder="Gate code, leave at door, building manager…"
-                  value={profile.pickupNotes}
-                  onChange={(e) =>
-                    setProfile({ ...profile, pickupNotes: e.target.value })
-                  }
-                />
-              </Field>
-            </div>
-            {error ? (
-              <p className="mt-4 text-sm font-medium text-destructive">{error}</p>
+                  <div className="account-ops-weekly-row">
+                    <div>
+                      <h3>Weekly repeat pickup</h3>
+                      <p>
+                        {profile.weeklyRepeatEnabled
+                          ? "Active — same day & time every week at $2.35/lb + $5 service fee. Your next automated pickup includes 10% off."
+                          : "Weekly is only started when you book a pickup and turn on “Make this a repeat pickup”. After that, the next automated order gets 10% off."}
+                      </p>
+                    </div>
+                    {profile.weeklyRepeatEnabled ? (
+                      <button
+                        type="button"
+                        className="account-ops-btn is-ghost"
+                        disabled={weeklyBusy || saving}
+                        onClick={() => void cancelWeeklyRepeat()}
+                      >
+                        {weeklyBusy ? "Cancelling…" : "Cancel weekly"}
+                      </button>
+                    ) : (
+                      <Link
+                        href={BOOKING_PATH}
+                        className="account-ops-btn is-primary"
+                      >
+                        Book to enable
+                      </Link>
+                    )}
+                  </div>
+                  {profile.weeklyRepeatEnabled ? (
+                    <p className="account-ops-weekly-warn">
+                      Cancelling stops future automated pickups and removes the
+                      10% discount on the next automated order.
+                    </p>
+                  ) : null}
+                  {weeklyNote || weeklyBusy ? (
+                    <p className="account-ops-weekly-status">
+                      {weeklyBusy ? "Updating…" : weeklyNote}
+                    </p>
+                  ) : null}
+                </div>
+                <div className="account-ops-grid">
+                  <Field label="Full name">
+                    <input
+                      className={inputClass}
+                      autoComplete="name"
+                      required
+                      value={profile.name}
+                      onChange={(e) =>
+                        setProfile({ ...profile, name: e.target.value })
+                      }
+                    />
+                  </Field>
+                  <Field label="Email">
+                    <input
+                      className={inputClass}
+                      type="email"
+                      autoComplete="email"
+                      value={email}
+                      disabled
+                      readOnly
+                    />
+                  </Field>
+                  <Field label="Phone">
+                    <input
+                      className={inputClass}
+                      type="tel"
+                      autoComplete="tel"
+                      value={profile.phone}
+                      onChange={(e) =>
+                        setProfile({ ...profile, phone: e.target.value })
+                      }
+                    />
+                  </Field>
+                  <Field label="Street address" wide>
+                    <AddressAutocomplete
+                      className={inputClass}
+                      value={profile.address}
+                      onAddressChange={(address) =>
+                        setProfile({ ...profile, address })
+                      }
+                      onPlaceSelect={(place) =>
+                        setProfile({
+                          ...profile,
+                          address: place.address,
+                          city: LAS_VEGAS_CITY,
+                          zip: place.zip || profile.zip,
+                          unit: place.unit || profile.unit,
+                        })
+                      }
+                    />
+                  </Field>
+                  <Field label="Apt / unit">
+                    <input
+                      className={inputClass}
+                      autoComplete="address-line2"
+                      value={profile.unit}
+                      onChange={(e) =>
+                        setProfile({ ...profile, unit: e.target.value })
+                      }
+                    />
+                  </Field>
+                  <Field label="City">
+                    <input
+                      className={inputClass}
+                      value={LAS_VEGAS_CITY}
+                      readOnly
+                      aria-readonly="true"
+                    />
+                  </Field>
+                  <Field label="ZIP">
+                    <input
+                      className={inputClass}
+                      inputMode="numeric"
+                      autoComplete="postal-code"
+                      placeholder="891xx"
+                      value={profile.zip}
+                      onChange={(e) =>
+                        setProfile({ ...profile, zip: e.target.value })
+                      }
+                    />
+                  </Field>
+                  <Field label="Access notes" wide>
+                    <textarea
+                      className={inputClass}
+                      placeholder="Gate code, leave at door, building manager…"
+                      value={profile.pickupNotes}
+                      onChange={(e) =>
+                        setProfile({ ...profile, pickupNotes: e.target.value })
+                      }
+                    />
+                  </Field>
+                </div>
+                {error ? <p className="account-ops-error">{error}</p> : null}
+                <SaveRow saved={savedPanel === "details"} saving={saving} />
+              </form>
             ) : null}
-            <SaveRow saved={savedPanel === "details"} saving={saving} />
-          </form>
-        ) : null}
 
-        {activeTab === "Preferences" ? (
-          <form
-            id="panel-preferences"
-            role="tabpanel"
-            aria-labelledby="tab-preferences"
-            onSubmit={(event) => saveProfile(event, "preferences")}
-          >
-            <PanelIntro
-              title="Laundry preferences"
-              helper="Same wash options as when you book — saved as your account defaults."
-            />
-            <div className="mt-4 rounded-lg border border-border bg-muted/40 p-3 sm:p-4">
-              <p className="text-xs text-muted-foreground">
-                These defaults fill the booking form when you&apos;re signed in.
-                You can still change them per order, or tick{" "}
-                <span className="font-semibold text-foreground">
-                  Save as my account defaults
-                </span>{" "}
-                on checkout.
-              </p>
-            </div>
-            <div className="mt-4 grid gap-x-3 gap-y-3 sm:grid-cols-2">
-              {(
-                [
-                  {
-                    key: "pants",
-                    label: "Pants",
-                    options: FOLD_ITEM_OPTIONS,
-                  },
-                  {
-                    key: "dresses",
-                    label: "Dresses",
-                    options: FOLD_ITEM_OPTIONS,
-                  },
-                  {
-                    key: "detergent",
-                    label: "Detergent",
-                    options: DETERGENT_BOOKING_OPTIONS,
-                  },
-                  {
-                    key: "softener",
-                    label: "Softener",
-                    options: SOFTENER_BOOKING_OPTIONS,
-                  },
-                  {
-                    key: "whitesWashTemp",
-                    label: "Whites wash",
-                    options: WASH_TEMP_BOOKING_OPTIONS,
-                  },
-                  {
-                    key: "colorsWashTemp",
-                    label: "Colors wash",
-                    options: WASH_TEMP_BOOKING_OPTIONS,
-                  },
-                  {
-                    key: "whitesDryerHeat",
-                    label: "Whites dryer",
-                    options: DRYER_HEAT_OPTIONS,
-                  },
-                  {
-                    key: "colorsDryerHeat",
-                    label: "Colors dryer",
-                    options: DRYER_HEAT_OPTIONS,
-                  },
-                ] as const
-              ).map((field) => {
-                const prefs =
-                  profile.laundryPrefs ?? resolveLaundryPrefs(profile);
-                const value = prefs[field.key];
-                const imageSrc =
-                  field.key === "detergent"
-                    ? DETERGENT_IMAGES[
-                        value as keyof typeof DETERGENT_IMAGES
-                      ]
-                    : undefined;
-                return (
-                  <Field key={field.key} label={field.label}>
-                    <button
-                      type="button"
-                      className={`${inputClass} flex items-center gap-2.5 pr-3 text-left`}
-                      onClick={() => setPrefPicker(field.key)}
-                    >
-                      {field.key === "detergent" ? (
-                        imageSrc ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img
-                            src={imageSrc}
-                            alt=""
-                            width={28}
-                            height={40}
-                            className="h-10 w-7 shrink-0 object-contain"
-                          />
-                        ) : (
-                          <span
-                            className="inline-block h-10 w-7 shrink-0 rounded bg-muted"
+            {activeTab === "Preferences" ? (
+              <form
+                id="panel-preferences"
+                role="tabpanel"
+                aria-labelledby="tab-preferences"
+                onSubmit={(event) => saveProfile(event, "preferences")}
+              >
+                <PanelIntro
+                  title="Laundry preferences"
+                  helper="Same wash options as when you book — saved as your account defaults."
+                />
+                <div className="account-ops-note">
+                  These defaults fill the booking form when you&apos;re signed
+                  in. You can still change them per order, or tick{" "}
+                  <strong>Save as my account defaults</strong> on checkout.
+                </div>
+                <div className="account-ops-grid">
+                  {(
+                    [
+                      {
+                        key: "pants",
+                        label: "Pants",
+                        options: FOLD_ITEM_OPTIONS,
+                      },
+                      {
+                        key: "dresses",
+                        label: "Dresses",
+                        options: FOLD_ITEM_OPTIONS,
+                      },
+                      {
+                        key: "detergent",
+                        label: "Detergent",
+                        options: DETERGENT_BOOKING_OPTIONS,
+                      },
+                      {
+                        key: "softener",
+                        label: "Softener",
+                        options: SOFTENER_BOOKING_OPTIONS,
+                      },
+                      {
+                        key: "whitesWashTemp",
+                        label: "Whites wash",
+                        options: WASH_TEMP_BOOKING_OPTIONS,
+                      },
+                      {
+                        key: "colorsWashTemp",
+                        label: "Colors wash",
+                        options: WASH_TEMP_BOOKING_OPTIONS,
+                      },
+                      {
+                        key: "whitesDryerHeat",
+                        label: "Whites dryer",
+                        options: DRYER_HEAT_OPTIONS,
+                      },
+                      {
+                        key: "colorsDryerHeat",
+                        label: "Colors dryer",
+                        options: DRYER_HEAT_OPTIONS,
+                      },
+                    ] as const
+                  ).map((field) => {
+                    const prefs =
+                      profile.laundryPrefs ?? resolveLaundryPrefs(profile);
+                    const value = prefs[field.key];
+                    const imageSrc =
+                      field.key === "detergent"
+                        ? DETERGENT_IMAGES[
+                            value as keyof typeof DETERGENT_IMAGES
+                          ]
+                        : undefined;
+                    return (
+                      <Field key={field.key} label={field.label}>
+                        <button
+                          type="button"
+                          className={inputClass}
+                          onClick={() => setPrefPicker(field.key)}
+                        >
+                          {field.key === "detergent" ? (
+                            imageSrc ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img
+                                src={imageSrc}
+                                alt=""
+                                width={28}
+                                height={40}
+                                className="h-10 w-7 shrink-0 object-contain"
+                              />
+                            ) : (
+                              <span
+                                className="inline-block h-10 w-7 shrink-0 rounded"
+                                style={{ background: "var(--ops-surface)" }}
+                                aria-hidden
+                              />
+                            )
+                          ) : null}
+                          <span className="min-w-0 flex-1 truncate">{value}</span>
+                          <ChevronDown
+                            className="size-3.5 shrink-0"
                             aria-hidden
                           />
-                        )
-                      ) : null}
-                      <span className="min-w-0 flex-1 truncate">{value}</span>
-                      <ChevronDown
-                        className="size-3.5 shrink-0 text-muted-foreground"
-                        aria-hidden
-                      />
-                    </button>
+                        </button>
+                      </Field>
+                    );
+                  })}
+                  <Field label="Washing notes" wide>
+                    <textarea
+                      className={inputClass}
+                      placeholder="Stains, mud, delicate items, allergies…"
+                      value={profile.careNotes}
+                      onChange={(e) =>
+                        setProfile({ ...profile, careNotes: e.target.value })
+                      }
+                    />
                   </Field>
-                );
-              })}
-              <Field label="Washing notes" wide>
-                <textarea
-                  className={`${inputClass} min-h-20 resize-y py-2`}
-                  placeholder="Stains, mud, delicate items, allergies…"
-                  value={profile.careNotes}
-                  onChange={(e) =>
-                    setProfile({ ...profile, careNotes: e.target.value })
-                  }
+                </div>
+                {error ? <p className="account-ops-error">{error}</p> : null}
+                <SaveRow
+                  saved={savedPanel === "preferences"}
+                  saving={saving}
                 />
-              </Field>
-            </div>
-            {error ? (
-              <p className="mt-4 text-sm font-medium text-destructive">{error}</p>
+              </form>
             ) : null}
-            <SaveRow saved={savedPanel === "preferences"} saving={saving} />
-          </form>
-        ) : null}
 
-        {prefPicker ? (
-          <OptionSheet
-            title={
-              (
-                {
-                  pants: "Pants",
-                  dresses: "Dresses",
-                  detergent: "Detergent",
-                  softener: "Softener",
-                  whitesWashTemp: "Whites wash",
-                  colorsWashTemp: "Colors wash",
-                  whitesDryerHeat: "Whites dryer",
-                  colorsDryerHeat: "Colors dryer",
-                } as const
-              )[prefPicker]
-            }
-            options={
-              prefPicker === "pants" || prefPicker === "dresses"
-                ? FOLD_ITEM_OPTIONS
-                : prefPicker === "detergent"
-                  ? DETERGENT_BOOKING_OPTIONS
-                  : prefPicker === "softener"
-                    ? SOFTENER_BOOKING_OPTIONS
-                    : prefPicker === "whitesWashTemp" ||
-                        prefPicker === "colorsWashTemp"
-                      ? WASH_TEMP_BOOKING_OPTIONS
-                      : DRYER_HEAT_OPTIONS
-            }
-            value={
-              (profile.laundryPrefs ?? resolveLaundryPrefs(profile))[
-                prefPicker
-              ]
-            }
-            images={
-              prefPicker === "detergent" ? DETERGENT_IMAGES : undefined
-            }
-            onClose={() => setPrefPicker(null)}
-            onSelect={(value) => {
-              const current =
-                profile.laundryPrefs ?? resolveLaundryPrefs(profile);
-              const nextPrefs: LaundryPrefs = {
-                ...current,
-                [prefPicker]: value,
-              };
-              const legacy = legacyFieldsFromLaundryPrefs(nextPrefs);
-              setProfile({
-                ...profile,
-                ...legacy,
-                laundryPrefs: nextPrefs,
-              });
-              setPrefPicker(null);
-            }}
-          />
-        ) : null}
+            {prefPicker ? (
+              <OptionSheet
+                title={
+                  (
+                    {
+                      pants: "Pants",
+                      dresses: "Dresses",
+                      detergent: "Detergent",
+                      softener: "Softener",
+                      whitesWashTemp: "Whites wash",
+                      colorsWashTemp: "Colors wash",
+                      whitesDryerHeat: "Whites dryer",
+                      colorsDryerHeat: "Colors dryer",
+                    } as const
+                  )[prefPicker]
+                }
+                options={
+                  prefPicker === "pants" || prefPicker === "dresses"
+                    ? FOLD_ITEM_OPTIONS
+                    : prefPicker === "detergent"
+                      ? DETERGENT_BOOKING_OPTIONS
+                      : prefPicker === "softener"
+                        ? SOFTENER_BOOKING_OPTIONS
+                        : prefPicker === "whitesWashTemp" ||
+                            prefPicker === "colorsWashTemp"
+                          ? WASH_TEMP_BOOKING_OPTIONS
+                          : DRYER_HEAT_OPTIONS
+                }
+                value={
+                  (profile.laundryPrefs ?? resolveLaundryPrefs(profile))[
+                    prefPicker
+                  ]
+                }
+                images={
+                  prefPicker === "detergent" ? DETERGENT_IMAGES : undefined
+                }
+                onClose={() => setPrefPicker(null)}
+                onSelect={(value) => {
+                  const current =
+                    profile.laundryPrefs ?? resolveLaundryPrefs(profile);
+                  const nextPrefs: LaundryPrefs = {
+                    ...current,
+                    [prefPicker]: value,
+                  };
+                  const legacy = legacyFieldsFromLaundryPrefs(nextPrefs);
+                  setProfile({
+                    ...profile,
+                    ...legacy,
+                    laundryPrefs: nextPrefs,
+                  });
+                  setPrefPicker(null);
+                }}
+              />
+            ) : null}
 
-        {activeTab === "Orders" ? <AccountOrders uid={uid} /> : null}
+            {activeTab === "Orders" ? <AccountOrders uid={uid} /> : null}
 
-        {activeTab === "Payments" ? (
-          <EmptyState
-            id="panel-payments"
-            labelledBy="tab-payments"
-            icon={<CreditCard />}
-            title="Payments"
-            text="Invoices and card-on-file details will appear here once billing is connected. For now, payment setup happens with your first order."
-          >
-            <Button variant="secondary" asChild>
-              <Link href="/specialty">
-                View fees &amp; policies <ArrowRight />
-              </Link>
-            </Button>
-          </EmptyState>
-        ) : null}
+            {activeTab === "Payments" ? (
+              <EmptyState
+                id="panel-payments"
+                labelledBy="tab-payments"
+                icon={<CreditCard />}
+                title="Payments"
+                text="Invoices and card-on-file details will appear here once billing is connected. For now, payment setup happens with your first order."
+              >
+                <Link href="/specialty" className="account-ops-btn is-ghost">
+                  View fees &amp; policies <ArrowRight />
+                </Link>
+              </EmptyState>
+            ) : null}
+          </div>
+        </section>
       </div>
-    </section>
+    </div>
   );
 }
 
+
 function PanelIntro({ title, helper }: { title: string; helper: string }) {
   return (
-    <div>
-      <h2 className="font-display text-lg font-semibold tracking-tight">{title}</h2>
-      <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-        {helper}
-      </p>
+    <div className="account-ops-intro">
+      <h2>{title}</h2>
+      <p>{helper}</p>
     </div>
   );
 }
@@ -755,12 +764,7 @@ function Field({
   children: ReactNode;
 }) {
   return (
-    <label
-      className={cn(
-        "grid gap-1.5 text-[13px] font-semibold text-foreground/90",
-        wide && "sm:col-span-2"
-      )}
-    >
+    <label className={cn("account-ops-field", wide && "is-wide")}>
       <span>{label}</span>
       {children}
     </label>
@@ -805,21 +809,18 @@ function SelectField({
 
 function SaveRow({ saved, saving }: { saved: boolean; saving: boolean }) {
   return (
-    <div className="mt-5 flex min-h-9 flex-wrap items-center gap-3 border-t border-border pt-4">
-      <Button type="submit" disabled={saving}>
+    <div className="account-ops-save-row">
+      <button type="submit" className="account-ops-btn is-primary" disabled={saving}>
         {saving ? "Saving..." : "Save settings"}
-      </Button>
+      </button>
       <p
-        className={cn(
-          "flex items-center gap-1.5 text-sm font-medium text-accent-strong transition-opacity",
-          saved ? "opacity-100" : "pointer-events-none opacity-0"
-        )}
+        className={cn("account-ops-saved", saved && "is-on")}
         role="status"
         aria-live="polite"
       >
-        <span className="grid size-4 place-items-center rounded-full bg-accent">
+        <span className="account-ops-saved-dot">
           <Check className="size-2.5" strokeWidth={3} />
-        </span>{" "}
+        </span>
         Settings saved.
       </p>
     </div>
@@ -846,16 +847,12 @@ function EmptyState({
       id={id}
       role="tabpanel"
       aria-labelledby={labelledBy}
-      className="flex min-h-72 flex-col items-center justify-center py-5 text-center"
+      className="account-ops-empty"
     >
-      <div className="grid size-11 place-items-center rounded-md bg-accent text-accent-foreground [&_svg]:size-5">
-        {icon}
-      </div>
-      <h2 className="mt-4 font-display text-lg font-semibold sm:text-xl">{title}</h2>
-      <p className="mt-2 max-w-md text-sm leading-6 text-muted-foreground">
-        {text}
-      </p>
-      <div className="mt-4">{children}</div>
+      <div className="account-ops-empty-icon">{icon}</div>
+      <h2>{title}</h2>
+      <p>{text}</p>
+      <div>{children}</div>
     </section>
   );
 }
@@ -959,14 +956,24 @@ export function AccountApp() {
     "flex min-h-12 w-full touch-manipulation items-center justify-center rounded-xl bg-white px-4 py-3.5 text-base font-semibold text-gray-700 shadow-sm ring-1 ring-gray-200 transition hover:bg-gray-50 active:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 sm:min-h-0 sm:rounded-lg sm:py-3 sm:shadow-md sm:ring-0";
 
   return (
-    <div className="foam-login-mobile relative z-20 mx-auto w-full max-w-md">
-      <div className="relative z-20 border-0 bg-transparent px-1 py-2 sm:rounded-3xl sm:border sm:border-gray-200 sm:bg-white sm:px-8 sm:py-10 sm:shadow-xl">
-        <div className="mx-auto w-full">
-          <h1 className="text-center font-display text-[2rem] font-extrabold tracking-tight text-black sm:text-[1.85rem]">
-            {mode === "signin" ? "LOGIN" : "SIGN UP"}
-          </h1>
+    <div className="account-ops-auth">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        className="account-ops-auth-mark"
+        src="/foam-ops-logo.png"
+        alt="FOAM"
+        width={217}
+        height={72}
+      />
+      <p className="ops-eyebrow">ACCOUNT</p>
+      <h1>{mode === "signin" ? "Good to see you." : "Create account"}</h1>
+      <p className="account-ops-auth-lead">
+        {mode === "signin"
+          ? "Sign in to manage pickups, preferences, and past orders."
+          : "Join FOAM to save your laundry preferences and book faster."}
+      </p>
 
-          <form id="foam-auth-form" className="mt-6 sm:mt-5" onSubmit={handleSubmit}>
+          <form id="foam-auth-form" className="mt-2" onSubmit={handleSubmit}>
             {mode === "signup" ? (
               <label
                 className="mb-1 block text-sm font-semibold text-gray-600"
@@ -1088,7 +1095,7 @@ export function AccountApp() {
               type="submit"
               form="foam-auth-form"
               disabled={busy || oauthBusy}
-              className="min-h-12 w-full touch-manipulation rounded-xl bg-blue-600 px-4 py-3.5 text-center text-base font-semibold text-white shadow-md transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-0 sm:rounded-lg sm:py-3"
+              className="account-ops-btn is-primary min-h-12 w-full"
             >
               {busy || oauthBusy
                 ? "Please wait..."
@@ -1112,8 +1119,6 @@ export function AccountApp() {
             </button>
             <span className="w-1/5 border-b border-gray-300 md:w-1/4" />
           </div>
-        </div>
-      </div>
     </div>
   );
 }
