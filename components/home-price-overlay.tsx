@@ -1,13 +1,6 @@
 "use client";
 
-import {
-  useEffect,
-  useRef,
-  useState,
-  type PointerEvent as ReactPointerEvent,
-  type ReactNode,
-} from "react";
-import { createPortal } from "react-dom";
+import { useEffect, useState, type ReactNode } from "react";
 
 import {
   DEFAULT_LAUNDRY_RATES,
@@ -104,278 +97,60 @@ const DESKTOP_MIN_LAYOUT: LineLayout = {
   cqh: 3.4,
 };
 
-const MOBILE_MIN_STORAGE_KEY = "foam-pricing-min-layout-mobile-v1";
-const MOBILE_MIN_DBUG_KEY = "foam-pricing-min-dbug-mobile";
-
-const MOBILE_MIN_DEFAULT_LAYOUT: LineLayout = {
+/** Locked mobile minimum-order line. */
+const MOBILE_MIN_LAYOUT: LineLayout = {
   top: 54,
   x: 0,
   cqh: 2.8,
-};
-
-const LINE_LABELS: Record<LineKey, string> = {
-  amount: "Price",
-  unit: "Unit",
-  title: "Title",
-  fee: "Fee",
 };
 
 function money(n: number) {
   return n.toFixed(2);
 }
 
-function clamp(n: number, min: number, max: number) {
-  return Math.min(max, Math.max(min, n));
-}
-
-function loadMobileMinLayout(): LineLayout {
-  try {
-    const raw = localStorage.getItem(MOBILE_MIN_STORAGE_KEY);
-    if (!raw) return { ...MOBILE_MIN_DEFAULT_LAYOUT };
-    const parsed = JSON.parse(raw) as Partial<LineLayout>;
-    return {
-      top: Number.isFinite(parsed.top)
-        ? parsed.top!
-        : MOBILE_MIN_DEFAULT_LAYOUT.top,
-      x: Number.isFinite(parsed.x) ? parsed.x! : MOBILE_MIN_DEFAULT_LAYOUT.x,
-      cqh: Number.isFinite(parsed.cqh)
-        ? parsed.cqh!
-        : MOBILE_MIN_DEFAULT_LAYOUT.cqh,
-    };
-  } catch {
-    return { ...MOBILE_MIN_DEFAULT_LAYOUT };
-  }
-}
-
-function saveMobileMinLayout(layout: LineLayout) {
-  localStorage.setItem(MOBILE_MIN_STORAGE_KEY, JSON.stringify(layout));
-}
-
-function useMobileMinDbug() {
-  const [enabled, setEnabled] = useState(true);
-  const [layout, setLayout] = useState<LineLayout>(MOBILE_MIN_DEFAULT_LAYOUT);
-
-  useEffect(() => {
-    localStorage.setItem(MOBILE_MIN_DBUG_KEY, "1");
-    setEnabled(true);
-    setLayout(loadMobileMinLayout());
-  }, []);
-
-  const patch = (nextPatch: Partial<LineLayout>) => {
-    setLayout((prev) => {
-      const next: LineLayout = {
-        top: Math.round(clamp(nextPatch.top ?? prev.top, 0, 96) * 10) / 10,
-        x: Math.round(clamp(nextPatch.x ?? prev.x, -50, 50) * 10) / 10,
-        cqh: Math.round(clamp(nextPatch.cqh ?? prev.cqh, 1.2, 12) * 10) / 10,
-      };
-      saveMobileMinLayout(next);
-      return next;
-    });
-  };
-
-  const setDbug = (on: boolean) => {
-    setEnabled(on);
-    localStorage.setItem(MOBILE_MIN_DBUG_KEY, on ? "1" : "0");
-  };
-
-  const reset = () => {
-    const fresh = { ...MOBILE_MIN_DEFAULT_LAYOUT };
-    setLayout(fresh);
-    saveMobileMinLayout(fresh);
-  };
-
-  return { enabled, setDbug, layout, patch, reset };
-}
-
 function FreeLine({
-  card,
-  lineKey,
-  enabled,
   layout,
-  onPatch,
   className,
   children,
 }: {
-  card: CardKey;
-  lineKey: LineKey;
-  enabled: boolean;
   layout: LineLayout;
-  onPatch?: (patch: Partial<LineLayout>) => void;
   className: string;
   children: ReactNode;
 }) {
-  const mode = useRef<"move" | "resize" | null>(null);
-  const startX = useRef(0);
-  const startY = useRef(0);
-  const startTop = useRef(0);
-  const startOffX = useRef(0);
-  const startCqh = useRef(0);
-  const boxW = useRef(0);
-  const boxH = useRef(0);
-
-  const begin = (
-    e: ReactPointerEvent<HTMLElement>,
-    nextMode: "move" | "resize"
-  ) => {
-    if (!enabled || !onPatch) return;
-    e.preventDefault();
-    e.stopPropagation();
-    const box = (e.currentTarget as HTMLElement).closest(
-      ".home-price-box"
-    ) as HTMLElement | null;
-    const rect = box?.getBoundingClientRect();
-    boxW.current = rect?.width ?? 0;
-    boxH.current = rect?.height ?? 0;
-    mode.current = nextMode;
-    startX.current = e.clientX;
-    startY.current = e.clientY;
-    startTop.current = layout.top;
-    startOffX.current = layout.x;
-    startCqh.current = layout.cqh;
-    const target = e.currentTarget;
-    target.setPointerCapture(e.pointerId);
-
-    const onMove = (ev: PointerEvent) => {
-      if (!mode.current || !onPatch) return;
-      if (mode.current === "move") {
-        if (!boxW.current || !boxH.current) return;
-        const dx = ((ev.clientX - startX.current) / boxW.current) * 100;
-        const dy = ((ev.clientY - startY.current) / boxH.current) * 100;
-        onPatch({
-          x: startOffX.current + dx,
-          top: startTop.current + dy,
-        });
-      } else {
-        if (!boxH.current) return;
-        const dy = ((ev.clientY - startY.current) / boxH.current) * 100;
-        onPatch({ cqh: startCqh.current + dy });
-      }
-    };
-    const onUp = (ev: PointerEvent) => {
-      mode.current = null;
-      target.releasePointerCapture(ev.pointerId);
-      window.removeEventListener("pointermove", onMove);
-      window.removeEventListener("pointerup", onUp);
-    };
-    window.addEventListener("pointermove", onMove);
-    window.addEventListener("pointerup", onUp);
-  };
-
   return (
     <div
-      className={`home-price-free-line ${enabled ? "is-dbug" : ""}`}
-      data-card={card}
-      data-line={lineKey}
+      className="home-price-free-line"
       style={{
         top: `${layout.top}%`,
         transform: layout.x ? `translateX(${layout.x}%)` : undefined,
       }}
-      onPointerDown={enabled ? (e) => begin(e, "move") : undefined}
     >
       <div className={className} style={{ fontSize: `${layout.cqh}cqh` }}>
         {children}
       </div>
-      {enabled ? (
-        <button
-          type="button"
-          className="home-price-dbug-handle"
-          aria-label={`Resize ${card} ${LINE_LABELS[lineKey]}`}
-          onPointerDown={(e) => begin(e, "resize")}
-        />
-      ) : null}
     </div>
   );
 }
 
 function MinLine({
-  enabled,
   layout,
-  onPatch,
   children,
 }: {
-  enabled: boolean;
   layout: LineLayout;
-  onPatch?: (patch: Partial<LineLayout>) => void;
   children: ReactNode;
 }) {
-  const mode = useRef<"move" | "resize" | null>(null);
-  const startX = useRef(0);
-  const startY = useRef(0);
-  const startTop = useRef(0);
-  const startOffX = useRef(0);
-  const startCqh = useRef(0);
-  const boxW = useRef(0);
-  const boxH = useRef(0);
-
-  const begin = (
-    e: ReactPointerEvent<HTMLElement>,
-    nextMode: "move" | "resize"
-  ) => {
-    if (!enabled || !onPatch) return;
-    e.preventDefault();
-    e.stopPropagation();
-    const box = (e.currentTarget as HTMLElement).closest(
-      ".home-price-overlay"
-    ) as HTMLElement | null;
-    const rect = box?.getBoundingClientRect();
-    boxW.current = rect?.width ?? 0;
-    boxH.current = rect?.height ?? 0;
-    mode.current = nextMode;
-    startX.current = e.clientX;
-    startY.current = e.clientY;
-    startTop.current = layout.top;
-    startOffX.current = layout.x;
-    startCqh.current = layout.cqh;
-    const target = e.currentTarget;
-    target.setPointerCapture(e.pointerId);
-
-    const onMove = (ev: PointerEvent) => {
-      if (!mode.current || !onPatch) return;
-      if (mode.current === "move") {
-        if (!boxW.current || !boxH.current) return;
-        const dx = ((ev.clientX - startX.current) / boxW.current) * 100;
-        const dy = ((ev.clientY - startY.current) / boxH.current) * 100;
-        onPatch({
-          x: startOffX.current + dx,
-          top: startTop.current + dy,
-        });
-      } else {
-        if (!boxH.current) return;
-        const dy = ((ev.clientY - startY.current) / boxH.current) * 100;
-        onPatch({ cqh: startCqh.current + dy });
-      }
-    };
-    const onUp = (ev: PointerEvent) => {
-      mode.current = null;
-      target.releasePointerCapture(ev.pointerId);
-      window.removeEventListener("pointermove", onMove);
-      window.removeEventListener("pointerup", onUp);
-    };
-    window.addEventListener("pointermove", onMove);
-    window.addEventListener("pointerup", onUp);
-  };
-
   return (
     <div
-      className={`home-price-min-line ${enabled ? "is-dbug" : ""}`}
+      className="home-price-min-line"
       data-line="minimum"
       style={{
         top: `${layout.top}%`,
         transform: layout.x ? `translateX(${layout.x}%)` : undefined,
       }}
-      onPointerDown={enabled ? (e) => begin(e, "move") : undefined}
     >
       <p className="home-price-min-text" style={{ fontSize: `${layout.cqh}cqh` }}>
         {children}
       </p>
-      {enabled ? (
-        <button
-          type="button"
-          className="home-price-dbug-handle"
-          aria-label="Resize minimum order"
-          onPointerDown={(e) => begin(e, "resize")}
-        />
-      ) : null}
     </div>
   );
 }
@@ -397,13 +172,7 @@ function PriceCards({
     className: string,
     content: ReactNode
   ) => (
-    <FreeLine
-      card={card}
-      lineKey={key}
-      enabled={false}
-      layout={layout[card][key]}
-      className={className}
-    >
+    <FreeLine layout={layout[card][key]} className={className}>
       {content}
     </FreeLine>
   );
@@ -484,53 +253,6 @@ function PriceCards({
   );
 }
 
-function MobilePriceOverlay({ rates }: { rates: LaundryRates }) {
-  const { enabled, setDbug, layout, patch, reset } = useMobileMinDbug();
-  const [portalReady, setPortalReady] = useState(false);
-
-  useEffect(() => setPortalReady(true), []);
-
-  const dbugChrome = enabled ? (
-    <div className="home-price-dbug-panel is-mobile-dock">
-      <strong>DBUG min</strong>
-      <div className="home-price-dbug-actions">
-        <button type="button" onClick={reset}>
-          Reset
-        </button>
-        <button type="button" onClick={() => setDbug(false)}>
-          Hide
-        </button>
-      </div>
-    </div>
-  ) : (
-    <button
-      type="button"
-      className="home-price-dbug-open is-mobile-dock"
-      onClick={() => setDbug(true)}
-    >
-      DBUG
-    </button>
-  );
-
-  return (
-    <div
-      className={`home-price-overlay is-mobile ${enabled ? "is-dbug" : ""}`}
-      aria-hidden={enabled ? undefined : true}
-    >
-      {portalReady ? createPortal(dbugChrome, document.body) : null}
-      <PriceCards
-        rates={rates}
-        layout={MOBILE_LAYOUT}
-        boxes={MOBILE_BOXES}
-        singleLine
-      />
-      <MinLine enabled={enabled} layout={layout} onPatch={patch}>
-        Minimum order total: ${money(rates.minimumOrder)}.
-      </MinLine>
-    </div>
-  );
-}
-
 export function HomePriceOverlay({
   variant = "desktop",
 }: {
@@ -540,14 +262,20 @@ export function HomePriceOverlay({
 
   useEffect(() => subscribeLaundryRates(setRates), []);
 
-  if (variant === "mobile") {
-    return <MobilePriceOverlay rates={rates} />;
-  }
+  const isMobile = variant === "mobile";
 
   return (
-    <div className="home-price-overlay" aria-hidden="true">
-      <PriceCards rates={rates} layout={DESKTOP_LAYOUT} boxes={DESKTOP_BOXES} />
-      <MinLine enabled={false} layout={DESKTOP_MIN_LAYOUT}>
+    <div
+      className={`home-price-overlay${isMobile ? " is-mobile" : ""}`}
+      aria-hidden="true"
+    >
+      <PriceCards
+        rates={rates}
+        layout={isMobile ? MOBILE_LAYOUT : DESKTOP_LAYOUT}
+        boxes={isMobile ? MOBILE_BOXES : DESKTOP_BOXES}
+        singleLine={isMobile}
+      />
+      <MinLine layout={isMobile ? MOBILE_MIN_LAYOUT : DESKTOP_MIN_LAYOUT}>
         Minimum order total: ${money(rates.minimumOrder)}.
       </MinLine>
     </div>
