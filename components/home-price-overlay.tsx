@@ -51,8 +51,8 @@ const DESKTOP_LAYOUT: LayoutMap = {
   },
 };
 
-/** Locked mobile card layout. */
-const MOBILE_LAYOUT: LayoutMap = {
+/** Defaults for mobile card DBUG (localStorage overrides). */
+const MOBILE_CARD_DEFAULT: LayoutMap = {
   weekly: {
     amount: { top: 5.5, x: 0, cqh: 40 },
     unit: { top: 44.7, x: 0, cqh: 11.6 },
@@ -97,9 +97,6 @@ const MOBILE_BOXES: Record<CardKey, BoxGeom> = {
   },
 };
 
-const MOBILE_MIN_STORAGE = "foam-pricing-min-layout-mobile-v1";
-const MOBILE_MIN_DBUG = "foam-pricing-min-dbug-mobile";
-
 /** Locked from desktop DBUG Copy. */
 const DESKTOP_MIN_LAYOUT: LineLayout = {
   top: 70.3,
@@ -107,10 +104,24 @@ const DESKTOP_MIN_LAYOUT: LineLayout = {
   cqh: 3.4,
 };
 
-const MOBILE_MIN_FALLBACK: LineLayout = {
-  top: 51,
-  x: 0,
+/** Locked from mobile DBUG Copy. */
+const MOBILE_MIN_LAYOUT: LineLayout = {
+  top: 77.5,
+  x: -1.7,
   cqh: 2.6,
+};
+
+const MOBILE_CARD_STORAGE = "foam-pricing-line-layout-mobile-v2";
+const MOBILE_CARD_DBUG = "foam-pricing-dbug-mobile-cards";
+const MOBILE_CARD_LINK = "foam-pricing-dbug-link-mobile-cards";
+
+const LINE_ORDER: LineKey[] = ["amount", "unit", "title", "fee"];
+
+const LINE_LABELS: Record<LineKey, string> = {
+  amount: "Price",
+  unit: "Unit",
+  title: "Title",
+  fee: "Fee",
 };
 
 function money(n: number) {
@@ -121,58 +132,87 @@ function clamp(n: number, min: number, max: number) {
   return Math.min(max, Math.max(min, n));
 }
 
-function loadMinLayout(key: string, fallback: LineLayout): LineLayout {
+function loadMobileCardLayout(): LayoutMap {
   try {
-    const raw = localStorage.getItem(key);
-    if (!raw) return { ...fallback };
-    const parsed = JSON.parse(raw) as Partial<LineLayout>;
-    return {
-      top: Number.isFinite(parsed.top) ? parsed.top! : fallback.top,
-      x: Number.isFinite(parsed.x) ? parsed.x! : fallback.x,
-      cqh: Number.isFinite(parsed.cqh) ? parsed.cqh! : fallback.cqh,
-    };
+    const raw = localStorage.getItem(MOBILE_CARD_STORAGE);
+    if (!raw) return structuredClone(MOBILE_CARD_DEFAULT);
+    const parsed = JSON.parse(raw) as Partial<LayoutMap>;
+    const next = structuredClone(MOBILE_CARD_DEFAULT);
+    for (const card of ["weekly", "ondemand"] as CardKey[]) {
+      for (const line of LINE_ORDER) {
+        const row = parsed[card]?.[line];
+        if (!row) continue;
+        if (Number.isFinite(row.top)) next[card][line].top = row.top;
+        if (Number.isFinite(row.x)) next[card][line].x = row.x;
+        if (Number.isFinite(row.cqh)) next[card][line].cqh = row.cqh;
+      }
+    }
+    return next;
   } catch {
-    return { ...fallback };
+    return structuredClone(MOBILE_CARD_DEFAULT);
   }
 }
 
-function useMinDbug(
-  storageKey: string,
-  dbugKey: string,
-  fallback: LineLayout,
-  dock: "desktop" | "mobile"
-) {
+function useMobileCardDbug() {
   const [enabled, setEnabled] = useState(true);
-  const [layout, setLayout] = useState<LineLayout>(fallback);
+  const [linked, setLinkedState] = useState(false);
+  const [layout, setLayout] = useState<LayoutMap>(MOBILE_CARD_DEFAULT);
   const [copied, setCopied] = useState(false);
+  const linkedRef = useRef(false);
 
   useEffect(() => {
-    localStorage.setItem(dbugKey, "1");
+    localStorage.setItem(MOBILE_CARD_DBUG, "1");
     setEnabled(true);
-    setLayout(loadMinLayout(storageKey, fallback));
-  }, [storageKey, dbugKey, fallback]);
+    const linkSaved = localStorage.getItem(MOBILE_CARD_LINK) === "1";
+    setLinkedState(linkSaved);
+    linkedRef.current = linkSaved;
+    setLayout(loadMobileCardLayout());
+  }, []);
 
-  const patch = (nextPatch: Partial<LineLayout>) => {
+  const patchLine = (
+    card: CardKey,
+    key: LineKey,
+    patch: Partial<LineLayout>
+  ) => {
     setLayout((prev) => {
-      const next: LineLayout = {
-        top: Math.round(clamp(nextPatch.top ?? prev.top, 0, 96) * 10) / 10,
-        x: Math.round(clamp(nextPatch.x ?? prev.x, -50, 50) * 10) / 10,
-        cqh: Math.round(clamp(nextPatch.cqh ?? prev.cqh, 1.2, 12) * 10) / 10,
+      const current = prev[card][key];
+      const nextLine: LineLayout = {
+        top: Math.round(clamp(patch.top ?? current.top, 0, 92) * 10) / 10,
+        x: Math.round(clamp(patch.x ?? current.x, -40, 40) * 10) / 10,
+        cqh: Math.round(clamp(patch.cqh ?? current.cqh, 2, 48) * 10) / 10,
       };
-      localStorage.setItem(storageKey, JSON.stringify(next));
+      const next: LayoutMap = linkedRef.current
+        ? {
+            weekly: { ...prev.weekly, [key]: { ...nextLine } },
+            ondemand: { ...prev.ondemand, [key]: { ...nextLine } },
+          }
+        : {
+            ...prev,
+            [card]: {
+              ...prev[card],
+              [key]: nextLine,
+            },
+          };
+      localStorage.setItem(MOBILE_CARD_STORAGE, JSON.stringify(next));
       return next;
     });
   };
 
   const setDbug = (on: boolean) => {
     setEnabled(on);
-    localStorage.setItem(dbugKey, on ? "1" : "0");
+    localStorage.setItem(MOBILE_CARD_DBUG, on ? "1" : "0");
+  };
+
+  const setLinked = (on: boolean) => {
+    setLinkedState(on);
+    linkedRef.current = on;
+    localStorage.setItem(MOBILE_CARD_LINK, on ? "1" : "0");
   };
 
   const reset = () => {
-    const fresh = { ...fallback };
+    const fresh = structuredClone(MOBILE_CARD_DEFAULT);
     setLayout(fresh);
-    localStorage.setItem(storageKey, JSON.stringify(fresh));
+    localStorage.setItem(MOBILE_CARD_STORAGE, JSON.stringify(fresh));
   };
 
   const copy = async () => {
@@ -186,42 +226,34 @@ function useMinDbug(
     }
   };
 
-  return { enabled, setDbug, layout, patch, reset, copy, copied, dock };
+  return {
+    enabled,
+    setDbug,
+    linked,
+    setLinked,
+    layout,
+    patchLine,
+    reset,
+    copy,
+    copied,
+  };
 }
 
 function FreeLine({
-  layout,
-  className,
-  children,
-}: {
-  layout: LineLayout;
-  className: string;
-  children: ReactNode;
-}) {
-  return (
-    <div
-      className="home-price-free-line"
-      style={{
-        top: `${layout.top}%`,
-        transform: layout.x ? `translateX(${layout.x}%)` : undefined,
-      }}
-    >
-      <div className={className} style={{ fontSize: `${layout.cqh}cqh` }}>
-        {children}
-      </div>
-    </div>
-  );
-}
-
-function MinLine({
+  card,
+  lineKey,
   enabled,
   layout,
   onPatch,
+  className,
   children,
 }: {
-  enabled: boolean;
+  card?: CardKey;
+  lineKey?: LineKey;
+  enabled?: boolean;
   layout: LineLayout;
   onPatch?: (patch: Partial<LineLayout>) => void;
+  className: string;
   children: ReactNode;
 }) {
   const mode = useRef<"move" | "resize" | null>(null);
@@ -232,16 +264,17 @@ function MinLine({
   const startCqh = useRef(0);
   const boxW = useRef(0);
   const boxH = useRef(0);
+  const dbug = Boolean(enabled && onPatch);
 
   const begin = (
     e: ReactPointerEvent<HTMLElement>,
     nextMode: "move" | "resize"
   ) => {
-    if (!enabled || !onPatch) return;
+    if (!dbug || !onPatch) return;
     e.preventDefault();
     e.stopPropagation();
     const box = (e.currentTarget as HTMLElement).closest(
-      ".home-price-overlay"
+      ".home-price-box"
     ) as HTMLElement | null;
     const rect = box?.getBoundingClientRect();
     boxW.current = rect?.width ?? 0;
@@ -283,25 +316,49 @@ function MinLine({
 
   return (
     <div
-      className={`home-price-min-line ${enabled ? "is-dbug" : ""}`}
+      className={`home-price-free-line ${dbug ? "is-dbug" : ""}`}
+      data-card={card}
+      data-line={lineKey}
+      style={{
+        top: `${layout.top}%`,
+        transform: layout.x ? `translateX(${layout.x}%)` : undefined,
+      }}
+      onPointerDown={dbug ? (e) => begin(e, "move") : undefined}
+    >
+      <div className={className} style={{ fontSize: `${layout.cqh}cqh` }}>
+        {children}
+      </div>
+      {dbug ? (
+        <button
+          type="button"
+          className="home-price-dbug-handle"
+          aria-label={`Resize ${card ?? ""} ${lineKey ? LINE_LABELS[lineKey] : ""}`}
+          onPointerDown={(e) => begin(e, "resize")}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+function MinLine({
+  layout,
+  children,
+}: {
+  layout: LineLayout;
+  children: ReactNode;
+}) {
+  return (
+    <div
+      className="home-price-min-line"
       data-line="minimum"
       style={{
         top: `${layout.top}%`,
         transform: layout.x ? `translateX(${layout.x}%)` : undefined,
       }}
-      onPointerDown={enabled ? (e) => begin(e, "move") : undefined}
     >
       <p className="home-price-min-text" style={{ fontSize: `${layout.cqh}cqh` }}>
         {children}
       </p>
-      {enabled ? (
-        <button
-          type="button"
-          className="home-price-dbug-handle"
-          aria-label="Resize minimum order"
-          onPointerDown={(e) => begin(e, "resize")}
-        />
-      ) : null}
     </div>
   );
 }
@@ -311,11 +368,15 @@ function PriceCards({
   layout,
   boxes,
   singleLine = false,
+  dbug = false,
+  onPatch,
 }: {
   rates: LaundryRates;
   layout: LayoutMap;
   boxes: Record<CardKey, BoxGeom>;
   singleLine?: boolean;
+  dbug?: boolean;
+  onPatch?: (card: CardKey, key: LineKey, patch: Partial<LineLayout>) => void;
 }) {
   const line = (
     card: CardKey,
@@ -323,7 +384,14 @@ function PriceCards({
     className: string,
     content: ReactNode
   ) => (
-    <FreeLine layout={layout[card][key]} className={className}>
+    <FreeLine
+      card={card}
+      lineKey={key}
+      enabled={dbug}
+      layout={layout[card][key]}
+      onPatch={onPatch ? (patch) => onPatch(card, key, patch) : undefined}
+      className={className}
+    >
       {content}
     </FreeLine>
   );
@@ -404,41 +472,51 @@ function PriceCards({
   );
 }
 
-function MinDbugChrome({
-  dock,
-  enabled,
-  setDbug,
-  reset,
-  copy,
-  copied,
-  layout,
-}: {
-  dock: "desktop" | "mobile";
-  enabled: boolean;
-  setDbug: (on: boolean) => void;
-  reset: () => void;
-  copy: () => void;
-  copied: boolean;
-  layout: LineLayout;
-}) {
-  if (!enabled) {
-    return (
-      <button
-        type="button"
-        className={`home-price-dbug-open is-${dock}-dock`}
-        onClick={() => setDbug(true)}
-      >
-        DBUG
-      </button>
-    );
-  }
-
+function DesktopPriceOverlay({ rates }: { rates: LaundryRates }) {
   return (
-    <div className={`home-price-dbug-panel is-${dock}-dock`}>
-      <strong>DBUG min</strong>
-      <span className="home-price-dbug-meta">
-        {layout.top}/{layout.x}/{layout.cqh}
-      </span>
+    <div className="home-price-overlay" aria-hidden="true">
+      <PriceCards rates={rates} layout={DESKTOP_LAYOUT} boxes={DESKTOP_BOXES} />
+      <MinLine layout={DESKTOP_MIN_LAYOUT}>
+        Minimum order total: ${money(rates.minimumOrder)}.
+      </MinLine>
+    </div>
+  );
+}
+
+function MobilePriceOverlay({ rates }: { rates: LaundryRates }) {
+  const {
+    enabled,
+    setDbug,
+    linked,
+    setLinked,
+    layout,
+    patchLine,
+    reset,
+    copy,
+    copied,
+  } = useMobileCardDbug();
+  const [portalReady, setPortalReady] = useState(false);
+  useEffect(() => setPortalReady(true), []);
+
+  const dbugChrome = enabled ? (
+    <div className="home-price-dbug-panel is-mobile-dock">
+      <strong>DBUG cards</strong>
+      <div className="home-price-dbug-mode" role="group" aria-label="Move mode">
+        <button
+          type="button"
+          className={!linked ? "is-active" : undefined}
+          onClick={() => setLinked(false)}
+        >
+          Solo
+        </button>
+        <button
+          type="button"
+          className={linked ? "is-active" : undefined}
+          onClick={() => setLinked(true)}
+        >
+          Linked
+        </button>
+      </div>
       <div className="home-price-dbug-actions">
         <button type="button" onClick={copy}>
           {copied ? "Copied" : "Copy"}
@@ -451,60 +529,31 @@ function MinDbugChrome({
         </button>
       </div>
     </div>
+  ) : (
+    <button
+      type="button"
+      className="home-price-dbug-open is-mobile-dock"
+      onClick={() => setDbug(true)}
+    >
+      DBUG
+    </button>
   );
-}
-
-function DesktopPriceOverlay({ rates }: { rates: LaundryRates }) {
-  return (
-    <div className="home-price-overlay" aria-hidden="true">
-      <PriceCards rates={rates} layout={DESKTOP_LAYOUT} boxes={DESKTOP_BOXES} />
-      <MinLine enabled={false} layout={DESKTOP_MIN_LAYOUT}>
-        Minimum order total: ${money(rates.minimumOrder)}.
-      </MinLine>
-    </div>
-  );
-}
-
-function MobilePriceOverlay({ rates }: { rates: LaundryRates }) {
-  const dbug = useMinDbug(
-    MOBILE_MIN_STORAGE,
-    MOBILE_MIN_DBUG,
-    MOBILE_MIN_FALLBACK,
-    "mobile"
-  );
-  const [portalReady, setPortalReady] = useState(false);
-  useEffect(() => setPortalReady(true), []);
 
   return (
     <div
-      className={`home-price-overlay is-mobile ${dbug.enabled ? "is-dbug" : ""}`}
-      aria-hidden={dbug.enabled ? undefined : true}
+      className={`home-price-overlay is-mobile ${enabled ? "is-dbug" : ""}`}
+      aria-hidden={enabled ? undefined : true}
     >
-      {portalReady
-        ? createPortal(
-            <MinDbugChrome
-              dock="mobile"
-              enabled={dbug.enabled}
-              setDbug={dbug.setDbug}
-              reset={dbug.reset}
-              copy={dbug.copy}
-              copied={dbug.copied}
-              layout={dbug.layout}
-            />,
-            document.body
-          )
-        : null}
+      {portalReady ? createPortal(dbugChrome, document.body) : null}
       <PriceCards
         rates={rates}
-        layout={MOBILE_LAYOUT}
+        layout={layout}
         boxes={MOBILE_BOXES}
         singleLine
+        dbug={enabled}
+        onPatch={patchLine}
       />
-      <MinLine
-        enabled={dbug.enabled}
-        layout={dbug.layout}
-        onPatch={dbug.patch}
-      >
+      <MinLine layout={MOBILE_MIN_LAYOUT}>
         Minimum order total: ${money(rates.minimumOrder)}.
       </MinLine>
     </div>

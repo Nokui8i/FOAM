@@ -5172,6 +5172,22 @@
   cursor: default;
 }
 
+.home-price-free-line.is-dbug {
+  outline: 1.5px dashed #ff6a00;
+  outline-offset: 2px;
+  padding-bottom: 14px;
+  cursor: grab;
+  touch-action: none;
+}
+
+.home-price-free-line.is-dbug:active {
+  cursor: grabbing;
+}
+
+.home-price-overlay.is-dbug .home-price-box {
+  pointer-events: auto;
+}
+
 .home-price-box-amount,
 .home-price-box-unit,
 .home-price-box-title,
@@ -5344,8 +5360,15 @@
   letter-spacing: 0.04em;
 }
 
+.home-price-dbug-panel.is-mobile-dock .home-price-dbug-mode,
 .home-price-dbug-panel.is-mobile-dock .home-price-dbug-actions {
   display: contents;
+}
+
+.home-price-dbug-mode button.is-active {
+  border-color: #ff6a00;
+  background: #fff4eb;
+  color: #ff6a00;
 }
 
 .home-price-dbug-panel.is-desktop-dock,
