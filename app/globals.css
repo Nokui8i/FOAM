@@ -5138,10 +5138,6 @@
   container-type: size;
 }
 
-.home-price-overlay.is-dbug {
-  pointer-events: auto;
-}
-
 .home-price-box {
   position: absolute;
   box-sizing: border-box;
@@ -5170,22 +5166,6 @@
   box-sizing: border-box;
   padding: 0 2%;
   cursor: default;
-}
-
-.home-price-free-line.is-dbug {
-  outline: 1.5px dashed #ff6a00;
-  outline-offset: 2px;
-  padding-bottom: 14px;
-  cursor: grab;
-  touch-action: none;
-}
-
-.home-price-free-line.is-dbug:active {
-  cursor: grabbing;
-}
-
-.home-price-overlay.is-dbug .home-price-box {
-  pointer-events: auto;
 }
 
 .home-price-box-amount,
@@ -5252,22 +5232,6 @@
   cursor: default;
 }
 
-.home-price-overlay.is-dbug .home-price-min-line {
-  pointer-events: auto;
-}
-
-.home-price-min-line.is-dbug {
-  outline: 1.5px dashed #ff6a00;
-  outline-offset: 2px;
-  padding-bottom: 14px;
-  cursor: grab;
-  touch-action: none;
-}
-
-.home-price-min-line.is-dbug:active {
-  cursor: grabbing;
-}
-
 .home-price-min-text {
   margin: 0 auto;
   width: 100%;
@@ -5279,165 +5243,6 @@
   color: #333;
   text-align: center;
   white-space: nowrap;
-}
-
-.home-price-dbug-handle {
-  position: absolute;
-  left: 50%;
-  bottom: 0;
-  width: 34px;
-  height: 10px;
-  margin: 0;
-  padding: 0;
-  border: 0;
-  border-radius: 999px;
-  background: #ff6a00;
-  transform: translateX(-50%);
-  cursor: ns-resize;
-  touch-action: none;
-  pointer-events: auto;
-  z-index: 2;
-}
-
-.home-price-dbug-open {
-  pointer-events: auto;
-  margin: 0;
-  padding: 0.35rem 0.65rem;
-  border: 1.5px solid #ff6a00;
-  border-radius: 0.4rem;
-  background: #fff;
-  color: #ff6a00;
-  font: 700 0.72rem/1 var(--font-display);
-  letter-spacing: 0.04em;
-  cursor: pointer;
-}
-
-.home-price-dbug-panel {
-  border: 1.5px solid #ff6a00;
-  border-radius: 0.55rem;
-  background: rgb(255 255 255 / 96%);
-  color: #1a1a1a;
-  font-family: var(--font-display);
-  pointer-events: auto;
-  box-shadow: 0 8px 24px rgb(0 0 0 / 10%);
-}
-
-.home-price-dbug-meta {
-  font: 600 0.65rem/1 var(--font-display);
-  color: #666;
-  letter-spacing: 0.02em;
-}
-
-.home-price-dbug-panel.is-mobile-dock,
-.home-price-dbug-open.is-mobile-dock {
-  position: fixed;
-  top: auto;
-  bottom: calc(5.75rem + env(safe-area-inset-bottom, 0px));
-  z-index: 80;
-}
-
-.home-price-dbug-panel.is-mobile-dock {
-  left: 0.75rem;
-  right: 0.75rem;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.35rem 0.45rem;
-  padding: 0.45rem 0.55rem;
-}
-
-.home-price-dbug-open.is-mobile-dock {
-  display: flex;
-  align-items: center;
-  right: 0.75rem;
-  left: auto;
-}
-
-.home-price-dbug-panel.is-mobile-dock strong {
-  margin-inline-end: 0.15rem;
-  font-size: 0.7rem;
-  color: #ff6a00;
-  letter-spacing: 0.04em;
-}
-
-.home-price-dbug-panel.is-mobile-dock .home-price-dbug-mode,
-.home-price-dbug-panel.is-mobile-dock .home-price-dbug-actions {
-  display: contents;
-}
-
-.home-price-dbug-mode button.is-active {
-  border-color: #ff6a00;
-  background: #fff4eb;
-  color: #ff6a00;
-}
-
-.home-price-dbug-panel.is-desktop-dock,
-.home-price-dbug-open.is-desktop-dock {
-  position: fixed;
-  top: auto;
-  bottom: 1.5rem;
-  z-index: 80;
-  display: none;
-}
-
-.home-price-dbug-panel.is-desktop-dock {
-  left: 1.25rem;
-  right: auto;
-  width: min(22rem, calc(100vw - 2.5rem));
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.4rem 0.5rem;
-  padding: 0.55rem 0.7rem;
-}
-
-.home-price-dbug-open.is-desktop-dock {
-  left: 1.25rem;
-  right: auto;
-}
-
-.home-price-dbug-panel.is-desktop-dock strong {
-  margin-inline-end: 0.2rem;
-  font-size: 0.75rem;
-  color: #ff6a00;
-  letter-spacing: 0.04em;
-}
-
-.home-price-dbug-panel.is-desktop-dock .home-price-dbug-actions {
-  display: contents;
-}
-
-.home-price-dbug-panel button {
-  margin: 0;
-  padding: 0.35rem 0.55rem;
-  border: 1px solid #ddd;
-  border-radius: 0.3rem;
-  background: #fff;
-  cursor: pointer;
-  font: 700 0.68rem/1 var(--font-display);
-}
-
-.home-price-dbug-actions button {
-  border-color: #ff6a00;
-  color: #ff6a00;
-}
-
-@media (max-width: 767px) {
-  .home-price-dbug-panel.is-desktop-dock,
-  .home-price-dbug-open.is-desktop-dock {
-    display: none !important;
-  }
-}
-
-@media (min-width: 768px) {
-  .home-price-dbug-panel.is-mobile-dock,
-  .home-price-dbug-open.is-mobile-dock {
-    display: none !important;
-  }
-
-  .home-price-dbug-panel.is-desktop-dock,
-  .home-price-dbug-open.is-desktop-dock {
-    display: flex;
-  }
 }
 
 @media (min-width: 640px) {
