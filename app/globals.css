@@ -5324,44 +5324,44 @@
 
 .home-price-dbug-panel.is-mobile-dock,
 .home-price-dbug-open.is-mobile-dock {
-  display: none;
-}
-
-.home-price-dbug-panel.is-desktop-dock,
-.home-price-dbug-open.is-desktop-dock {
   position: fixed;
   top: auto;
-  bottom: 1.5rem;
+  bottom: calc(5.75rem + env(safe-area-inset-bottom, 0px));
   z-index: 80;
 }
 
-.home-price-dbug-panel.is-desktop-dock {
-  left: 1.25rem;
-  right: auto;
-  width: min(22rem, calc(100vw - 2.5rem));
-  display: none;
+.home-price-dbug-panel.is-mobile-dock {
+  left: 0.75rem;
+  right: 0.75rem;
+  display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.4rem 0.5rem;
-  padding: 0.55rem 0.7rem;
+  gap: 0.35rem 0.45rem;
+  padding: 0.45rem 0.55rem;
 }
 
-.home-price-dbug-open.is-desktop-dock {
-  display: none;
-  left: 1.25rem;
-  right: auto;
+.home-price-dbug-open.is-mobile-dock {
+  display: flex;
+  align-items: center;
+  right: 0.75rem;
+  left: auto;
 }
 
-.home-price-dbug-panel.is-desktop-dock strong {
-  margin-inline-end: 0.2rem;
-  font-size: 0.75rem;
+.home-price-dbug-panel.is-mobile-dock strong {
+  margin-inline-end: 0.15rem;
+  font-size: 0.7rem;
   color: #ff6a00;
   letter-spacing: 0.04em;
 }
 
-.home-price-dbug-panel.is-desktop-dock .home-price-dbug-mode,
-.home-price-dbug-panel.is-desktop-dock .home-price-dbug-actions {
+.home-price-dbug-panel.is-mobile-dock .home-price-dbug-mode,
+.home-price-dbug-panel.is-mobile-dock .home-price-dbug-actions {
   display: contents;
+}
+
+.home-price-dbug-panel.is-desktop-dock,
+.home-price-dbug-open.is-desktop-dock {
+  display: none;
 }
 
 .home-price-dbug-panel button {
@@ -5371,7 +5371,7 @@
   border-radius: 0.3rem;
   background: #fff;
   cursor: pointer;
-  font: 700 0.7rem/1 var(--font-display);
+  font: 700 0.68rem/1 var(--font-display);
 }
 
 .home-price-dbug-actions button {
@@ -5386,9 +5386,9 @@
 }
 
 @media (min-width: 768px) {
-  .home-price-dbug-panel.is-desktop-dock,
-  .home-price-dbug-open.is-desktop-dock {
-    display: flex;
+  .home-price-dbug-panel.is-mobile-dock,
+  .home-price-dbug-open.is-mobile-dock {
+    display: none;
   }
 }
 

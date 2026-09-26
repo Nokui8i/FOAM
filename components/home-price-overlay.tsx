@@ -51,7 +51,7 @@ const DESKTOP_LAYOUT: LayoutMap = {
   },
 };
 
-/** Locked mobile layout. */
+/** Locked mobile card layout. */
 const MOBILE_LAYOUT: LayoutMap = {
   weekly: {
     amount: { top: 5.5, x: 0, cqh: 40 },
@@ -97,13 +97,20 @@ const MOBILE_BOXES: Record<CardKey, BoxGeom> = {
   },
 };
 
-const MIN_STORAGE_KEY = "foam-pricing-min-layout-desktop-v1";
-const MIN_DBUG_KEY = "foam-pricing-min-dbug-desktop";
-
-const MIN_DEFAULT_LAYOUT: LineLayout = {
+/** Locked desktop minimum-order line. */
+const DESKTOP_MIN_LAYOUT: LineLayout = {
   top: 74,
   x: -12,
   cqh: 3.4,
+};
+
+const MOBILE_MIN_STORAGE_KEY = "foam-pricing-min-layout-mobile-v1";
+const MOBILE_MIN_DBUG_KEY = "foam-pricing-min-dbug-mobile";
+
+const MOBILE_MIN_DEFAULT_LAYOUT: LineLayout = {
+  top: 54,
+  x: 0,
+  cqh: 2.8,
 };
 
 const LINE_LABELS: Record<LineKey, string> = {
@@ -121,42 +128,37 @@ function clamp(n: number, min: number, max: number) {
   return Math.min(max, Math.max(min, n));
 }
 
-function loadMinLayout(): LineLayout {
+function loadMobileMinLayout(): LineLayout {
   try {
-    const raw = localStorage.getItem(MIN_STORAGE_KEY);
-    if (!raw) return { ...MIN_DEFAULT_LAYOUT };
+    const raw = localStorage.getItem(MOBILE_MIN_STORAGE_KEY);
+    if (!raw) return { ...MOBILE_MIN_DEFAULT_LAYOUT };
     const parsed = JSON.parse(raw) as Partial<LineLayout>;
     return {
-      top: Number.isFinite(parsed.top) ? parsed.top! : MIN_DEFAULT_LAYOUT.top,
-      x: Number.isFinite(parsed.x) ? parsed.x! : MIN_DEFAULT_LAYOUT.x,
-      cqh: Number.isFinite(parsed.cqh) ? parsed.cqh! : MIN_DEFAULT_LAYOUT.cqh,
+      top: Number.isFinite(parsed.top)
+        ? parsed.top!
+        : MOBILE_MIN_DEFAULT_LAYOUT.top,
+      x: Number.isFinite(parsed.x) ? parsed.x! : MOBILE_MIN_DEFAULT_LAYOUT.x,
+      cqh: Number.isFinite(parsed.cqh)
+        ? parsed.cqh!
+        : MOBILE_MIN_DEFAULT_LAYOUT.cqh,
     };
   } catch {
-    return { ...MIN_DEFAULT_LAYOUT };
+    return { ...MOBILE_MIN_DEFAULT_LAYOUT };
   }
 }
 
-function saveMinLayout(layout: LineLayout) {
-  localStorage.setItem(MIN_STORAGE_KEY, JSON.stringify(layout));
+function saveMobileMinLayout(layout: LineLayout) {
+  localStorage.setItem(MOBILE_MIN_STORAGE_KEY, JSON.stringify(layout));
 }
 
-function useMinDbug() {
+function useMobileMinDbug() {
   const [enabled, setEnabled] = useState(true);
-  const [layout, setLayout] = useState<LineLayout>(MIN_DEFAULT_LAYOUT);
+  const [layout, setLayout] = useState<LineLayout>(MOBILE_MIN_DEFAULT_LAYOUT);
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const saved = localStorage.getItem(MIN_DBUG_KEY);
-    const on =
-      params.get("dbug") === "1" ||
-      params.get("dbug") === "min" ||
-      params.get("dbug") === "pricing" ||
-      saved === "1" ||
-      saved === null;
-    localStorage.setItem(MIN_DBUG_KEY, "1");
+    localStorage.setItem(MOBILE_MIN_DBUG_KEY, "1");
     setEnabled(true);
-    void on;
-    setLayout(loadMinLayout());
+    setLayout(loadMobileMinLayout());
   }, []);
 
   const patch = (nextPatch: Partial<LineLayout>) => {
@@ -166,20 +168,20 @@ function useMinDbug() {
         x: Math.round(clamp(nextPatch.x ?? prev.x, -50, 50) * 10) / 10,
         cqh: Math.round(clamp(nextPatch.cqh ?? prev.cqh, 1.2, 12) * 10) / 10,
       };
-      saveMinLayout(next);
+      saveMobileMinLayout(next);
       return next;
     });
   };
 
   const setDbug = (on: boolean) => {
     setEnabled(on);
-    localStorage.setItem(MIN_DBUG_KEY, on ? "1" : "0");
+    localStorage.setItem(MOBILE_MIN_DBUG_KEY, on ? "1" : "0");
   };
 
   const reset = () => {
-    const fresh = { ...MIN_DEFAULT_LAYOUT };
+    const fresh = { ...MOBILE_MIN_DEFAULT_LAYOUT };
     setLayout(fresh);
-    saveMinLayout(fresh);
+    saveMobileMinLayout(fresh);
   };
 
   return { enabled, setDbug, layout, patch, reset };
@@ -482,14 +484,14 @@ function PriceCards({
   );
 }
 
-function DesktopPriceOverlay({ rates }: { rates: LaundryRates }) {
-  const { enabled, setDbug, layout, patch, reset } = useMinDbug();
+function MobilePriceOverlay({ rates }: { rates: LaundryRates }) {
+  const { enabled, setDbug, layout, patch, reset } = useMobileMinDbug();
   const [portalReady, setPortalReady] = useState(false);
 
   useEffect(() => setPortalReady(true), []);
 
   const dbugChrome = enabled ? (
-    <div className="home-price-dbug-panel is-desktop-dock">
+    <div className="home-price-dbug-panel is-mobile-dock">
       <strong>DBUG min</strong>
       <div className="home-price-dbug-actions">
         <button type="button" onClick={reset}>
@@ -503,7 +505,7 @@ function DesktopPriceOverlay({ rates }: { rates: LaundryRates }) {
   ) : (
     <button
       type="button"
-      className="home-price-dbug-open is-desktop-dock"
+      className="home-price-dbug-open is-mobile-dock"
       onClick={() => setDbug(true)}
     >
       DBUG
@@ -512,11 +514,16 @@ function DesktopPriceOverlay({ rates }: { rates: LaundryRates }) {
 
   return (
     <div
-      className={`home-price-overlay ${enabled ? "is-dbug" : ""}`}
+      className={`home-price-overlay is-mobile ${enabled ? "is-dbug" : ""}`}
       aria-hidden={enabled ? undefined : true}
     >
       {portalReady ? createPortal(dbugChrome, document.body) : null}
-      <PriceCards rates={rates} layout={DESKTOP_LAYOUT} boxes={DESKTOP_BOXES} />
+      <PriceCards
+        rates={rates}
+        layout={MOBILE_LAYOUT}
+        boxes={MOBILE_BOXES}
+        singleLine
+      />
       <MinLine enabled={enabled} layout={layout} onPatch={patch}>
         Minimum order total: ${money(rates.minimumOrder)}.
       </MinLine>
@@ -534,17 +541,15 @@ export function HomePriceOverlay({
   useEffect(() => subscribeLaundryRates(setRates), []);
 
   if (variant === "mobile") {
-    return (
-      <div className="home-price-overlay is-mobile" aria-hidden="true">
-        <PriceCards
-          rates={rates}
-          layout={MOBILE_LAYOUT}
-          boxes={MOBILE_BOXES}
-          singleLine
-        />
-      </div>
-    );
+    return <MobilePriceOverlay rates={rates} />;
   }
 
-  return <DesktopPriceOverlay rates={rates} />;
+  return (
+    <div className="home-price-overlay" aria-hidden="true">
+      <PriceCards rates={rates} layout={DESKTOP_LAYOUT} boxes={DESKTOP_BOXES} />
+      <MinLine enabled={false} layout={DESKTOP_MIN_LAYOUT}>
+        Minimum order total: ${money(rates.minimumOrder)}.
+      </MinLine>
+    </div>
+  );
 }
