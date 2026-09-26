@@ -35,7 +35,7 @@ type BoxGeom = {
   height: string;
 };
 
-const DESKTOP_LAYOUT: LayoutMap = {
+const DESKTOP_DEFAULT_LAYOUT: LayoutMap = {
   weekly: {
     amount: { top: 6.5, x: 0, cqh: 22.6 },
     unit: { top: 33, x: 0, cqh: 7 },
@@ -50,8 +50,8 @@ const DESKTOP_LAYOUT: LayoutMap = {
   },
 };
 
-/** Defaults from last locked mobile tuning — DBUG can override via localStorage. */
-const MOBILE_DEFAULT_LAYOUT: LayoutMap = {
+/** Locked mobile layout. */
+const MOBILE_LAYOUT: LayoutMap = {
   weekly: {
     amount: { top: 5.5, x: 0, cqh: 40 },
     unit: { top: 44.7, x: 0, cqh: 11.6 },
@@ -96,9 +96,9 @@ const MOBILE_BOXES: Record<CardKey, BoxGeom> = {
   },
 };
 
-const MOBILE_STORAGE_KEY = "foam-pricing-line-layout-mobile-v2";
-const MOBILE_DBUG_KEY = "foam-pricing-dbug-mobile";
-const MOBILE_LINK_KEY = "foam-pricing-dbug-link-mobile";
+const DESKTOP_STORAGE_KEY = "foam-pricing-line-layout-desktop-v1";
+const DESKTOP_DBUG_KEY = "foam-pricing-dbug-desktop";
+const DESKTOP_LINK_KEY = "foam-pricing-dbug-link-desktop";
 
 const LINE_ORDER: LineKey[] = ["amount", "unit", "title", "fee"];
 
@@ -117,12 +117,12 @@ function clamp(n: number, min: number, max: number) {
   return Math.min(max, Math.max(min, n));
 }
 
-function loadMobileLayout(): LayoutMap {
+function loadDesktopLayout(): LayoutMap {
   try {
-    const raw = localStorage.getItem(MOBILE_STORAGE_KEY);
-    if (!raw) return structuredClone(MOBILE_DEFAULT_LAYOUT);
+    const raw = localStorage.getItem(DESKTOP_STORAGE_KEY);
+    if (!raw) return structuredClone(DESKTOP_DEFAULT_LAYOUT);
     const parsed = JSON.parse(raw) as Partial<LayoutMap>;
-    const next = structuredClone(MOBILE_DEFAULT_LAYOUT);
+    const next = structuredClone(DESKTOP_DEFAULT_LAYOUT);
     for (const card of ["weekly", "ondemand"] as CardKey[]) {
       for (const line of LINE_ORDER) {
         const row = parsed[card]?.[line];
@@ -134,37 +134,36 @@ function loadMobileLayout(): LayoutMap {
     }
     return next;
   } catch {
-    return structuredClone(MOBILE_DEFAULT_LAYOUT);
+    return structuredClone(DESKTOP_DEFAULT_LAYOUT);
   }
 }
 
-function saveMobileLayout(layout: LayoutMap) {
-  localStorage.setItem(MOBILE_STORAGE_KEY, JSON.stringify(layout));
+function saveDesktopLayout(layout: LayoutMap) {
+  localStorage.setItem(DESKTOP_STORAGE_KEY, JSON.stringify(layout));
 }
 
-function useMobilePricingDbug() {
+function useDesktopPricingDbug() {
   const [enabled, setEnabled] = useState(true);
   const [linked, setLinkedState] = useState(false);
-  const [layout, setLayout] = useState<LayoutMap>(MOBILE_DEFAULT_LAYOUT);
+  const [layout, setLayout] = useState<LayoutMap>(DESKTOP_DEFAULT_LAYOUT);
   const linkedRef = useRef(false);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const saved = localStorage.getItem(MOBILE_DBUG_KEY);
+    const saved = localStorage.getItem(DESKTOP_DBUG_KEY);
     const on =
       params.get("dbug") === "1" ||
       params.get("dbug") === "pricing" ||
-      params.get("dbug") === "mobile" ||
+      params.get("dbug") === "desktop" ||
       saved === "1" ||
       saved === null;
-    setEnabled(on);
-    // Always reopen DBUG for this tuning pass.
-    localStorage.setItem(MOBILE_DBUG_KEY, "1");
+    localStorage.setItem(DESKTOP_DBUG_KEY, "1");
     setEnabled(true);
-    const linkSaved = localStorage.getItem(MOBILE_LINK_KEY) === "1";
+    void on;
+    const linkSaved = localStorage.getItem(DESKTOP_LINK_KEY) === "1";
     setLinkedState(linkSaved);
     linkedRef.current = linkSaved;
-    setLayout(loadMobileLayout());
+    setLayout(loadDesktopLayout());
   }, []);
 
   const patchLine = (
@@ -191,26 +190,26 @@ function useMobilePricingDbug() {
               [key]: nextLine,
             },
           };
-      saveMobileLayout(next);
+      saveDesktopLayout(next);
       return next;
     });
   };
 
   const setDbug = (on: boolean) => {
     setEnabled(on);
-    localStorage.setItem(MOBILE_DBUG_KEY, on ? "1" : "0");
+    localStorage.setItem(DESKTOP_DBUG_KEY, on ? "1" : "0");
   };
 
   const setLinked = (on: boolean) => {
     setLinkedState(on);
     linkedRef.current = on;
-    localStorage.setItem(MOBILE_LINK_KEY, on ? "1" : "0");
+    localStorage.setItem(DESKTOP_LINK_KEY, on ? "1" : "0");
   };
 
   const reset = () => {
-    const fresh = structuredClone(MOBILE_DEFAULT_LAYOUT);
+    const fresh = structuredClone(DESKTOP_DEFAULT_LAYOUT);
     setLayout(fresh);
-    saveMobileLayout(fresh);
+    saveDesktopLayout(fresh);
   };
 
   return { enabled, setDbug, linked, setLinked, layout, patchLine, reset };
@@ -297,7 +296,7 @@ function FreeLine({
       data-line={lineKey}
       style={{
         top: `${layout.top}%`,
-        transform: `translateX(${layout.x}%)`,
+        transform: layout.x ? `translateX(${layout.x}%)` : undefined,
       }}
       onPointerDown={enabled ? (e) => begin(e, "move") : undefined}
     >
@@ -390,7 +389,14 @@ function PriceCards({
           singleLine ? "home-price-box-title is-nowrap" : "home-price-box-title",
           "Weekly Service"
         )}
-        {line("weekly", "fee", feeClass, feeText)}
+        {line(
+          "weekly",
+          "fee",
+          singleLine ? feeClass : "home-price-box-fee is-nowrap",
+          singleLine
+            ? feeText
+            : `+ $${money(rates.deliveryFee)} Service Fee per Pickup`
+        )}
       </article>
 
       <article className="home-price-box is-ondemand" style={boxes.ondemand}>
@@ -416,16 +422,16 @@ function PriceCards({
   );
 }
 
-function MobilePriceOverlay({ rates }: { rates: LaundryRates }) {
+function DesktopPriceOverlay({ rates }: { rates: LaundryRates }) {
   const { enabled, setDbug, linked, setLinked, layout, patchLine, reset } =
-    useMobilePricingDbug();
+    useDesktopPricingDbug();
   const [portalReady, setPortalReady] = useState(false);
 
   useEffect(() => setPortalReady(true), []);
 
   const dbugChrome = enabled ? (
-    <div className="home-price-dbug-panel is-mobile-dock">
-      <strong>DBUG</strong>
+    <div className="home-price-dbug-panel is-desktop-dock">
+      <strong>DBUG desktop</strong>
       <div className="home-price-dbug-mode" role="group" aria-label="Move mode">
         <button
           type="button"
@@ -454,7 +460,7 @@ function MobilePriceOverlay({ rates }: { rates: LaundryRates }) {
   ) : (
     <button
       type="button"
-      className="home-price-dbug-open is-mobile-dock"
+      className="home-price-dbug-open is-desktop-dock"
       onClick={() => setDbug(true)}
     >
       DBUG
@@ -463,17 +469,16 @@ function MobilePriceOverlay({ rates }: { rates: LaundryRates }) {
 
   return (
     <div
-      className={`home-price-overlay is-mobile ${enabled ? "is-dbug" : ""}`}
+      className={`home-price-overlay ${enabled ? "is-dbug" : ""}`}
       aria-hidden={enabled ? undefined : true}
     >
       {portalReady ? createPortal(dbugChrome, document.body) : null}
       <PriceCards
         rates={rates}
         layout={layout}
-        boxes={MOBILE_BOXES}
+        boxes={DESKTOP_BOXES}
         dbug={enabled}
         onPatch={patchLine}
-        singleLine
       />
     </div>
   );
@@ -489,17 +494,18 @@ export function HomePriceOverlay({
   useEffect(() => subscribeLaundryRates(setRates), []);
 
   if (variant === "mobile") {
-    return <MobilePriceOverlay rates={rates} />;
+    return (
+      <div className="home-price-overlay is-mobile" aria-hidden="true">
+        <PriceCards
+          rates={rates}
+          layout={MOBILE_LAYOUT}
+          boxes={MOBILE_BOXES}
+          dbug={false}
+          singleLine
+        />
+      </div>
+    );
   }
 
-  return (
-    <div className="home-price-overlay" aria-hidden="true">
-      <PriceCards
-        rates={rates}
-        layout={DESKTOP_LAYOUT}
-        boxes={DESKTOP_BOXES}
-        dbug={false}
-      />
-    </div>
-  );
+  return <DesktopPriceOverlay rates={rates} />;
 }
