@@ -13,8 +13,9 @@ const MOBILE_PANELS = [
   { start: 0, end: 2790, shortBlend: false },
   { start: 2790, end: 5217, shortBlend: false },
   { start: 5217, end: 6817, shortBlend: false },
-  { start: 6817, end: 9561, shortBlend: false },
-  { start: 9561, end: 11869, shortBlend: true },
+  // End before pricing blank stamp (composite fade starts ~9399) to avoid double headlines.
+  { start: 6817, end: 9399, shortBlend: false },
+  { start: 9399, end: 11869, shortBlend: true },
   { start: 11869, end: MOBILE_ARTWORK_HEIGHT, shortBlend: true },
 ] as const;
 

@@ -7,6 +7,7 @@ import {
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
 } from "react";
+import { createPortal } from "react-dom";
 
 import {
   DEFAULT_LAUNDRY_RATES,
@@ -78,19 +79,19 @@ const DESKTOP_BOXES: Record<CardKey, BoxGeom> = {
   },
 };
 
-/** Stacked cards measured from gen-mobile-05-pricing on the pricing panel. */
+/** Stacked cards on mobile pricing panel (panel starts at composite fade). */
 const MOBILE_BOXES: Record<CardKey, BoxGeom> = {
   weekly: {
     left: "22.87%",
-    top: "9.29%",
+    top: "15.24%",
     width: "54.26%",
-    height: "19.44%",
+    height: "18.16%",
   },
   ondemand: {
     left: "23.43%",
-    top: "30.21%",
+    top: "34.79%",
     width: "53.43%",
-    height: "18.84%",
+    height: "17.6%",
   },
 };
 
@@ -402,53 +403,54 @@ function DesktopPriceOverlay({ rates }: { rates: LaundryRates }) {
 function MobilePriceOverlay({ rates }: { rates: LaundryRates }) {
   const { enabled, setDbug, linked, setLinked, layout, patchLine, reset } =
     useMobilePricingDbug();
+  const [portalReady, setPortalReady] = useState(false);
+
+  useEffect(() => setPortalReady(true), []);
+
+  const dbugChrome = enabled ? (
+    <div className="home-price-dbug-panel is-mobile-dock">
+      <strong>DBUG</strong>
+      <div className="home-price-dbug-mode" role="group" aria-label="Move mode">
+        <button
+          type="button"
+          className={!linked ? "is-active" : undefined}
+          onClick={() => setLinked(false)}
+        >
+          Solo
+        </button>
+        <button
+          type="button"
+          className={linked ? "is-active" : undefined}
+          onClick={() => setLinked(true)}
+        >
+          Linked
+        </button>
+      </div>
+      <div className="home-price-dbug-actions">
+        <button type="button" onClick={reset}>
+          Reset
+        </button>
+        <button type="button" onClick={() => setDbug(false)}>
+          Hide
+        </button>
+      </div>
+    </div>
+  ) : (
+    <button
+      type="button"
+      className="home-price-dbug-open is-mobile-dock"
+      onClick={() => setDbug(true)}
+    >
+      DBUG
+    </button>
+  );
 
   return (
     <div
       className={`home-price-overlay is-mobile ${enabled ? "is-dbug" : ""}`}
       aria-hidden={enabled ? undefined : true}
     >
-      {enabled ? (
-        <div className="home-price-dbug-panel">
-          <strong>DBUG</strong>
-          <div
-            className="home-price-dbug-mode"
-            role="group"
-            aria-label="Move mode"
-          >
-            <button
-              type="button"
-              className={!linked ? "is-active" : undefined}
-              onClick={() => setLinked(false)}
-            >
-              Solo
-            </button>
-            <button
-              type="button"
-              className={linked ? "is-active" : undefined}
-              onClick={() => setLinked(true)}
-            >
-              Linked
-            </button>
-          </div>
-          <div className="home-price-dbug-actions">
-            <button type="button" onClick={reset}>
-              Reset
-            </button>
-            <button type="button" onClick={() => setDbug(false)}>
-              Hide
-            </button>
-          </div>
-        </div>
-      ) : (
-        <button
-          type="button"
-          className="home-price-dbug-open"
-          onClick={() => setDbug(true)}
-        >
-          DBUG
-        </button>
-      )}
+      {portalReady ? createPortal(dbugChrome, document.body) : null}
 
       <PriceCards
         rates={rates}
