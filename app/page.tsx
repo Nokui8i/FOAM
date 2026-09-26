@@ -44,7 +44,7 @@ export default function Home() {
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src="/home-mockup-mobile-v21.png"
+                  src="/home-mockup-mobile-v22.png"
                   alt=""
                   width={1440}
                   height={MOBILE_ARTWORK_HEIGHT}
@@ -56,7 +56,7 @@ export default function Home() {
                 {index > 0 && (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
-                    src="/home-mockup-mobile-v21.png"
+                    src="/home-mockup-mobile-v22.png"
                     alt=""
                     width={1440}
                     height={MOBILE_ARTWORK_HEIGHT}
@@ -67,6 +67,7 @@ export default function Home() {
                     }}
                   />
                 )}
+                {index === 4 ? <HomePriceOverlay variant="mobile" /> : null}
               </div>
             );
           })}

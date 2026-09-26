@@ -1,11 +1,12 @@
 import sharp from "sharp";
 
-const BLANK =
+const DESK_BLANK =
   "preview-sections/ChatGPT Image Sep 25, 2026, 06_34_57 PM.png";
+const MOB_BLANK = "preview-sections/gen-mobile-05-pricing.png";
 const DESK_BASE = "public/home-mockup-desktop-v21.png";
 const DESK_OUT = "public/home-mockup-desktop-v24";
 const MOB_BASE = "public/home-mockup-mobile-v18.png";
-const MOB_OUT = "public/home-mockup-mobile-v21";
+const MOB_OUT = "public/home-mockup-mobile-v22";
 
 function applyEdgeFade(rgba, w, h, fadeTop, fadeBot) {
   for (let y = 0; y < h; y++) {
@@ -44,7 +45,7 @@ async function buildDesktop() {
 
   const rgba = Buffer.alloc(w * span * 4, 255);
 
-  const art = await sharp(BLANK)
+  const art = await sharp(DESK_BLANK)
     .resize(w, panel, { fit: "cover", position: "centre" })
     .ensureAlpha()
     .raw()
@@ -80,12 +81,11 @@ async function buildMobile() {
   const top = start - fade;
   const span = band + fade * 2;
 
-  const blankMeta = await sharp(BLANK).metadata();
-  // Fit blank width; keep aspect, then cover the pricing band
+  const blankMeta = await sharp(MOB_BLANK).metadata();
   const targetH = band;
   const rgba = Buffer.alloc(w * span * 4, 255);
 
-  const art = await sharp(BLANK)
+  const art = await sharp(MOB_BLANK)
     .resize(w, targetH, { fit: "cover", position: "centre" })
     .ensureAlpha()
     .raw()
@@ -108,9 +108,14 @@ async function buildMobile() {
   await sharp(composed)
     .jpeg({ quality: 88, mozjpeg: true })
     .toFile(`${MOB_OUT}.jpg`);
-  console.log("mobile v21", { w, top, span, fade, blankMeta });
+  console.log("mobile v22", { w, top, span, fade, blankMeta });
 }
 
-await buildDesktop();
-await buildMobile();
+const only = process.argv[2];
+if (only === "desktop") await buildDesktop();
+else if (only === "mobile") await buildMobile();
+else {
+  await buildDesktop();
+  await buildMobile();
+}
 console.log("done");
