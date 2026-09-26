@@ -410,11 +410,7 @@ function MobilePriceOverlay({ rates }: { rates: LaundryRates }) {
     >
       {enabled ? (
         <div className="home-price-dbug-panel">
-          <strong>DBUG mobile</strong>
-          <p>
-            Drag a line to move. Orange handle = resize. Solo / Linked below.
-            Auto-saves — say <b>done</b> to lock in code.
-          </p>
+          <strong>DBUG</strong>
           <div
             className="home-price-dbug-mode"
             role="group"
@@ -435,17 +431,12 @@ function MobilePriceOverlay({ rates }: { rates: LaundryRates }) {
               Linked
             </button>
           </div>
-          <p className="home-price-dbug-mode-hint">
-            {linked
-              ? "Linked: both cards move/resize together."
-              : "Solo: only the card you drag moves."}
-          </p>
           <div className="home-price-dbug-actions">
             <button type="button" onClick={reset}>
               Reset
             </button>
             <button type="button" onClick={() => setDbug(false)}>
-              Hide DBUG
+              Hide
             </button>
           </div>
         </div>
