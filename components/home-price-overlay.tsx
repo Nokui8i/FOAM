@@ -97,16 +97,14 @@ const MOBILE_BOXES: Record<CardKey, BoxGeom> = {
   },
 };
 
-const DESKTOP_MIN_STORAGE = "foam-pricing-min-layout-desktop-v1";
-const DESKTOP_MIN_DBUG = "foam-pricing-min-dbug-desktop";
 const MOBILE_MIN_STORAGE = "foam-pricing-min-layout-mobile-v1";
 const MOBILE_MIN_DBUG = "foam-pricing-min-dbug-mobile";
 
-/** Fallback only — localStorage wins when present. */
-const DESKTOP_MIN_FALLBACK: LineLayout = {
-  top: 70.5,
-  x: -12,
-  cqh: 3.2,
+/** Locked from desktop DBUG Copy. */
+const DESKTOP_MIN_LAYOUT: LineLayout = {
+  top: 70.3,
+  x: -12.4,
+  cqh: 3.4,
 };
 
 const MOBILE_MIN_FALLBACK: LineLayout = {
@@ -457,40 +455,10 @@ function MinDbugChrome({
 }
 
 function DesktopPriceOverlay({ rates }: { rates: LaundryRates }) {
-  const dbug = useMinDbug(
-    DESKTOP_MIN_STORAGE,
-    DESKTOP_MIN_DBUG,
-    DESKTOP_MIN_FALLBACK,
-    "desktop"
-  );
-  const [portalReady, setPortalReady] = useState(false);
-  useEffect(() => setPortalReady(true), []);
-
   return (
-    <div
-      className={`home-price-overlay ${dbug.enabled ? "is-dbug" : ""}`}
-      aria-hidden={dbug.enabled ? undefined : true}
-    >
-      {portalReady
-        ? createPortal(
-            <MinDbugChrome
-              dock="desktop"
-              enabled={dbug.enabled}
-              setDbug={dbug.setDbug}
-              reset={dbug.reset}
-              copy={dbug.copy}
-              copied={dbug.copied}
-              layout={dbug.layout}
-            />,
-            document.body
-          )
-        : null}
+    <div className="home-price-overlay" aria-hidden="true">
       <PriceCards rates={rates} layout={DESKTOP_LAYOUT} boxes={DESKTOP_BOXES} />
-      <MinLine
-        enabled={dbug.enabled}
-        layout={dbug.layout}
-        onPatch={dbug.patch}
-      >
+      <MinLine enabled={false} layout={DESKTOP_MIN_LAYOUT}>
         Minimum order total: ${money(rates.minimumOrder)}.
       </MinLine>
     </div>
