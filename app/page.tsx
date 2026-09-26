@@ -1,12 +1,14 @@
 import Link from "next/link";
-import { ArrowRight } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
 import { HomePriceOverlay } from "@/components/home-price-overlay";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { BOOKING_PATH } from "@/lib/site-config";
 import styles from "./desktop-panorama.module.css";
+
+const STICKY_BOOK_BTN_SRC = encodeURI(
+  "/ChatGPT Image Sep 26, 2026, 12_18_21 PM.png"
+);
 
 const MOBILE_ARTWORK_HEIGHT = 13469;
 const MOBILE_PANELS = [
@@ -101,11 +103,21 @@ export default function Home() {
       </section>
 
       <div className="home-sticky-book">
-        <Button size="lg" asChild className="home-sticky-book-btn">
-          <Link href={BOOKING_PATH}>
-            Book a Pickup <ArrowRight />
-          </Link>
-        </Button>
+        <Link
+          href={BOOKING_PATH}
+          className="home-sticky-book-btn"
+          aria-label="Book a Pickup"
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            className="home-sticky-book-img"
+            src={STICKY_BOOK_BTN_SRC}
+            alt=""
+            width={1967}
+            height={800}
+            draggable={false}
+          />
+        </Link>
       </div>
 
       <SiteFooter hideCta flushTop />
