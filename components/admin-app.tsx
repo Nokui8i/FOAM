@@ -685,10 +685,10 @@ function OpsConsole({
                     >
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
-                        src="/ops-signout-menu.png"
+                        src="/ops-signout-confirm.png"
                         alt=""
-                        width={1363}
-                        height={345}
+                        width={1171}
+                        height={269}
                         draggable={false}
                       />
                     </button>
