@@ -2031,6 +2031,117 @@
 .admin-page .ops-schedule-rates .ops-promos-field input {
   min-height: 40px;
 }
+
+.admin-page .ops-pricing-plane {
+  gap: 16px;
+}
+.admin-page .ops-pricing-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+.admin-page .ops-pricing-card {
+  display: grid;
+  gap: 14px;
+  padding: 16px 16px 14px;
+  border: 1px solid color-mix(in srgb, var(--ops-ink) 10%, transparent);
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 1px 0 color-mix(in srgb, var(--ops-ink) 4%, transparent);
+}
+.admin-page .ops-pricing-card.is-weekly {
+  border-color: color-mix(in srgb, #00004b 28%, transparent);
+}
+.admin-page .ops-pricing-card.is-ondemand {
+  border-color: color-mix(in srgb, #0079fe 34%, transparent);
+}
+.admin-page .ops-pricing-card.is-fee {
+  border-color: color-mix(in srgb, #0f766e 28%, transparent);
+}
+.admin-page .ops-pricing-card.is-min {
+  border-color: color-mix(in srgb, #334155 22%, transparent);
+}
+.admin-page .ops-pricing-card-head {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 12px;
+  align-items: start;
+}
+.admin-page .ops-pricing-card-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--ops-primary) 10%, #fff);
+  color: var(--ops-primary);
+}
+.admin-page .ops-pricing-card.is-weekly .ops-pricing-card-icon {
+  background: color-mix(in srgb, #00004b 10%, #fff);
+  color: #00004b;
+}
+.admin-page .ops-pricing-card.is-ondemand .ops-pricing-card-icon {
+  background: color-mix(in srgb, #0079fe 12%, #fff);
+  color: #0079fe;
+}
+.admin-page .ops-pricing-card.is-fee .ops-pricing-card-icon {
+  background: color-mix(in srgb, #0f766e 12%, #fff);
+  color: #0f766e;
+}
+.admin-page .ops-pricing-card-head h2 {
+  margin: 0;
+  color: var(--ops-ink);
+  font: 800 16px/1.2 var(--ops-display);
+  letter-spacing: -0.02em;
+}
+.admin-page .ops-pricing-card-head p {
+  margin: 4px 0 0;
+  color: var(--ops-muted);
+  font-size: 13px;
+  line-height: 1.35;
+}
+.admin-page .ops-pricing-card-head p b {
+  color: var(--ops-ink);
+  font-weight: 750;
+}
+.admin-page .ops-pricing-preview {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--ops-soft) 70%, #fff);
+  color: var(--ops-muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+.admin-page .ops-pricing-preview b {
+  color: var(--ops-ink);
+  font-weight: 750;
+}
+.admin-page .ops-pricing-note {
+  display: grid;
+  gap: 8px;
+  padding: 14px 16px;
+  border: 1px dashed color-mix(in srgb, var(--ops-ink) 14%, transparent);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--ops-soft) 55%, #fff);
+}
+.admin-page .ops-pricing-note strong {
+  color: var(--ops-ink);
+  font-size: 13px;
+  font-weight: 800;
+}
+.admin-page .ops-pricing-note ul {
+  margin: 0;
+  padding-inline-start: 1.1rem;
+  color: var(--ops-muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+.admin-page .ops-pricing-note li + li {
+  margin-top: 4px;
+}
+
 .admin-page .ops-schedule-head-actions .ops-catalog-plane-chip {
   min-height: 44px;
   padding: 8px 14px 8px 10px;
@@ -3051,6 +3162,9 @@
     grid-template-columns: 1fr;
   }
   .admin-page .ops-schedule-layout {
+    grid-template-columns: 1fr;
+  }
+  .admin-page .ops-pricing-grid {
     grid-template-columns: 1fr;
   }
   .admin-page .ops-schedule-rates {

@@ -16,6 +16,7 @@ import {
   Bell,
   CalendarDays,
   ChevronDown,
+  CircleDollarSign,
   Clock3,
   Headphones,
   History,
@@ -29,6 +30,7 @@ import { AdminAlertsPanel } from "@/components/admin-alerts-panel";
 import { AdminCatalogPanel } from "@/components/admin-catalog-panel";
 import { AdminContactsPanel } from "@/components/admin-contacts-panel";
 import { AdminOrdersPanel } from "@/components/admin-orders-panel";
+import { AdminPricingPanel } from "@/components/admin-pricing-panel";
 import { AdminPromosPanel } from "@/components/admin-promos-panel";
 import { AdminSchedulePanel } from "@/components/admin-schedule-panel";
 import { Button } from "@/components/ui/button";
@@ -59,6 +61,7 @@ type AdminTab =
   | "alerts"
   | "catalog"
   | "promos"
+  | "pricing"
   | "schedule";
 type MobileView = "list" | "detail";
 
@@ -71,6 +74,7 @@ const TAB_FROM_PARAM: Record<string, AdminTab> = {
   alerts: "alerts",
   catalog: "catalog",
   promos: "promos",
+  pricing: "pricing",
   schedule: "schedule",
 };
 
@@ -545,6 +549,14 @@ function AdminAppInner() {
             </button>
             <button
               type="button"
+              className={cn("nav-button", tab === "pricing" && "active")}
+              onClick={() => setDestination("pricing")}
+            >
+              <CircleDollarSign size={18} aria-hidden />
+              <span>Pricing</span>
+            </button>
+            <button
+              type="button"
               className={cn("nav-button", tab === "schedule" && "active")}
               onClick={() => setDestination("schedule")}
             >
@@ -632,6 +644,12 @@ function AdminAppInner() {
               />
             ) : tab === "promos" ? (
               <AdminPromosPanel
+                adminEmail={user.email ?? ""}
+                mobileView={mobileView}
+                onMobileViewChange={setMobileView}
+              />
+            ) : tab === "pricing" ? (
+              <AdminPricingPanel
                 adminEmail={user.email ?? ""}
                 mobileView={mobileView}
                 onMobileViewChange={setMobileView}

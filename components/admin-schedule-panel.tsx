@@ -28,12 +28,6 @@ import {
   type SlotCounts,
 } from "@/lib/pickup-availability";
 import {
-  DEFAULT_LAUNDRY_RATES,
-  saveLaundryRates,
-  subscribeLaundryRates,
-  type LaundryRates,
-} from "@/lib/laundry-rates";
-import {
   isCancelledOrder,
   isWaitingForPickup,
   normalizeOrderStatus,
@@ -108,7 +102,6 @@ export function AdminSchedulePanel({
   const [orderPickups, setOrderPickups] = useState<
     Array<{ date: string; slot: string }>
   >([]);
-  const [rates, setRates] = useState<LaundryRates>(DEFAULT_LAUNDRY_RATES);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [okMsg, setOkMsg] = useState("");
@@ -126,8 +119,6 @@ export function AdminSchedulePanel({
   );
 
   useEffect(() => subscribeDayOverride(dayIso, setDayOverride), [dayIso]);
-
-  useEffect(() => subscribeLaundryRates(setRates), []);
 
   useEffect(() => {
     return onSnapshot(collection(getFirebaseDb(), "orders"), (snap) => {
@@ -265,7 +256,6 @@ export function AdminSchedulePanel({
       const saved = await savePickupSchedule(slots, adminEmail);
       await saveDayOverride(dayIso, cleaned, adminEmail);
       await setDaySlotCounts(dayIso, dayOrderCounts);
-      await saveLaundryRates(rates, adminEmail);
       setSlots(saved.map((s) => ({ ...s })));
       setDayOverride(cleaned);
       setOkMsg("Saved.");
@@ -319,69 +309,6 @@ export function AdminSchedulePanel({
           {error || okMsg}
         </p>
       )}
-
-      <section className="ops-schedule-rates">
-        <label className="ops-promos-field">
-          <span>Weekly $/lb</span>
-          <input
-            type="number"
-            min={0.01}
-            step={0.01}
-            value={rates.weeklyPerLb}
-            onChange={(e) =>
-              setRates((r) => ({
-                ...r,
-                weeklyPerLb: Math.max(0.01, Number(e.target.value) || 0.01),
-              }))
-            }
-          />
-        </label>
-        <label className="ops-promos-field">
-          <span>On-demand $/lb</span>
-          <input
-            type="number"
-            min={0.01}
-            step={0.01}
-            value={rates.standardPerLb}
-            onChange={(e) =>
-              setRates((r) => ({
-                ...r,
-                standardPerLb: Math.max(0.01, Number(e.target.value) || 0.01),
-              }))
-            }
-          />
-        </label>
-        <label className="ops-promos-field">
-          <span>Service fee</span>
-          <input
-            type="number"
-            min={0.01}
-            step={0.01}
-            value={rates.deliveryFee}
-            onChange={(e) =>
-              setRates((r) => ({
-                ...r,
-                deliveryFee: Math.max(0.01, Number(e.target.value) || 0.01),
-              }))
-            }
-          />
-        </label>
-        <label className="ops-promos-field">
-          <span>Minimum</span>
-          <input
-            type="number"
-            min={1}
-            step={1}
-            value={rates.minimumOrder}
-            onChange={(e) =>
-              setRates((r) => ({
-                ...r,
-                minimumOrder: Math.max(1, Number(e.target.value) || 1),
-              }))
-            }
-          />
-        </label>
-      </section>
 
       <div className="ops-schedule-layout">
         <section className="ops-schedule-card">
