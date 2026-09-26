@@ -20,17 +20,15 @@ export function SiteHeader() {
   return (
     <header className="site-header">
       <nav className="site-shell site-header-inner" aria-label="Main navigation">
-        <Link href="/#top" className="wordmark site-header-logo" aria-label="FOAM home">
-          F
-          <span className="site-header-o" aria-hidden="true">
-            <span className="site-header-bubbles">
-              <i />
-              <i />
-              <i />
-            </span>
-            O
-          </span>
-          AM.
+        <Link href="/#top" className="site-header-logo" aria-label="FOAM home">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            className="site-header-logo-img"
+            src="/foam-ops-logo.png"
+            alt="FOAM"
+            width={217}
+            height={72}
+          />
         </Link>
 
         <div className="site-header-nav">
