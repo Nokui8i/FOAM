@@ -355,9 +355,9 @@ function PriceCards({
     "Only When You Need Us"
   ) : (
     <>
-      Only When You
+      Only When
       <br />
-      Need Us
+      You Need Us
     </>
   );
   const feeText = singleLine ? (
@@ -392,10 +392,8 @@ function PriceCards({
         {line(
           "weekly",
           "fee",
-          singleLine ? feeClass : "home-price-box-fee is-nowrap",
-          singleLine
-            ? feeText
-            : `+ $${money(rates.deliveryFee)} Service Fee per Pickup`
+          "home-price-box-fee is-nowrap",
+          `+ $${money(rates.deliveryFee)} Service Fee per Pickup`
         )}
       </article>
 
@@ -416,7 +414,14 @@ function PriceCards({
           singleLine ? "home-price-box-title is-nowrap" : "home-price-box-title",
           ondemandTitle
         )}
-        {line("ondemand", "fee", feeClass, feeText)}
+        {line(
+          "ondemand",
+          "fee",
+          singleLine
+            ? "home-price-box-fee is-nowrap"
+            : "home-price-box-fee is-ink",
+          feeText
+        )}
       </article>
     </>
   );
