@@ -5162,7 +5162,7 @@
 .home-price-box-amount {
   margin: 0;
   font-weight: 800;
-  font-size: 32cqh;
+  font-size: 36cqh;
   letter-spacing: -0.045em;
   line-height: 0.92;
 }
@@ -5178,7 +5178,7 @@
 .home-price-box-unit {
   margin: 0.28em 0 0;
   font-weight: 500;
-  font-size: 5.8cqh;
+  font-size: 6cqh;
   letter-spacing: -0.01em;
   line-height: 1.1;
 }
@@ -5186,7 +5186,7 @@
 .home-price-box-title {
   margin: 0.55em 0 0;
   font-weight: 700;
-  font-size: 8.2cqh;
+  font-size: 8.6cqh;
   letter-spacing: -0.03em;
   line-height: 1.1;
 }
@@ -5194,26 +5194,26 @@
 .home-price-box-fee {
   margin: 0.7em 0 0;
   font-weight: 500;
-  font-size: 4.6cqh;
+  font-size: 4.8cqh;
   letter-spacing: -0.01em;
   line-height: 1.25;
 }
 
 @supports not (font-size: 1cqh) {
   .home-price-box-amount {
-    font-size: clamp(3.75rem, 7.5vw, 6.75rem);
+    font-size: clamp(4.25rem, 8.5vw, 7.5rem);
   }
 
   .home-price-box-unit {
-    font-size: clamp(0.95rem, 1.5vw, 1.35rem);
+    font-size: clamp(1rem, 1.6vw, 1.45rem);
   }
 
   .home-price-box-title {
-    font-size: clamp(1.25rem, 2.1vw, 1.9rem);
+    font-size: clamp(1.35rem, 2.3vw, 2.05rem);
   }
 
   .home-price-box-fee {
-    font-size: clamp(0.78rem, 1.2vw, 1.1rem);
+    font-size: clamp(0.82rem, 1.25vw, 1.15rem);
   }
 }
 
