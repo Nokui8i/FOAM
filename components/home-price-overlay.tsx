@@ -27,6 +27,7 @@ type LayoutMap = Record<CardKey, CardLayout>;
 
 const STORAGE_KEY = "foam-pricing-line-layout-v3";
 const DBUG_KEY = "foam-pricing-dbug";
+const LINK_KEY = "foam-pricing-dbug-link";
 
 const DEFAULT_CARD: CardLayout = {
   amount: { top: 14, cqh: 22 },
@@ -83,7 +84,9 @@ function clamp(n: number, min: number, max: number) {
 
 function usePricingDbug() {
   const [enabled, setEnabled] = useState(true);
+  const [linked, setLinkedState] = useState(false);
   const [layout, setLayout] = useState<LayoutMap>(DEFAULT_LAYOUT);
+  const linkedRef = useRef(false);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -95,6 +98,9 @@ function usePricingDbug() {
       saved === null;
     setEnabled(on);
     if (saved === null) localStorage.setItem(DBUG_KEY, "1");
+    const linkSaved = localStorage.getItem(LINK_KEY) === "1";
+    setLinkedState(linkSaved);
+    linkedRef.current = linkSaved;
     setLayout(loadLayout());
   }, []);
 
@@ -109,13 +115,18 @@ function usePricingDbug() {
         top: Math.round(clamp(patch.top ?? current.top, 0, 92) * 10) / 10,
         cqh: Math.round(clamp(patch.cqh ?? current.cqh, 2, 40) * 10) / 10,
       };
-      const next: LayoutMap = {
-        ...prev,
-        [card]: {
-          ...prev[card],
-          [key]: nextLine,
-        },
-      };
+      const next: LayoutMap = linkedRef.current
+        ? {
+            weekly: { ...prev.weekly, [key]: { ...nextLine } },
+            ondemand: { ...prev.ondemand, [key]: { ...nextLine } },
+          }
+        : {
+            ...prev,
+            [card]: {
+              ...prev[card],
+              [key]: nextLine,
+            },
+          };
       saveLayout(next);
       return next;
     });
@@ -126,13 +137,19 @@ function usePricingDbug() {
     localStorage.setItem(DBUG_KEY, on ? "1" : "0");
   };
 
+  const setLinked = (on: boolean) => {
+    setLinkedState(on);
+    linkedRef.current = on;
+    localStorage.setItem(LINK_KEY, on ? "1" : "0");
+  };
+
   const reset = () => {
     const fresh = structuredClone(DEFAULT_LAYOUT);
     setLayout(fresh);
     saveLayout(fresh);
   };
 
-  return { enabled, setDbug, layout, patchLine, reset };
+  return { enabled, setDbug, linked, setLinked, layout, patchLine, reset };
 }
 
 function FreeLine({
@@ -220,7 +237,8 @@ function FreeLine({
 
 export function HomePriceOverlay() {
   const [rates, setRates] = useState<LaundryRates>(DEFAULT_LAUNDRY_RATES);
-  const { enabled, setDbug, layout, patchLine, reset } = usePricingDbug();
+  const { enabled, setDbug, linked, setLinked, layout, patchLine, reset } =
+    usePricingDbug();
 
   useEffect(() => subscribeLaundryRates(setRates), []);
 
@@ -251,9 +269,29 @@ export function HomePriceOverlay() {
         <div className="home-price-dbug-panel">
           <strong>DBUG type</strong>
           <p>
-            Drag a line to move <b>only that card</b>. Orange handle = resize
-            that line only. Auto-saves here — tell me <b>done</b> to lock in
-            code.
+            Drag a line to move. Orange handle = resize. Choose Solo or Linked
+            below. Auto-saves — tell me <b>done</b> to lock in code.
+          </p>
+          <div className="home-price-dbug-mode" role="group" aria-label="Move mode">
+            <button
+              type="button"
+              className={!linked ? "is-active" : undefined}
+              onClick={() => setLinked(false)}
+            >
+              Solo
+            </button>
+            <button
+              type="button"
+              className={linked ? "is-active" : undefined}
+              onClick={() => setLinked(true)}
+            >
+              Linked
+            </button>
+          </div>
+          <p className="home-price-dbug-mode-hint">
+            {linked
+              ? "Linked: both cards move/resize together."
+              : "Solo: only the card you drag moves."}
           </p>
           <div className="home-price-dbug-actions">
             <button type="button" onClick={reset}>

@@ -5344,6 +5344,31 @@
   color: #ff6a00;
 }
 
+.home-price-dbug-mode {
+  display: flex;
+  gap: 0.35rem;
+  margin-top: 0.15rem;
+}
+
+.home-price-dbug-mode button {
+  flex: 1;
+  padding: 0.4rem 0.35rem;
+  border-color: #ddd;
+  color: #555;
+}
+
+.home-price-dbug-mode button.is-active {
+  border-color: #ff6a00;
+  background: #fff4eb;
+  color: #ff6a00;
+}
+
+.home-price-dbug-mode-hint {
+  margin: 0.4rem 0 0 !important;
+  font-size: 0.62rem !important;
+  color: #777 !important;
+}
+
 
 @media (min-width: 640px) {
   .home-full {
