@@ -13,9 +13,9 @@ const MOBILE_PANELS = [
   { start: 0, end: 2790, shortBlend: false },
   { start: 2790, end: 5217, shortBlend: false },
   { start: 5217, end: 6817, shortBlend: false },
-  // End before pricing blank stamp (composite fade starts ~9399) to avoid double headlines.
-  { start: 6817, end: 9399, shortBlend: false },
-  { start: 9399, end: 11869, shortBlend: true },
+  { start: 6817, end: 9561, shortBlend: false },
+  // Pricing panel — no top shortBlend (avoids ghost headline at the seam).
+  { start: 9561, end: 11869, shortBlend: false },
   { start: 11869, end: MOBILE_ARTWORK_HEIGHT, shortBlend: true },
 ] as const;
 
@@ -45,7 +45,7 @@ export default function Home() {
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src="/home-mockup-mobile-v22.png"
+                  src="/home-mockup-mobile-v23.png"
                   alt=""
                   width={1440}
                   height={MOBILE_ARTWORK_HEIGHT}
@@ -57,7 +57,7 @@ export default function Home() {
                 {index > 0 && index !== 4 && (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
-                    src="/home-mockup-mobile-v22.png"
+                    src="/home-mockup-mobile-v23.png"
                     alt=""
                     width={1440}
                     height={MOBILE_ARTWORK_HEIGHT}

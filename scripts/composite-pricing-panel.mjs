@@ -6,7 +6,7 @@ const MOB_BLANK = "preview-sections/gen-mobile-05-pricing.png";
 const DESK_BASE = "public/home-mockup-desktop-v21.png";
 const DESK_OUT = "public/home-mockup-desktop-v24";
 const MOB_BASE = "public/home-mockup-mobile-v18.png";
-const MOB_OUT = "public/home-mockup-mobile-v22";
+const MOB_OUT = "public/home-mockup-mobile-v23";
 
 function applyEdgeFade(rgba, w, h, fadeTop, fadeBot) {
   for (let y = 0; y < h; y++) {
@@ -77,21 +77,22 @@ async function buildMobile() {
   const start = 9561;
   const end = 11869;
   const band = end - start;
-  const fade = Math.round(band * 0.07);
-  const top = start - fade;
-  const span = band + fade * 2;
+  // Soft blend only into the next panel — never stamp above `start`
+  // (a top fade was duplicating SIMPLE PRICING across the seam).
+  const fadeBot = Math.round(band * 0.05);
+  const top = start;
+  const span = band + fadeBot;
 
   const blankMeta = await sharp(MOB_BLANK).metadata();
-  const targetH = band;
   const rgba = Buffer.alloc(w * span * 4, 255);
 
   const art = await sharp(MOB_BLANK)
-    .resize(w, targetH, { fit: "cover", position: "centre" })
+    .resize(w, band, { fit: "cover", position: "centre" })
     .ensureAlpha()
     .raw()
     .toBuffer({ resolveWithObject: true });
-  stamp(rgba, w, art.data, w, targetH, 0, fade);
-  applyEdgeFade(rgba, w, span, fade, fade);
+  stamp(rgba, w, art.data, w, band, 0, 0);
+  applyEdgeFade(rgba, w, span, 0, fadeBot);
 
   const overlay = await sharp(rgba, {
     raw: { width: w, height: span, channels: 4 },
@@ -108,7 +109,7 @@ async function buildMobile() {
   await sharp(composed)
     .jpeg({ quality: 88, mozjpeg: true })
     .toFile(`${MOB_OUT}.jpg`);
-  console.log("mobile v22", { w, top, span, fade, blankMeta });
+  console.log("mobile", MOB_OUT, { w, top, span, fadeBot, blankMeta });
 }
 
 const only = process.argv[2];
