@@ -6244,7 +6244,7 @@ html.home-booting .home-sticky-book {
   background: var(--ops-bg);
 }
 @media (min-width: 1024px) {
-  .ops-login { grid-template-columns: minmax(320px, 0.82fr) 1.18fr; }
+  .ops-login { grid-template-columns: 1fr 1fr; }
 }
 .ops-login-form-pane {
   display: flex;

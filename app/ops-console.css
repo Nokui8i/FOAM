@@ -2982,7 +2982,7 @@
 .admin-page .ops-login {
   min-height: 100dvh;
   display: grid;
-  grid-template-columns: .78fr 1.22fr;
+  grid-template-columns: 1fr 1fr;
   background: var(--ops-wash);
 }
 .admin-page .ops-login-form-pane { display: grid; place-items: center; padding: 40px; order: 2; }
