@@ -29,16 +29,20 @@ const STORAGE_KEY = "foam-pricing-line-layout-v3";
 const DBUG_KEY = "foam-pricing-dbug";
 const LINK_KEY = "foam-pricing-dbug-link";
 
-const DEFAULT_CARD: CardLayout = {
-  amount: { top: 14, cqh: 22 },
-  unit: { top: 38, cqh: 7.2 },
-  title: { top: 52, cqh: 9.5 },
-  fee: { top: 78, cqh: 5.8 },
-};
-
+/** Locked from live DBUG tuning (2026-09-26). */
 const DEFAULT_LAYOUT: LayoutMap = {
-  weekly: structuredClone(DEFAULT_CARD),
-  ondemand: structuredClone(DEFAULT_CARD),
+  weekly: {
+    amount: { top: 6.5, cqh: 22.6 },
+    unit: { top: 33, cqh: 7 },
+    title: { top: 47.3, cqh: 8.2 },
+    fee: { top: 69.2, cqh: 6.5 },
+  },
+  ondemand: {
+    amount: { top: 6.5, cqh: 22.6 },
+    unit: { top: 33, cqh: 7 },
+    title: { top: 46, cqh: 8.2 },
+    fee: { top: 69.2, cqh: 6.5 },
+  },
 };
 
 const LINE_ORDER: LineKey[] = ["amount", "unit", "title", "fee"];
@@ -83,7 +87,7 @@ function clamp(n: number, min: number, max: number) {
 }
 
 function usePricingDbug() {
-  const [enabled, setEnabled] = useState(true);
+  const [enabled, setEnabled] = useState(false);
   const [linked, setLinkedState] = useState(false);
   const [layout, setLayout] = useState<LayoutMap>(DEFAULT_LAYOUT);
   const linkedRef = useRef(false);
@@ -94,14 +98,18 @@ function usePricingDbug() {
     const on =
       params.get("dbug") === "1" ||
       params.get("dbug") === "pricing" ||
-      saved === "1" ||
-      saved === null;
+      saved === "1";
     setEnabled(on);
-    if (saved === null) localStorage.setItem(DBUG_KEY, "1");
-    const linkSaved = localStorage.getItem(LINK_KEY) === "1";
-    setLinkedState(linkSaved);
-    linkedRef.current = linkSaved;
-    setLayout(loadLayout());
+    if (on) {
+      localStorage.setItem(DBUG_KEY, "1");
+      const linkSaved = localStorage.getItem(LINK_KEY) === "1";
+      setLinkedState(linkSaved);
+      linkedRef.current = linkSaved;
+      setLayout(loadLayout());
+    } else {
+      localStorage.setItem(DBUG_KEY, "0");
+      setLayout(structuredClone(DEFAULT_LAYOUT));
+    }
   }, []);
 
   const patchLine = (
@@ -135,6 +143,8 @@ function usePricingDbug() {
   const setDbug = (on: boolean) => {
     setEnabled(on);
     localStorage.setItem(DBUG_KEY, on ? "1" : "0");
+    if (on) setLayout(loadLayout());
+    else setLayout(structuredClone(DEFAULT_LAYOUT));
   };
 
   const setLinked = (on: boolean) => {
@@ -218,7 +228,7 @@ function FreeLine({
       data-card={card}
       data-line={lineKey}
       style={{ top: `${layout.top}%` }}
-      onPointerDown={(e) => begin(e, "move")}
+      onPointerDown={enabled ? (e) => begin(e, "move") : undefined}
     >
       <div className={className} style={{ fontSize: `${layout.cqh}cqh` }}>
         {children}
@@ -269,10 +279,14 @@ export function HomePriceOverlay() {
         <div className="home-price-dbug-panel">
           <strong>DBUG type</strong>
           <p>
-            Drag a line to move. Orange handle = resize. Choose Solo or Linked
-            below. Auto-saves — tell me <b>done</b> to lock in code.
+            Drag a line to move. Orange handle = resize. Solo / Linked below.
+            Auto-saves — say <b>done</b> to lock in code again.
           </p>
-          <div className="home-price-dbug-mode" role="group" aria-label="Move mode">
+          <div
+            className="home-price-dbug-mode"
+            role="group"
+            aria-label="Move mode"
+          >
             <button
               type="button"
               className={!linked ? "is-active" : undefined}
@@ -302,15 +316,7 @@ export function HomePriceOverlay() {
             </button>
           </div>
         </div>
-      ) : (
-        <button
-          type="button"
-          className="home-price-dbug-open"
-          onClick={() => setDbug(true)}
-        >
-          DBUG
-        </button>
-      )}
+      ) : null}
 
       <article
         className="home-price-box is-weekly"
