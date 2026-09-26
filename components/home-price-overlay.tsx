@@ -383,7 +383,7 @@ function PriceCards({
         {line(
           "weekly",
           "title",
-          singleLine ? "home-price-box-title is-nowrap" : "home-price-box-title",
+          "home-price-box-title is-nowrap",
           "Weekly Service"
         )}
         {line(
