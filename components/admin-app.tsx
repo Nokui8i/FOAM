@@ -525,6 +525,11 @@ function OpsConsole({
   accountMenuRef: RefObject<HTMLDivElement | null>;
 }) {
   const avatar = initialsFromEmail(user.email);
+  const [signOutConfirm, setSignOutConfirm] = useState(false);
+
+  useEffect(() => {
+    if (!accountMenuOpen) setSignOutConfirm(false);
+  }, [accountMenuOpen]);
 
   return (
     <div className="ops-shell">
@@ -626,22 +631,46 @@ function OpsConsole({
           <div className="account-wrap" ref={accountMenuRef}>
             {accountMenuOpen ? (
               <div className="account-menu" role="menu">
-                <strong>Operations</strong>
-                <span>{user.email}</span>
-                <button
-                  type="button"
-                  role="menuitem"
-                  onClick={() => {
-                    if (!window.confirm("Are you sure you want to sign out?")) {
-                      return;
-                    }
-                    setAccountMenuOpen(false);
-                    void signOut(getFirebaseAuth());
-                  }}
-                >
-                  <LogOut size={15} aria-hidden />
-                  Sign out
-                </button>
+                {signOutConfirm ? (
+                  <>
+                    <strong>Sign out?</strong>
+                    <span>You will need to sign in again to use OPS.</span>
+                    <div className="account-menu-actions">
+                      <button
+                        type="button"
+                        className="is-cancel"
+                        role="menuitem"
+                        onClick={() => setSignOutConfirm(false)}
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={() => {
+                          setAccountMenuOpen(false);
+                          void signOut(getFirebaseAuth());
+                        }}
+                      >
+                        <LogOut size={15} aria-hidden />
+                        Sign out
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <strong>Operations</strong>
+                    <span>{user.email}</span>
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => setSignOutConfirm(true)}
+                    >
+                      <LogOut size={15} aria-hidden />
+                      Sign out
+                    </button>
+                  </>
+                )}
               </div>
             ) : null}
             <button
