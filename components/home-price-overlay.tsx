@@ -348,9 +348,6 @@ function PriceCards({
     </FreeLine>
   );
 
-  const feeClass = singleLine
-    ? "home-price-box-fee is-nowrap"
-    : "home-price-box-fee";
   const ondemandTitle = singleLine ? (
     "Only When You Need Us"
   ) : (
