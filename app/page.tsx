@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { HomePriceOverlay } from "@/components/home-price-overlay";
+import { HomeSplash } from "@/components/home-splash";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { BOOKING_PATH } from "@/lib/site-config";
@@ -27,6 +28,7 @@ const MOBILE_PANELS = [
 export default function Home() {
   return (
     <main className="home-page bg-background text-foreground selection:bg-accent">
+      <HomeSplash />
       <SiteHeader />
 
       <section className="home-full" aria-label="FOAM homepage" id="top">
