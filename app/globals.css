@@ -5230,7 +5230,8 @@
   line-height: 1.25;
 }
 
-.home-price-box-fee.is-nowrap {
+.home-price-box-fee.is-nowrap,
+.home-price-box-title.is-nowrap {
   white-space: nowrap;
 }
 
