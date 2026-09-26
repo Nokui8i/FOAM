@@ -100,6 +100,7 @@ import {
 import { ensureNextWeeklyOrder, addDaysToYmd } from "@/lib/weekly-automation";
 import { customerVisiblePhotos, firstNameFromContact } from "@/lib/order-tracking";
 import { BUSINESS_WHATSAPP } from "@/lib/site-config";
+import { useOpsPageReadyWhen } from "@/components/ops-boot";
 import { cn } from "@/lib/utils";
 import { useQueryReplace } from "@/lib/use-query-replace";
 
@@ -385,6 +386,7 @@ export function AdminOrdersPanel({
   const { searchParams, replaceQuery } = useQueryReplace();
   const [rows, setRows] = useState<FoamOrder[]>([]);
   const [listReady, setListReady] = useState(false);
+  useOpsPageReadyWhen(listReady);
   const selectedId = searchParams.get("id");
   const filter = parseFilter(searchParams.get("filter"), mode);
   const [queryText, setQueryText] = useState("");

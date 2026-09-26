@@ -20,6 +20,7 @@ import {
   Search,
 } from "lucide-react";
 
+import { useOpsPageReadyWhen } from "@/components/ops-boot";
 import { Button } from "@/components/ui/button";
 import { getFirebaseDb } from "@/lib/firebase";
 import { BUSINESS_WHATSAPP } from "@/lib/site-config";
@@ -74,6 +75,8 @@ export function AdminContactsPanel({
 }) {
   const { searchParams, replaceQuery } = useQueryReplace();
   const [rows, setRows] = useState<ContactRow[]>([]);
+  const [listReady, setListReady] = useState(false);
+  useOpsPageReadyWhen(listReady);
   const selectedId = searchParams.get("id");
   const filter = parseInboxFilter(searchParams.get("filter"));
   const [queryText, setQueryText] = useState("");
@@ -112,9 +115,11 @@ export function AdminContactsPanel({
           } satisfies ContactRow;
         });
         setRows(next);
+        setListReady(true);
         setError("");
       },
       () => {
+        setListReady(true);
         setError("Could not load messages. Check admin permissions.");
       }
     );

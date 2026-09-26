@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, Suspense, type FormEvent } from "react";
+import { useEffect, useRef, useState, Suspense, type FormEvent, type RefObject } from "react";
 import {
   GoogleAuthProvider,
   getRedirectResult,
@@ -33,6 +33,8 @@ import { AdminOrdersPanel } from "@/components/admin-orders-panel";
 import { AdminPricingPanel } from "@/components/admin-pricing-panel";
 import { AdminPromosPanel } from "@/components/admin-promos-panel";
 import { AdminSchedulePanel } from "@/components/admin-schedule-panel";
+import { BrandSplash } from "@/components/brand-splash";
+import { OpsBootProvider } from "@/components/ops-boot";
 import { Button } from "@/components/ui/button";
 import { getFirebaseAuth, getFirebaseDb } from "@/lib/firebase";
 import { purgeExpiredOpsDataOncePerSession } from "@/lib/data-retention";
@@ -145,7 +147,7 @@ function initialsFromEmail(email: string | null | undefined) {
 
 export function AdminApp() {
   return (
-    <Suspense fallback={<p className="ops-muted ops-loading">Loading…</p>}>
+    <Suspense fallback={<BrandSplash label="Loading OPS…" />}>
       <AdminAppInner />
     </Suspense>
   );
@@ -344,12 +346,22 @@ function AdminAppInner() {
     replaceQuery({ view: view === "detail" ? "detail" : null });
   }
 
-  if (!authReady) {
-    return <p className="ops-muted ops-loading">Loading…</p>;
-  }
+  const consoleReady = Boolean(user && allowed);
+  const pageKey = !authReady
+    ? "auth"
+    : !user
+      ? "login"
+      : !allowed
+        ? "denied"
+        : tab;
 
-  if (!user) {
-    return (
+  return (
+    <OpsBootProvider
+      authReady={authReady}
+      consoleReady={consoleReady}
+      pageKey={pageKey}
+    >
+      {!authReady ? null : !user ? (
       <main className="ops-login">
         <section className="ops-login-form-pane">
           <div className="ops-login-card">
@@ -448,11 +460,7 @@ function AdminAppInner() {
           </div>
         </section>
       </main>
-    );
-  }
-
-  if (!allowed) {
-    return (
+      ) : !allowed ? (
       <main className="ops-login">
         <section className="ops-login-form-pane">
           <div className="ops-login-card">
@@ -471,9 +479,59 @@ function AdminAppInner() {
           </div>
         </section>
       </main>
-    );
-  }
+      ) : (
+      <OpsConsole
+        user={user}
+        tab={tab}
+        mobileView={mobileView}
+        setMobileView={setMobileView}
+        setDestination={setDestination}
+        openInquiriesCount={openInquiriesCount}
+        alertsTodoCount={alertsTodoCount}
+        setAlertsTodoCount={setAlertsTodoCount}
+        ordersCount={ordersCount}
+        futureCount={futureCount}
+        historyCount={historyCount}
+        accountMenuOpen={accountMenuOpen}
+        setAccountMenuOpen={setAccountMenuOpen}
+        accountMenuRef={accountMenuRef}
+      />
+      )}
+    </OpsBootProvider>
+  );
+}
 
+function OpsConsole({
+  user,
+  tab,
+  mobileView,
+  setMobileView,
+  setDestination,
+  openInquiriesCount,
+  alertsTodoCount,
+  setAlertsTodoCount,
+  ordersCount,
+  futureCount,
+  historyCount,
+  accountMenuOpen,
+  setAccountMenuOpen,
+  accountMenuRef,
+}: {
+  user: User;
+  tab: AdminTab;
+  mobileView: MobileView;
+  setMobileView: (view: MobileView) => void;
+  setDestination: (next: AdminTab) => void;
+  openInquiriesCount: number;
+  alertsTodoCount: number;
+  setAlertsTodoCount: (count: number) => void;
+  ordersCount: number;
+  futureCount: number;
+  historyCount: number;
+  accountMenuOpen: boolean;
+  setAccountMenuOpen: (open: boolean | ((prev: boolean) => boolean)) => void;
+  accountMenuRef: RefObject<HTMLDivElement | null>;
+}) {
   const avatar = initialsFromEmail(user.email);
 
   return (

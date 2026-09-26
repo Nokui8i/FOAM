@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Percent, Ticket, Trash2, X } from "lucide-react";
 
+import { useOpsPageReadyWhen } from "@/components/ops-boot";
 import {
   deletePromoCode,
   formatPromoLabel,
@@ -45,8 +46,17 @@ export function AdminPromosPanel({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [okMsg, setOkMsg] = useState("");
+  const [pageReady, setPageReady] = useState(false);
+  useOpsPageReadyWhen(pageReady);
 
-  useEffect(() => subscribePromoCodes(setRows), []);
+  useEffect(
+    () =>
+      subscribePromoCodes((next) => {
+        setRows(next);
+        setPageReady(true);
+      }),
+    []
+  );
   useEffect(() => {
     onMobileViewChange("detail");
   }, [onMobileViewChange]);

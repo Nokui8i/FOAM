@@ -14,6 +14,7 @@ import {
 import { collection, onSnapshot } from "firebase/firestore";
 import { createPortal } from "react-dom";
 
+import { useOpsPageReadyWhen } from "@/components/ops-boot";
 import {
   bookingTodayIso,
   earliestPickupDate,
@@ -105,6 +106,8 @@ export function AdminSchedulePanel({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [okMsg, setOkMsg] = useState("");
+  const [pageReady, setPageReady] = useState(false);
+  useOpsPageReadyWhen(pageReady);
 
   useEffect(() => {
     onMobileViewChange("detail");
@@ -114,6 +117,7 @@ export function AdminSchedulePanel({
     () =>
       subscribePickupSchedule((schedule) => {
         setSlots(schedule.slots.map((s) => ({ ...s })));
+        setPageReady(true);
       }),
     []
   );

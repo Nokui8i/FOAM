@@ -4970,8 +4970,9 @@
   }
 }
 
-/* Homepage boot splash — covers blue panel placeholders until hero art loads */
-html.home-booting {
+/* Brand splash (homepage + OPS) — white cover with logo + rising bubbles */
+html.home-booting,
+html.ops-booting {
   overflow: hidden;
 }
 
@@ -4980,7 +4981,7 @@ html.home-booting .home-sticky-book {
   pointer-events: none;
 }
 
-.home-splash {
+.brand-splash {
   position: fixed;
   inset: 0;
   z-index: 200;
@@ -4992,27 +4993,27 @@ html.home-booting .home-sticky-book {
   transition: opacity 0.48s ease;
 }
 
-.home-splash.is-exiting {
+.brand-splash.is-exiting {
   opacity: 0;
   pointer-events: none;
 }
 
-.home-splash-logo {
+.brand-splash-logo {
   position: relative;
   z-index: 2;
   width: min(52vw, 11.5rem);
   height: auto;
-  animation: home-splash-logo-in 0.7s ease both;
+  animation: brand-splash-logo-in 0.7s ease both;
 }
 
-.home-splash-bubbles {
+.brand-splash-bubbles {
   position: absolute;
   inset: 0;
   z-index: 1;
   pointer-events: none;
 }
 
-.home-splash-bubble {
+.brand-splash-bubble {
   position: absolute;
   bottom: -2rem;
   border-radius: 999px;
@@ -5024,12 +5025,12 @@ html.home-booting .home-sticky-book {
   );
   box-shadow: inset -1px -2px 3px rgb(0 90 130 / 0.18);
   opacity: 0.55;
-  animation-name: home-splash-rise;
+  animation-name: brand-splash-rise;
   animation-timing-function: linear;
   animation-iteration-count: infinite;
 }
 
-.home-splash-sr {
+.brand-splash-sr {
   position: absolute;
   width: 1px;
   height: 1px;
@@ -5041,7 +5042,7 @@ html.home-booting .home-sticky-book {
   border: 0;
 }
 
-@keyframes home-splash-rise {
+@keyframes brand-splash-rise {
   0% {
     transform: translate3d(0, 0, 0) scale(0.85);
     opacity: 0;
@@ -5055,7 +5056,7 @@ html.home-booting .home-sticky-book {
   }
 }
 
-@keyframes home-splash-logo-in {
+@keyframes brand-splash-logo-in {
   from {
     opacity: 0;
     transform: translateY(8px) scale(0.96);
@@ -5067,17 +5068,17 @@ html.home-booting .home-sticky-book {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .home-splash-bubble {
+  .brand-splash-bubble {
     animation: none;
     opacity: 0.28;
     bottom: 18%;
   }
 
-  .home-splash-logo {
+  .brand-splash-logo {
     animation: none;
   }
 
-  .home-splash {
+  .brand-splash {
     transition: opacity 0.2s ease;
   }
 }

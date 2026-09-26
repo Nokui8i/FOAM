@@ -3,6 +3,7 @@
 import { useEffect, useState, type WheelEvent } from "react";
 import { Shirt, X } from "lucide-react";
 
+import { useOpsPageReadyWhen } from "@/components/ops-boot";
 import {
   DRY_CLEAN_CATALOG_DEFAULT,
   saveDryCleanCatalog,
@@ -36,8 +37,17 @@ export function AdminCatalogPanel({
   const [error, setError] = useState("");
   const [okMsg, setOkMsg] = useState("");
   const [dirty, setDirty] = useState(false);
+  const [pageReady, setPageReady] = useState(false);
+  useOpsPageReadyWhen(pageReady);
 
-  useEffect(() => subscribeDryCleanCatalog(setCatalog), []);
+  useEffect(
+    () =>
+      subscribeDryCleanCatalog((next) => {
+        setCatalog(next);
+        setPageReady(true);
+      }),
+    []
+  );
 
   useEffect(() => {
     if (dirty) return;

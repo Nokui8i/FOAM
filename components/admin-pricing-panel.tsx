@@ -10,6 +10,7 @@ import {
   subscribeLaundryRates,
   type LaundryRates,
 } from "@/lib/laundry-rates";
+import { useOpsPageReadyWhen } from "@/components/ops-boot";
 import { cn } from "@/lib/utils";
 
 type MobileView = "list" | "detail";
@@ -27,6 +28,8 @@ export function AdminPricingPanel({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [okMsg, setOkMsg] = useState("");
+  const [pageReady, setPageReady] = useState(false);
+  useOpsPageReadyWhen(pageReady);
 
   useEffect(() => {
     onMobileViewChange("detail");
@@ -36,6 +39,7 @@ export function AdminPricingPanel({
     return subscribeLaundryRates((next) => {
       setRates(next);
       setDraft(next);
+      setPageReady(true);
     });
   }, []);
 

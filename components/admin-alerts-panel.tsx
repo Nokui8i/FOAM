@@ -18,6 +18,7 @@ import {
   X,
 } from "lucide-react";
 
+import { useOpsPageReadyWhen } from "@/components/ops-boot";
 import { Button } from "@/components/ui/button";
 import {
   buildReminderMessage,
@@ -135,6 +136,7 @@ export function AdminAlertsPanel({
   const { searchParams, replaceQuery } = useQueryReplace();
   const [rows, setRows] = useState<PickupReminderAlert[]>([]);
   const [listReady, setListReady] = useState(false);
+  useOpsPageReadyWhen(listReady);
   const [error, setError] = useState("");
   const [okMsg, setOkMsg] = useState("");
   const [queryText, setQueryText] = useState("");
