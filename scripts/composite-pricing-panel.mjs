@@ -1,7 +1,11 @@
 import sharp from "sharp";
 
 const BLANK =
-  "preview-sections/ChatGPT Image Sep 25, 2026, 06_31_47 PM.png";
+  "preview-sections/ChatGPT Image Sep 25, 2026, 06_34_57 PM.png";
+const DESK_BASE = "public/home-mockup-desktop-v21.png";
+const DESK_OUT = "public/home-mockup-desktop-v24";
+const MOB_BASE = "public/home-mockup-mobile-v18.png";
+const MOB_OUT = "public/home-mockup-mobile-v21";
 
 function applyEdgeFade(rgba, w, h, fadeTop, fadeBot) {
   for (let y = 0; y < h; y++) {
@@ -30,8 +34,7 @@ function stamp(dst, dw, src, sw, sh, left, top) {
 }
 
 async function buildDesktop() {
-  const deskBase = "public/home-mockup-desktop-v21.png";
-  const meta = await sharp(deskBase).metadata();
+  const meta = await sharp(DESK_BASE).metadata();
   const w = meta.width;
   const panel = Math.round(meta.height / 6);
   const y0 = panel * 4;
@@ -40,7 +43,6 @@ async function buildDesktop() {
   const span = panel + fade * 2;
 
   const rgba = Buffer.alloc(w * span * 4, 255);
-  for (let i = 0; i < w * span; i++) rgba[i * 4 + 3] = 255;
 
   const art = await sharp(BLANK)
     .resize(w, panel, { fit: "cover", position: "centre" })
@@ -56,21 +58,20 @@ async function buildDesktop() {
     .png()
     .toBuffer();
 
-  const composed = await sharp(deskBase)
+  const composed = await sharp(DESK_BASE)
     .composite([{ input: overlay, top, left: 0 }])
     .png({ compressionLevel: 6 })
     .toBuffer();
 
-  await sharp(composed).png().toFile("public/home-mockup-desktop-v23.png");
+  await sharp(composed).png().toFile(`${DESK_OUT}.png`);
   await sharp(composed)
     .jpeg({ quality: 88, mozjpeg: true })
-    .toFile("public/home-mockup-desktop-v23.jpg");
-  console.log("desktop v23", { top, span, fade });
+    .toFile(`${DESK_OUT}.jpg`);
+  console.log("desktop v24", { w, panel, top, span, fade });
 }
 
 async function buildMobile() {
-  const mobBase = "public/home-mockup-mobile-v18.png";
-  const meta = await sharp(mobBase).metadata();
+  const meta = await sharp(MOB_BASE).metadata();
   const w = meta.width;
   const start = 9561;
   const end = 11869;
@@ -80,18 +81,16 @@ async function buildMobile() {
   const span = band + fade * 2;
 
   const blankMeta = await sharp(BLANK).metadata();
-  const bh = Math.round(w * (blankMeta.height / blankMeta.width));
-
+  // Fit blank width; keep aspect, then cover the pricing band
+  const targetH = band;
   const rgba = Buffer.alloc(w * span * 4, 255);
-  for (let i = 0; i < w * span; i++) rgba[i * 4 + 3] = 255;
 
   const art = await sharp(BLANK)
-    .resize(w, bh, { fit: "fill" })
+    .resize(w, targetH, { fit: "cover", position: "centre" })
     .ensureAlpha()
     .raw()
     .toBuffer({ resolveWithObject: true });
-  const topPad = fade + Math.round((band - bh) / 2);
-  stamp(rgba, w, art.data, w, bh, 0, topPad);
+  stamp(rgba, w, art.data, w, targetH, 0, fade);
   applyEdgeFade(rgba, w, span, fade, fade);
 
   const overlay = await sharp(rgba, {
@@ -100,16 +99,16 @@ async function buildMobile() {
     .png()
     .toBuffer();
 
-  const composed = await sharp(mobBase)
+  const composed = await sharp(MOB_BASE)
     .composite([{ input: overlay, top, left: 0 }])
     .png({ compressionLevel: 6 })
     .toBuffer();
 
-  await sharp(composed).png().toFile("public/home-mockup-mobile-v20.png");
+  await sharp(composed).png().toFile(`${MOB_OUT}.png`);
   await sharp(composed)
     .jpeg({ quality: 88, mozjpeg: true })
-    .toFile("public/home-mockup-mobile-v20.jpg");
-  console.log("mobile v20", { top, span, fade, bh, topPad });
+    .toFile(`${MOB_OUT}.jpg`);
+  console.log("mobile v21", { w, top, span, fade, blankMeta });
 }
 
 await buildDesktop();

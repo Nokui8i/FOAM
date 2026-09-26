@@ -2,7 +2,6 @@ import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { HomePriceOverlay } from "@/components/home-price-overlay";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { BOOKING_PATH } from "@/lib/site-config";
@@ -44,7 +43,7 @@ export default function Home() {
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src="/home-mockup-mobile-v18.png"
+                  src="/home-mockup-mobile-v21.png"
                   alt=""
                   width={1440}
                   height={MOBILE_ARTWORK_HEIGHT}
@@ -56,7 +55,7 @@ export default function Home() {
                 {index > 0 && (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
-                    src="/home-mockup-mobile-v18.png"
+                    src="/home-mockup-mobile-v21.png"
                     alt=""
                     width={1440}
                     height={MOBILE_ARTWORK_HEIGHT}
@@ -85,13 +84,12 @@ export default function Home() {
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src="/home-mockup-desktop-v21.png"
+                  src="/home-mockup-desktop-v24.png"
                   alt=""
                   width={3840}
                   height={12960}
                   style={{ top: `${index * -100}%` }}
                 />
-                {index === 4 ? <HomePriceOverlay /> : null}
               </div>
             ))}
           </div>
