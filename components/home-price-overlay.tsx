@@ -300,12 +300,14 @@ function PriceCards({
   boxes,
   dbug,
   onPatch,
+  singleLine = false,
 }: {
   rates: LaundryRates;
   layout: LayoutMap;
   boxes: Record<CardKey, BoxGeom>;
   dbug: boolean;
   onPatch?: (card: CardKey, key: LineKey, patch: Partial<LineLayout>) => void;
+  singleLine?: boolean;
 }) {
   const line = (
     card: CardKey,
@@ -325,6 +327,28 @@ function PriceCards({
     </FreeLine>
   );
 
+  const feeClass = singleLine
+    ? "home-price-box-fee is-nowrap"
+    : "home-price-box-fee";
+  const ondemandTitle = singleLine ? (
+    "Only When You Need Us"
+  ) : (
+    <>
+      Only When You
+      <br />
+      Need Us
+    </>
+  );
+  const feeText = singleLine ? (
+    `+ $${money(rates.deliveryFee)} Service Fee per Pickup`
+  ) : (
+    <>
+      + ${money(rates.deliveryFee)} Service Fee
+      <br />
+      per Pickup
+    </>
+  );
+
   return (
     <>
       <article className="home-price-box is-weekly" style={boxes.weekly}>
@@ -338,17 +362,13 @@ function PriceCards({
           </>
         )}
         {line("weekly", "unit", "home-price-box-unit", "per pound")}
-        {line("weekly", "title", "home-price-box-title", "Weekly Service")}
         {line(
           "weekly",
-          "fee",
-          "home-price-box-fee",
-          <>
-            + ${money(rates.deliveryFee)} Service Fee
-            <br />
-            per Pickup
-          </>
+          "title",
+          singleLine ? "home-price-box-title is-nowrap" : "home-price-box-title",
+          "Weekly Service"
         )}
+        {line("weekly", "fee", feeClass, feeText)}
       </article>
 
       <article className="home-price-box is-ondemand" style={boxes.ondemand}>
@@ -365,23 +385,10 @@ function PriceCards({
         {line(
           "ondemand",
           "title",
-          "home-price-box-title",
-          <>
-            Only When You
-            <br />
-            Need Us
-          </>
+          singleLine ? "home-price-box-title is-nowrap" : "home-price-box-title",
+          ondemandTitle
         )}
-        {line(
-          "ondemand",
-          "fee",
-          "home-price-box-fee",
-          <>
-            + ${money(rates.deliveryFee)} Service Fee
-            <br />
-            per Pickup
-          </>
-        )}
+        {line("ondemand", "fee", feeClass, feeText)}
       </article>
     </>
   );
@@ -458,6 +465,7 @@ function MobilePriceOverlay({ rates }: { rates: LaundryRates }) {
         boxes={MOBILE_BOXES}
         dbug={enabled}
         onPatch={patchLine}
+        singleLine
       />
     </div>
   );
