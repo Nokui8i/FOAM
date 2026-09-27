@@ -9,10 +9,22 @@ import {
 } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 
+const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
+
+/** Prefer *.web.app so Google redirect shares origin with Hosting (Safari/Chrome ITP). */
+function resolveAuthDomain() {
+  const raw = process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN?.trim();
+  if (raw?.endsWith(".firebaseapp.com") && projectId) {
+    return `${projectId}.web.app`;
+  }
+  if (raw) return raw;
+  return projectId ? `${projectId}.web.app` : undefined;
+}
+
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+  authDomain: resolveAuthDomain(),
+  projectId,
   storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
   messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,

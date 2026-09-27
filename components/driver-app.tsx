@@ -8,13 +8,10 @@ import {
   type FormEvent,
 } from "react";
 import {
-  GoogleAuthProvider,
   createUserWithEmailAndPassword,
   getRedirectResult,
   onAuthStateChanged,
   signInWithEmailAndPassword,
-  signInWithPopup,
-  signInWithRedirect,
   signOut,
   updateProfile,
   type User,
@@ -33,6 +30,10 @@ import {
   type StaffProfile,
 } from "@/lib/staff-access";
 import { getFirebaseAuth } from "@/lib/firebase";
+import {
+  googleSignInErrorMessage,
+  signInWithGoogle,
+} from "@/lib/google-sign-in";
 import { isAdminEmail } from "@/lib/site-config";
 import { useQueryReplace } from "@/lib/use-query-replace";
 import { cn } from "@/lib/utils";
@@ -205,20 +206,16 @@ function DriverAppInner() {
   async function handleGoogleLogin() {
     setLoggingIn(true);
     setLoginError("");
-    const auth = getFirebaseAuth();
-    const provider = new GoogleAuthProvider();
     try {
-      const result = await signInWithPopup(auth, provider);
-      await ensureStaffProfile(result.user, "driver");
-    } catch {
-      try {
-        await signInWithRedirect(auth, provider);
-        return;
-      } catch {
-        setLoginError(
-          "Google sign-in failed. Enable Google in Firebase Authentication first."
-        );
-      }
+      const googleUser = await signInWithGoogle();
+      await ensureStaffProfile(googleUser, "driver");
+    } catch (error) {
+      setLoginError(
+        googleSignInErrorMessage(
+          error,
+          "Google sign-in failed. Try again, or use email + password."
+        )
+      );
     } finally {
       setLoggingIn(false);
     }

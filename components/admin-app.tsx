@@ -2,13 +2,10 @@
 
 import { useCallback, useEffect, useRef, useState, Suspense, type FormEvent, type RefObject } from "react";
 import {
-  GoogleAuthProvider,
   createUserWithEmailAndPassword,
   getRedirectResult,
   onAuthStateChanged,
   signInWithEmailAndPassword,
-  signInWithPopup,
-  signInWithRedirect,
   signOut,
   updateProfile,
   type User,
@@ -44,6 +41,10 @@ import { GoogleGIcon } from "@/components/google-g-icon";
 import { OpsBootProvider } from "@/components/ops-boot";
 import { Button } from "@/components/ui/button";
 import { getFirebaseAuth, getFirebaseDb } from "@/lib/firebase";
+import {
+  googleSignInErrorMessage,
+  signInWithGoogle,
+} from "@/lib/google-sign-in";
 import { purgeExpiredOpsDataOncePerSession } from "@/lib/data-retention";
 import {
   isFuturePickupOrder,
@@ -410,20 +411,16 @@ function AdminAppInner() {
   async function handleGoogleLogin() {
     setLoggingIn(true);
     setLoginError("");
-    const auth = getFirebaseAuth();
-    const provider = new GoogleAuthProvider();
     try {
-      const result = await signInWithPopup(auth, provider);
-      await ensureStaffProfile(result.user, "ops");
-    } catch {
-      try {
-        await signInWithRedirect(auth, provider);
-        return;
-      } catch {
-        setLoginError(
-          "Google sign-in failed. Enable Google in Firebase Authentication first."
-        );
-      }
+      const googleUser = await signInWithGoogle();
+      await ensureStaffProfile(googleUser, "ops");
+    } catch (error) {
+      setLoginError(
+        googleSignInErrorMessage(
+          error,
+          "Google sign-in failed. Try again, or use email + password."
+        )
+      );
     } finally {
       setLoggingIn(false);
     }
