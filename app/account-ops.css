@@ -48,7 +48,7 @@
 
 .account-ops-shell {
   width: 100%;
-  max-width: 920px;
+  max-width: none;
   margin: 0 auto;
   padding: 0.35rem 0 1.5rem;
 }
@@ -61,8 +61,15 @@
 
 @media (min-width: 900px) {
   .account-ops-frame {
-    grid-template-columns: 200px minmax(0, 1fr);
-    gap: 16px;
+    grid-template-columns: 220px minmax(0, 1fr);
+    gap: 18px;
+  }
+}
+
+@media (min-width: 1280px) {
+  .account-ops-frame {
+    grid-template-columns: 240px minmax(0, 1fr);
+    gap: 22px;
   }
 }
 
@@ -260,7 +267,17 @@
     flex-direction: row;
     align-items: center;
     justify-content: space-between;
-    padding: 16px 18px 14px;
+    padding: 16px 22px 14px;
+  }
+}
+
+@media (min-width: 1280px) {
+  .account-ops-plane-head {
+    padding: 18px 28px 16px;
+  }
+
+  .account-ops-plane-head h1 {
+    font-size: clamp(1.35rem, 1.6vw, 1.65rem);
   }
 }
 
@@ -348,13 +365,20 @@
 }
 
 .account-ops-plane-body {
+  width: 100%;
+  max-width: none;
   padding: 16px 18px 18px;
-  max-width: 640px;
 }
 
 @media (min-width: 640px) {
   .account-ops-plane-body {
-    padding: 18px 20px 20px;
+    padding: 18px 22px 22px;
+  }
+}
+
+@media (min-width: 1280px) {
+  .account-ops-plane-body {
+    padding: 22px 28px 28px;
   }
 }
 
@@ -451,6 +475,12 @@
   .account-ops-grid {
     grid-template-columns: 1fr 1fr;
     gap: 12px 14px;
+  }
+}
+
+@media (min-width: 1280px) {
+  .account-ops-grid {
+    gap: 14px 20px;
   }
 }
 

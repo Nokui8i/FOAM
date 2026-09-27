@@ -86,11 +86,24 @@
 @utility site-shell {
   margin-inline: auto;
   width: 100%;
-  max-width: 78rem;
+  max-width: min(78rem, 100%);
   padding-inline: 1.5rem;
 
   @media (min-width: 1024px) {
     padding-inline: 2.5rem;
+  }
+
+  /* Grow with large monitors instead of leaving empty side gutters */
+  @media (min-width: 1440px) {
+    max-width: min(92rem, 94vw);
+  }
+
+  @media (min-width: 1680px) {
+    max-width: min(104rem, 94vw);
+  }
+
+  @media (min-width: 1920px) {
+    max-width: min(116rem, 94vw);
   }
 }
 
