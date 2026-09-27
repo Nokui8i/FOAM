@@ -1784,6 +1784,11 @@
   gap: 8px;
   justify-content: flex-end;
 }
+.admin-page .ops-staff-locked {
+  font-size: 12px;
+  font-weight: 600;
+  color: #64748b;
+}
 @media (max-width: 900px) {
   .admin-page .ops-staff-table-head {
     display: none;

@@ -10,7 +10,7 @@ import {
 import type { User } from "firebase/auth";
 
 import { getFirebaseDb } from "@/lib/firebase";
-import { isAdminEmail } from "@/lib/site-config";
+import { ADMIN_EMAILS, isAdminEmail } from "@/lib/site-config";
 
 export type StaffRole = "admin" | "manager" | "driver";
 export type StaffStatus = "pending" | "approved" | "denied" | "revoked";
@@ -239,4 +239,58 @@ export function canAccessDriverPortal(
     profile.role === "admin" ||
     profile.role === "manager"
   );
+}
+
+/** Always-on OPS admins from code allowlist (may not have signed in yet). */
+export function bootstrapAdminStaffRows(): StaffProfile[] {
+  return ADMIN_EMAILS.map((email) => ({
+    uid: `bootstrap:${email}`,
+    email,
+    displayName: email.split("@")[0] || email,
+    role: "admin" as const,
+    status: "approved" as const,
+    requestedPortal: "ops" as const,
+    reviewedBy: "bootstrap",
+  }));
+}
+
+export function isBootstrapStaffRow(row: StaffProfile) {
+  return row.uid.startsWith("bootstrap:") || row.reviewedBy === "bootstrap";
+}
+
+/** Merge Firestore staff with allowlisted bootstrap admins (by email). */
+export function mergeStaffWithBootstrap(rows: StaffProfile[]): StaffProfile[] {
+  const byEmail = new Map<string, StaffProfile>();
+  for (const row of rows) {
+    byEmail.set(row.email.toLowerCase(), row);
+  }
+  for (const boot of bootstrapAdminStaffRows()) {
+    const existing = byEmail.get(boot.email);
+    if (!existing) {
+      byEmail.set(boot.email, boot);
+      continue;
+    }
+    // Keep Firestore row, but never demote a bootstrap allowlist admin in the UI.
+    if (existing.status !== "approved" || existing.role !== "admin") {
+      byEmail.set(boot.email, {
+        ...existing,
+        role: "admin",
+        status: "approved",
+        reviewedBy: existing.reviewedBy ?? "bootstrap",
+      });
+    }
+  }
+  const merged = Array.from(byEmail.values());
+  merged.sort((a, b) => {
+    const statusRank = (s: StaffStatus) =>
+      s === "pending" ? 0 : s === "approved" ? 1 : 2;
+    const roleRank = (r: StaffRole) =>
+      r === "admin" ? 0 : r === "manager" ? 1 : 2;
+    const byStatus = statusRank(a.status) - statusRank(b.status);
+    if (byStatus !== 0) return byStatus;
+    const byRole = roleRank(a.role) - roleRank(b.role);
+    if (byRole !== 0) return byRole;
+    return a.email.localeCompare(b.email);
+  });
+  return merged;
 }

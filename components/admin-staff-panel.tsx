@@ -5,7 +5,8 @@ import { Users } from "lucide-react";
 
 import { useOpsPageReadyWhen } from "@/components/ops-boot";
 import {
-  canAccessOps,
+  isBootstrapStaffRow,
+  mergeStaffWithBootstrap,
   reviewStaffMember,
   staffRoleLabel,
   subscribeAllStaff,
@@ -15,8 +16,11 @@ import {
 } from "@/lib/staff-access";
 import { cn } from "@/lib/utils";
 
-function statusLabel(status: StaffStatus) {
-  switch (status) {
+function statusLabel(row: StaffProfile) {
+  if (isBootstrapStaffRow(row) && row.uid.startsWith("bootstrap:")) {
+    return "Allowlist";
+  }
+  switch (row.status) {
     case "approved":
       return "Active";
     case "denied":
@@ -43,7 +47,7 @@ export function AdminStaffPanel({
 
   useEffect(() => {
     return subscribeAllStaff((next) => {
-      setRows(next);
+      setRows(mergeStaffWithBootstrap(next));
       setReady(true);
     });
   }, []);
@@ -68,10 +72,15 @@ export function AdminStaffPanel({
     return roleDraft[row.uid] ?? row.role;
   }
 
+  function isLockedBootstrap(row: StaffProfile) {
+    return row.uid.startsWith("bootstrap:");
+  }
+
   async function review(
     row: StaffProfile,
     status: "approved" | "denied" | "revoked"
   ) {
+    if (isLockedBootstrap(row)) return;
     setError("");
     setOkMsg("");
     setBusyId(row.uid);
@@ -99,6 +108,7 @@ export function AdminStaffPanel({
   }
 
   async function saveRole(row: StaffProfile) {
+    if (isLockedBootstrap(row)) return;
     const nextRole = draftRole(row);
     if (nextRole === row.role) return;
     setBusyId(row.uid);
@@ -218,51 +228,64 @@ export function AdminStaffPanel({
                 <span>Status</span>
                 <span>Actions</span>
               </div>
-              {active.map((row) => (
-                <div key={row.uid} className="ops-staff-table-row">
-                  <strong>{row.displayName || "—"}</strong>
-                  <span>{row.email}</span>
-                  <label className="ops-staff-role">
-                    <span className="sr-only">Role</span>
-                    <select
-                      value={draftRole(row)}
-                      onChange={(e) =>
-                        setRoleDraft((prev) => ({
-                          ...prev,
-                          [row.uid]: e.target.value as StaffRole,
-                        }))
-                      }
-                    >
-                      <option value="admin">Admin</option>
-                      <option value="manager">Manager</option>
-                      <option value="driver">Driver</option>
-                    </select>
-                  </label>
-                  <span className="ops-status-pill is-ok">
-                    {statusLabel(row.status)}
-                  </span>
-                  <div className="ops-staff-actions">
-                    <button
-                      type="button"
-                      className="ops-catalog-editor-btn is-secondary"
-                      disabled={
-                        busyId === row.uid || draftRole(row) === row.role
-                      }
-                      onClick={() => void saveRole(row)}
-                    >
-                      Save role
-                    </button>
-                    <button
-                      type="button"
-                      className="ops-catalog-editor-btn is-secondary"
-                      disabled={busyId === row.uid}
-                      onClick={() => void review(row, "revoked")}
-                    >
-                      Revoke
-                    </button>
+              {active.map((row) => {
+                const locked = isLockedBootstrap(row);
+                return (
+                  <div key={row.uid} className="ops-staff-table-row">
+                    <strong>{row.displayName || "—"}</strong>
+                    <span>{row.email}</span>
+                    {locked ? (
+                      <span>{staffRoleLabel(row.role)}</span>
+                    ) : (
+                      <label className="ops-staff-role">
+                        <span className="sr-only">Role</span>
+                        <select
+                          value={draftRole(row)}
+                          onChange={(e) =>
+                            setRoleDraft((prev) => ({
+                              ...prev,
+                              [row.uid]: e.target.value as StaffRole,
+                            }))
+                          }
+                        >
+                          <option value="admin">Admin</option>
+                          <option value="manager">Manager</option>
+                          <option value="driver">Driver</option>
+                        </select>
+                      </label>
+                    )}
+                    <span className="ops-status-pill is-ok">
+                      {statusLabel(row)}
+                    </span>
+                    <div className="ops-staff-actions">
+                      {locked ? (
+                        <span className="ops-staff-locked">OPS allowlist</span>
+                      ) : (
+                        <>
+                          <button
+                            type="button"
+                            className="ops-catalog-editor-btn is-secondary"
+                            disabled={
+                              busyId === row.uid || draftRole(row) === row.role
+                            }
+                            onClick={() => void saveRole(row)}
+                          >
+                            Save role
+                          </button>
+                          <button
+                            type="button"
+                            className="ops-catalog-editor-btn is-secondary"
+                            disabled={busyId === row.uid}
+                            onClick={() => void review(row, "revoked")}
+                          >
+                            Revoke
+                          </button>
+                        </>
+                      )}
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </section>
@@ -285,7 +308,7 @@ export function AdminStaffPanel({
                   <span className="ops-staff-portal">
                     {row.requestedPortal === "ops" ? "OPS" : "Driver"}
                   </span>
-                  <span className="ops-status-pill">{statusLabel(row.status)}</span>
+                  <span className="ops-status-pill">{statusLabel(row)}</span>
                   <div className="ops-staff-actions">
                     <button
                       type="button"
@@ -306,11 +329,6 @@ export function AdminStaffPanel({
   );
 }
 
-/** Kept for count badge helpers */
 export function countPendingStaff(rows: StaffProfile[]) {
   return rows.filter((row) => row.status === "pending").length;
-}
-
-export function isOpsCapableStaff(row: StaffProfile, email?: string | null) {
-  return canAccessOps(row, email);
 }
