@@ -331,33 +331,18 @@ function AccountProfile({
                 <div className="account-ops-signout-actions">
                   <button
                     type="button"
-                    className="account-ops-signout-img-btn"
-                    aria-label="Cancel"
+                    className="account-ops-signout-btn is-cancel"
                     onClick={() => setSignOutConfirm(false)}
                   >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src="/ops-signout-cancel.png"
-                      alt=""
-                      width={1161}
-                      height={261}
-                      draggable={false}
-                    />
+                    Cancel
                   </button>
                   <button
                     type="button"
-                    className="account-ops-signout-img-btn"
-                    aria-label="Sign out"
+                    className="account-ops-signout-btn is-confirm"
                     onClick={onSignOut}
                   >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src="/ops-signout-confirm.png"
-                      alt=""
-                      width={1171}
-                      height={269}
-                      draggable={false}
-                    />
+                    <LogOut size={14} aria-hidden />
+                    Sign out
                   </button>
                 </div>
               </div>

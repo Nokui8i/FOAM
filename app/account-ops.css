@@ -284,12 +284,12 @@
 
 .account-ops-signout-confirm {
   display: grid;
-  gap: 6px;
+  gap: 8px;
   justify-items: stretch;
 }
 
 .account-ops-signout-confirm > strong {
-  padding-inline: 4px;
+  padding-inline: 2px;
   color: #fff;
   font-size: 13px;
   font-weight: 800;
@@ -299,43 +299,43 @@
 
 .account-ops-signout-actions {
   display: grid;
-  grid-template-columns: 1fr;
-  gap: 4px;
-  justify-items: center;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
 }
 
-.account-ops-signout-img-btn {
+.account-ops-signout-btn {
   appearance: none;
-  display: block;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
   width: 100%;
-  max-width: 148px;
-  margin: 0;
-  padding: 0;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  line-height: 0;
+  min-height: 34px;
+  padding: 0 10px;
+  border-radius: 9px;
+  border: 1px solid transparent;
+  font: 700 12px/1 var(--ops-body);
   cursor: pointer;
-  overflow: hidden;
 }
 
-.account-ops-signout-img-btn img {
-  display: block;
-  width: 100%;
-  height: auto;
-  max-height: 34px;
-  object-fit: contain;
-  user-select: none;
-  -webkit-user-drag: none;
+.account-ops-signout-btn.is-cancel {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.14);
 }
 
-.account-ops-signout-img-btn:hover {
-  filter: brightness(1.04);
+.account-ops-signout-btn.is-cancel:hover {
+  background: rgba(255, 255, 255, 0.16);
 }
 
-.account-ops-signout-img-btn:active {
-  filter: brightness(0.97);
-  transform: scale(0.985);
+.account-ops-signout-btn.is-confirm {
+  color: #fff;
+  background: rgba(217, 74, 61, 0.92);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+.account-ops-signout-btn.is-confirm:hover {
+  filter: brightness(1.05);
 }
 
 .account-ops-plane {
