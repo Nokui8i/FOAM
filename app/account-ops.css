@@ -61,7 +61,7 @@
 
 @media (min-width: 900px) {
   .account-ops-frame {
-    grid-template-columns: 200px minmax(0, 1fr);
+    grid-template-columns: 228px minmax(0, 1fr);
     gap: 16px;
   }
 }
@@ -70,8 +70,8 @@
   position: relative;
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  padding: 16px 12px 12px;
+  gap: 16px;
+  padding: 18px 14px 14px;
   border-radius: 16px;
   color: #fff;
   background: linear-gradient(155deg, #17415e, var(--ops-navy));
@@ -116,13 +116,13 @@
 
 .account-ops-brand img {
   display: block;
-  height: 34px;
+  height: 40px;
   width: auto;
 }
 
 .account-ops-brand small {
   color: rgba(255, 255, 255, 0.46);
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.18em;
 }
@@ -165,16 +165,16 @@
   .account-ops-nav-btn {
     flex-direction: row;
     justify-content: flex-start;
-    gap: 10px;
-    min-height: 42px;
-    padding: 10px 12px;
-    font-size: 13px;
+    gap: 11px;
+    min-height: 46px;
+    padding: 11px 14px;
+    font-size: 14px;
   }
 }
 
 .account-ops-nav-btn svg {
-  width: 16px;
-  height: 16px;
+  width: 17px;
+  height: 17px;
   opacity: 0.85;
 }
 
@@ -213,7 +213,7 @@
 
 .account-ops-rail-email {
   color: rgba(255, 255, 255, 0.55);
-  font-size: 11px;
+  font-size: 12px;
   overflow-wrap: anywhere;
 }
 
@@ -221,15 +221,15 @@
   appearance: none;
   display: inline-flex;
   align-items: center;
-  gap: 7px;
+  gap: 8px;
   width: 100%;
-  min-height: 36px;
-  padding: 8px 10px;
+  min-height: 40px;
+  padding: 9px 12px;
   border: 0;
   border-radius: 9px;
   background: rgba(255, 255, 255, 0.08);
   color: #ffb4ae;
-  font: 700 12px/1 var(--ops-body);
+  font: 700 13px/1 var(--ops-body);
   cursor: pointer;
 }
 
