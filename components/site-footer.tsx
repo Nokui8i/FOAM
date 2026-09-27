@@ -37,8 +37,15 @@ export function SiteFooter({
           }
         >
           <div className="site-footer-brand">
-            <Link className="site-footer-wordmark" href="/#top">
-              FOAM<span className="site-footer-wordmark-dot">.</span>
+            <Link className="site-footer-logo" href="/#top" aria-label="FOAM home">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                className="site-footer-logo-img"
+                src="/foam-ops-logo-on-dark.png"
+                alt="FOAM"
+                width={217}
+                height={72}
+              />
             </Link>
             <p className="site-footer-tagline">Less laundry. More life.</p>
           </div>

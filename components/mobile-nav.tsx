@@ -45,8 +45,15 @@ export function MobileNavDrawer() {
 
         <aside className="mn-panel" aria-label="Menu">
           <div className="mn-top">
-            <a href="/#top" className="wordmark">
-              FOAM<span className="text-accent-strong">.</span>
+            <a href="/#top" className="mn-logo" aria-label="FOAM home">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                className="mn-logo-img"
+                src="/foam-ops-logo.png"
+                alt="FOAM"
+                width={217}
+                height={72}
+              />
             </a>
             <label
               htmlFor={TOGGLE_ID}

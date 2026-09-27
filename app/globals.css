@@ -733,6 +733,20 @@
   border-bottom: 1px solid var(--color-border);
 }
 
+  .mn-logo {
+    display: flex;
+    align-items: center;
+    line-height: 0;
+  }
+
+  .mn-logo-img {
+    display: block;
+    width: auto;
+    height: 2rem;
+    object-fit: contain;
+    object-position: left center;
+  }
+
   .mn-close {
   display: inline-flex;
   align-items: center;
@@ -3216,18 +3230,22 @@
   }
 }
 
-@utility site-footer-wordmark {
-  display: inline-block;
-  font-family: var(--font-display);
-  font-weight: 800;
-  font-size: clamp(2.35rem, 10vw, 3.75rem);
-  letter-spacing: -0.02em;
-  line-height: 0.9;
-  color: #ffffff;
+@utility site-footer-logo {
+  display: inline-flex;
+  align-items: center;
+  line-height: 0;
 }
 
-@utility site-footer-wordmark-dot {
-  color: var(--color-accent-strong);
+@utility site-footer-logo-img {
+  display: block;
+  width: auto;
+  height: 2.15rem;
+  object-fit: contain;
+  object-position: left center;
+
+  @media (min-width: 768px) {
+    height: 2.5rem;
+  }
 }
 
 @utility site-footer-tagline {
