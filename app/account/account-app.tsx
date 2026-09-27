@@ -536,10 +536,7 @@ function AccountProfile({
                 aria-labelledby="tab-preferences"
                 onSubmit={(event) => saveProfile(event, "preferences")}
               >
-                <PanelIntro
-                  title="Laundry preferences"
-                  helper="Same wash options as when you book — saved as your account defaults."
-                />
+                <PanelIntro title="Laundry preferences" />
                 <div className="account-ops-note">
                   These defaults fill the booking form when you&apos;re signed
                   in. You can still change them per order, or tick{" "}
@@ -730,11 +727,10 @@ function AccountProfile({
 }
 
 
-function PanelIntro({ title, helper }: { title: string; helper: string }) {
+function PanelIntro({ title }: { title: string }) {
   return (
     <div className="account-ops-intro">
       <h2>{title}</h2>
-      <p>{helper}</p>
     </div>
   );
 }

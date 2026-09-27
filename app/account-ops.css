@@ -435,13 +435,6 @@
   color: var(--ops-ink);
 }
 
-.account-ops-intro p {
-  margin: 6px 0 0;
-  color: var(--ops-muted);
-  font-size: 14px;
-  line-height: 1.5;
-}
-
 .account-ops-note {
   margin-top: 14px;
   padding: 12px 14px;
