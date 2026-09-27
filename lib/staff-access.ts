@@ -215,6 +215,19 @@ export async function reviewStaffMember(
   },
   reviewedBy: string
 ) {
+  if (uid.startsWith("bootstrap:")) {
+    throw new Error("Cannot change a company owner account.");
+  }
+  const ref = doc(getFirebaseDb(), "staff", uid);
+  const snap = await getDoc(ref);
+  if (snap.exists()) {
+    const email = String(snap.data()?.email ?? "")
+      .trim()
+      .toLowerCase();
+    if (isAdminEmail(email)) {
+      throw new Error("Cannot change a company owner account.");
+    }
+  }
   const payload: Record<string, unknown> = {
     status: next.status,
     reviewedAt: serverTimestamp(),
@@ -222,15 +235,25 @@ export async function reviewStaffMember(
     updatedAt: serverTimestamp(),
   };
   if (next.role) payload.role = next.role;
-  await updateDoc(doc(getFirebaseDb(), "staff", uid), payload);
+  await updateDoc(ref, payload);
 }
 
 /** Fire / remove — deletes staff doc so all portal access is gone. */
 export async function removeStaffMember(uid: string) {
   if (uid.startsWith("bootstrap:")) {
-    throw new Error("Cannot remove bootstrap allowlist admin.");
+    throw new Error("Cannot remove a company owner account.");
   }
-  await deleteDoc(doc(getFirebaseDb(), "staff", uid));
+  const ref = doc(getFirebaseDb(), "staff", uid);
+  const snap = await getDoc(ref);
+  if (snap.exists()) {
+    const email = String(snap.data()?.email ?? "")
+      .trim()
+      .toLowerCase();
+    if (isAdminEmail(email)) {
+      throw new Error("Cannot remove a company owner account.");
+    }
+  }
+  await deleteDoc(ref);
 }
 
 export function isStaffAdmin(

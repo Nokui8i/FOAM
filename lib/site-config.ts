@@ -12,7 +12,7 @@ export const DRIVER_PATH =
 // ⚠️ EDIT ME — replace with the real FOAM contact email.
 export const CONTACT_EMAIL = "hello@foamlaundry.com";
 
-/** Comma-separated admin emails allowed into the ops console */
+/** Company owner emails — permanent OPS access; cannot be demoted/fired from Staff. */
 export const ADMIN_EMAILS = (
   process.env.NEXT_PUBLIC_ADMIN_EMAILS ??
   "paylocksmith@gmail.com,iaaoamar12@gmail.com,liran4004@gmail.com"

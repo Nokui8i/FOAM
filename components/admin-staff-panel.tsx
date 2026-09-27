@@ -17,8 +17,8 @@ import {
 import { cn } from "@/lib/utils";
 
 function statusLabel(row: StaffProfile) {
-  if (isAdminEmail(row.email) && row.uid.startsWith("bootstrap:")) {
-    return "Allowlist";
+  if (isAdminEmail(row.email)) {
+    return "Owner";
   }
   switch (row.status) {
     case "approved":
@@ -72,8 +72,8 @@ export function AdminStaffPanel({
     return roleDraft[row.uid] ?? row.role;
   }
 
-  /** Code allowlist admins cannot be demoted/fired from this UI. */
-  function isProtectedAdmin(row: StaffProfile) {
+  /** Company owners (code allowlist) — nobody can demote/fire them. */
+  function isProtectedOwner(row: StaffProfile) {
     return isAdminEmail(row.email) || row.uid.startsWith("bootstrap:");
   }
 
@@ -81,7 +81,7 @@ export function AdminStaffPanel({
     row: StaffProfile,
     status: "approved" | "denied" | "revoked"
   ) {
-    if (isProtectedAdmin(row)) return;
+    if (isProtectedOwner(row)) return;
     setError("");
     setOkMsg("");
     setBusyId(row.uid);
@@ -109,7 +109,7 @@ export function AdminStaffPanel({
   }
 
   async function saveRole(row: StaffProfile) {
-    if (isProtectedAdmin(row)) return;
+    if (isProtectedOwner(row)) return;
     const nextRole = draftRole(row);
     if (nextRole === row.role) return;
     setBusyId(row.uid);
@@ -132,7 +132,7 @@ export function AdminStaffPanel({
   }
 
   async function remove(row: StaffProfile) {
-    if (isProtectedAdmin(row)) return;
+    if (isProtectedOwner(row)) return;
     const ok = window.confirm(
       `Remove ${row.displayName || row.email}?\n\nThey will lose access to OPS and Driver immediately. They can request access again later.`
     );
@@ -249,7 +249,7 @@ export function AdminStaffPanel({
                 <span>Actions</span>
               </div>
               {active.map((row) => {
-                const locked = isProtectedAdmin(row);
+                const locked = isProtectedOwner(row);
                 return (
                   <div key={row.uid} className="ops-staff-table-row">
                     <strong>{row.displayName || "—"}</strong>
@@ -279,7 +279,7 @@ export function AdminStaffPanel({
                     </span>
                     <div className="ops-staff-actions">
                       {locked ? (
-                        <span className="ops-staff-locked">OPS allowlist</span>
+                        <span className="ops-staff-locked">Owner · locked</span>
                       ) : (
                         <>
                           <button
