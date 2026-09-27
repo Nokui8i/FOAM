@@ -927,9 +927,9 @@ button.account-ops-control {
 }
 
 .account-ops-pay-card {
-  padding: 16px;
+  padding: 10px 12px;
   border: 1px solid var(--ops-border);
-  border-radius: 14px;
+  border-radius: 12px;
   background:
     linear-gradient(145deg, #16324a 0%, #1c4564 55%, #0f6f95 100%);
   color: #fff;
@@ -940,51 +940,54 @@ button.account-ops-control {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
+  gap: 8px;
 }
 
 .account-ops-pay-card-brand {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  font: 700 13px/1 var(--ops-body);
+  gap: 6px;
+  font: 700 12px/1 var(--ops-body);
   color: rgba(255, 255, 255, 0.82);
 }
 
 .account-ops-pay-card-chip {
   display: inline-flex;
   align-items: center;
-  min-height: 24px;
-  padding: 0 9px;
+  min-height: 20px;
+  padding: 0 8px;
   border-radius: 999px;
   background: rgba(0, 168, 216, 0.22);
   color: #9fe8ff;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 750;
 }
 
 .account-ops-pay-card-number {
-  margin: 18px 0 10px;
-  font: 750 1.25rem/1.1 var(--ops-display);
+  margin: 8px 0 4px;
+  font: 750 1.05rem/1.1 var(--ops-display);
   letter-spacing: 0.08em;
 }
 
 .account-ops-pay-card-meta {
   display: flex;
-  gap: 14px;
+  gap: 12px;
   color: rgba(255, 255, 255, 0.7);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 650;
 }
 
 .account-ops-pay-card-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 14px;
+  gap: 6px;
+  margin-top: 8px;
 }
 
 .account-ops-pay-card-actions .account-ops-btn {
+  min-height: 30px;
+  padding: 0 10px;
+  font-size: 12px;
   color: #fff;
   background: rgba(255, 255, 255, 0.1);
   border-color: rgba(255, 255, 255, 0.16);
