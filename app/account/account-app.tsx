@@ -375,8 +375,8 @@ function AccountProfile({
                       <h3>Weekly repeat pickup</h3>
                       <p>
                         {profile.weeklyRepeatEnabled
-                          ? "Active — same day & time every week at $2.35/lb + $5 service fee. Your next automated pickup includes 10% off."
-                          : "Weekly is only started when you book a pickup and turn on “Make this a repeat pickup”. After that, the next automated order gets 10% off."}
+                          ? "Active — 10% off your next order."
+                          : "Turn this on when you book to get 10% off your next order."}
                       </p>
                     </div>
                     {profile.weeklyRepeatEnabled ? (

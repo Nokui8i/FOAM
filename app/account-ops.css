@@ -479,9 +479,10 @@
 
 .account-ops-weekly-row p {
   margin: 6px 0 0;
-  color: var(--ops-muted);
-  font-size: 13.5px;
-  line-height: 1.5;
+  color: var(--ops-ink);
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.4;
 }
 
 .account-ops-weekly-warn {
