@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import {
   collection,
@@ -9,7 +9,15 @@ import {
   query,
   where,
 } from "firebase/firestore";
-import { ArrowRight, ChevronDown, PackageOpen } from "lucide-react";
+import {
+  ArrowRight,
+  ChevronDown,
+  ExternalLink,
+  MoreVertical,
+  PackageOpen,
+  Pencil,
+  XCircle,
+} from "lucide-react";
 
 import { OrderProgress } from "@/components/order-progress";
 import { Button } from "@/components/ui/button";
@@ -78,6 +86,8 @@ export function AccountOrders({ uid }: { uid: string }) {
   const [actionNote, setActionNote] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
+  const [menuId, setMenuId] = useState<string | null>(null);
+  const menuRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     setLoading(true);
@@ -107,6 +117,27 @@ export function AccountOrders({ uid }: { uid: string }) {
     );
   }, [uid]);
 
+  useEffect(() => {
+    if (!menuId) return;
+    function onPointerDown(event: MouseEvent | TouchEvent) {
+      const target = event.target as Node | null;
+      if (menuRef.current && target && !menuRef.current.contains(target)) {
+        setMenuId(null);
+      }
+    }
+    function onKey(event: KeyboardEvent) {
+      if (event.key === "Escape") setMenuId(null);
+    }
+    document.addEventListener("mousedown", onPointerDown);
+    document.addEventListener("touchstart", onPointerDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("touchstart", onPointerDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [menuId]);
+
   async function cancelOrder(order: AccountOrderRow) {
     if (!isWaitingForPickup(order.status)) return;
     const ok = window.confirm(
@@ -119,6 +150,7 @@ export function AccountOrders({ uid }: { uid: string }) {
     setBusyId(order.id);
     setError("");
     setActionNote("");
+    setMenuId(null);
     try {
       await releasePickupSlot(order.pickupDate, order.pickupSlot);
       await deleteOrderCompletely(order.id);
@@ -206,9 +238,12 @@ export function AccountOrders({ uid }: { uid: string }) {
 
       {orders.map((order) => {
         const open = openId === order.id;
+        const menuOpen = menuId === order.id;
         const active =
           isWaitingForPickup(order.status) || isInProgressOrder(order.status);
         const canCancel = isWaitingForPickup(order.status);
+        const canEdit = canCancel && Boolean(order.trackKey);
+        const hasActions = Boolean(order.trackKey) || canCancel;
         const services = [
           order.laundry
             ? `Laundry${order.bagCount > 0 ? ` (${order.bagCount})` : ""}`
@@ -220,45 +255,120 @@ export function AccountOrders({ uid }: { uid: string }) {
 
         return (
           <article key={order.id} className="account-order-card">
-            <button
-              type="button"
-              className="account-order-head"
-              aria-expanded={open}
-              onClick={() => setOpenId(open ? null : order.id)}
-            >
-              <div>
-                <h3>
-                  {order.pickupDate
-                    ? `${formatPickupDate(order.pickupDate)}${
-                        order.pickupSlot ? ` · ${order.pickupSlot}` : ""
-                      }`
-                    : "Pickup scheduled"}
-                  {services ? ` · ${services}` : ""}
-                </h3>
-                <p>Ref {orderRefFromId(order.id)}</p>
-              </div>
-              <span className="inline-flex items-center gap-2">
-                {order.weekly ? (
-                  <span className="account-order-badge is-weekly">
-                    {order.automatedWeekly ? "Weekly auto" : "Weekly"}
+            <div className="account-order-top">
+              <button
+                type="button"
+                className="account-order-head"
+                aria-expanded={open}
+                onClick={() => {
+                  setMenuId(null);
+                  setOpenId(open ? null : order.id);
+                }}
+              >
+                <div>
+                  <h3>
+                    {order.pickupDate
+                      ? `${formatPickupDate(order.pickupDate)}${
+                          order.pickupSlot ? ` · ${order.pickupSlot}` : ""
+                        }`
+                      : "Pickup scheduled"}
+                    {services ? ` · ${services}` : ""}
+                  </h3>
+                  <p>Ref {orderRefFromId(order.id)}</p>
+                </div>
+                <span className="inline-flex items-center gap-2">
+                  {order.weekly ? (
+                    <span className="account-order-badge is-weekly">
+                      {order.automatedWeekly ? "Weekly auto" : "Weekly"}
+                    </span>
+                  ) : null}
+                  <span
+                    className={cn(
+                      "account-order-badge",
+                      active && "is-active"
+                    )}
+                  >
+                    {ORDER_STATUS_LABELS[order.status]}
                   </span>
-                ) : null}
-                <span
-                  className={cn(
-                    "account-order-badge",
-                    active && "is-active"
-                  )}
-                >
-                  {ORDER_STATUS_LABELS[order.status]}
+                  <ChevronDown
+                    className={cn(
+                      "size-4 text-muted-foreground transition",
+                      open && "rotate-180"
+                    )}
+                  />
                 </span>
-                <ChevronDown
-                  className={cn(
-                    "size-4 text-muted-foreground transition",
-                    open && "rotate-180"
-                  )}
-                />
-              </span>
-            </button>
+              </button>
+
+              {hasActions ? (
+                <div
+                  className="account-order-menu"
+                  ref={menuOpen ? menuRef : undefined}
+                >
+                  <button
+                    type="button"
+                    className="account-order-menu-trigger"
+                    aria-label="Order actions"
+                    aria-haspopup="menu"
+                    aria-expanded={menuOpen}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      setMenuId(menuOpen ? null : order.id);
+                    }}
+                  >
+                    <MoreVertical size={18} aria-hidden />
+                  </button>
+
+                  {menuOpen ? (
+                    <div className="account-order-menu-panel" role="menu">
+                      {order.trackKey ? (
+                        <Link
+                          role="menuitem"
+                          className="account-order-menu-item"
+                          href={trackPath(order.trackKey)}
+                          onClick={() => setMenuId(null)}
+                        >
+                          <ExternalLink size={16} aria-hidden />
+                          Open tracking page
+                        </Link>
+                      ) : null}
+                      {canEdit && order.trackKey ? (
+                        <Link
+                          role="menuitem"
+                          className="account-order-menu-item"
+                          href={`${trackPath(order.trackKey)}&edit=1`}
+                          onClick={() => setMenuId(null)}
+                        >
+                          <Pencil size={16} aria-hidden />
+                          Edit order
+                        </Link>
+                      ) : null}
+                      {canCancel ? (
+                        <>
+                          {(order.trackKey || canEdit) && (
+                            <div
+                              className="account-order-menu-sep"
+                              role="separator"
+                            />
+                          )}
+                          <button
+                            type="button"
+                            role="menuitem"
+                            className="account-order-menu-item is-danger"
+                            disabled={busyId === order.id}
+                            onClick={() => void cancelOrder(order)}
+                          >
+                            <XCircle size={16} aria-hidden />
+                            {busyId === order.id
+                              ? "Cancelling…"
+                              : "Cancel pickup"}
+                          </button>
+                        </>
+                      ) : null}
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
+            </div>
 
             {open ? (
               <div className="account-order-body">
@@ -268,33 +378,6 @@ export function AccountOrders({ uid }: { uid: string }) {
                   weightLbs={order.weightLbs}
                   finalTotal={order.finalTotal}
                 />
-                <div className="mt-4 flex flex-wrap gap-2">
-                  {order.trackKey ? (
-                    <Button variant="outline" size="sm" asChild>
-                      <Link href={trackPath(order.trackKey)}>
-                        Open tracking page
-                      </Link>
-                    </Button>
-                  ) : null}
-                  {canCancel && order.trackKey ? (
-                    <Button size="sm" asChild>
-                      <Link href={`${trackPath(order.trackKey)}&edit=1`}>
-                        Edit order
-                      </Link>
-                    </Button>
-                  ) : null}
-                  {canCancel ? (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      disabled={busyId === order.id}
-                      onClick={() => void cancelOrder(order)}
-                    >
-                      {busyId === order.id ? "Cancelling…" : "Cancel pickup"}
-                    </Button>
-                  ) : null}
-                </div>
               </div>
             ) : null}
           </article>

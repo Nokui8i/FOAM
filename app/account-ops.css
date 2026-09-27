@@ -736,24 +736,53 @@ button.account-ops-control {
 }
 
 .account-ops-page .account-order-card {
+  position: relative;
   border: 1px solid var(--ops-border);
   border-radius: 12px;
   background: #fff;
-  overflow: hidden;
+  overflow: visible;
   box-shadow: 0 10px 24px -20px rgba(22, 50, 74, 0.45);
 }
 
+.account-ops-page .account-order-top {
+  display: flex;
+  align-items: stretch;
+  gap: 2px;
+  background: linear-gradient(180deg, #fff, #fbfcfe);
+}
+
 .account-ops-page .account-order-head {
-  width: 100%;
+  width: auto;
+  flex: 1 1 auto;
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
   padding: 14px;
   border: 0;
-  background: linear-gradient(180deg, #fff, #fbfcfe);
+  background: transparent;
   text-align: left;
   cursor: pointer;
+}
+
+.account-ops-page .account-order-menu {
+  display: flex;
+  align-items: flex-start;
+  padding: 10px 10px 0 0;
+}
+
+.account-ops-page .account-order-menu-trigger {
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--ops-border);
+  border-radius: 9px;
+  background: #fff;
+  color: var(--ops-ink);
+}
+
+.account-ops-page .account-order-menu-panel {
+  border-color: var(--ops-border);
+  box-shadow: 0 18px 36px -22px rgba(22, 50, 74, 0.55);
 }
 
 .account-ops-page .account-order-head h3 {
