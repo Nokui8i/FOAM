@@ -1834,6 +1834,39 @@
   .admin-page .ops-staff-table-row strong {
     grid-column: 1 / -1;
   }
+  .admin-page .ops-staff-table-row.is-employee {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .admin-page .ops-staff-table-row.is-employee .ops-staff-name {
+    grid-column: 1;
+    grid-row: 1;
+    align-self: center;
+    min-width: 0;
+    padding-right: 8px;
+  }
+  .admin-page .ops-staff-table-row.is-employee .ops-staff-status {
+    grid-column: 2;
+    grid-row: 1;
+    justify-self: end;
+    align-self: center;
+    white-space: nowrap;
+  }
+  .admin-page .ops-staff-table-row.is-employee .ops-staff-email {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+  .admin-page .ops-staff-table-row.is-employee .ops-staff-role-cell {
+    grid-column: 1 / -1;
+    grid-row: 3;
+  }
+  /* Role already shown in the top-right tag for locked owners */
+  .admin-page .ops-staff-table-row.is-employee .ops-staff-role-cell:not(label) {
+    display: none;
+  }
+  .admin-page .ops-staff-table-row.is-employee .ops-staff-actions {
+    grid-column: 1 / -1;
+    grid-row: 4;
+  }
   .admin-page .ops-staff-actions {
     grid-column: 1 / -1;
     justify-content: stretch;

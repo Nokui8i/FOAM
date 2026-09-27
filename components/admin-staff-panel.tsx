@@ -24,7 +24,7 @@ function statusLabel(row: StaffProfile) {
   }
   switch (row.status) {
     case "approved":
-      return "Active";
+      return staffRoleLabel(row.role);
     case "denied":
       return "Denied";
     case "revoked":
@@ -324,13 +324,20 @@ export function AdminStaffPanel({
                 {active.map((row) => {
                   const locked = isProtectedOwner(row);
                   return (
-                    <div key={row.uid} className="ops-staff-table-row">
-                      <strong>{row.displayName || "—"}</strong>
-                      <span>{row.email}</span>
+                    <div
+                      key={row.uid}
+                      className="ops-staff-table-row is-employee"
+                    >
+                      <strong className="ops-staff-name">
+                        {row.displayName || "—"}
+                      </strong>
+                      <span className="ops-staff-email">{row.email}</span>
                       {locked ? (
-                        <span>{staffRoleLabel(row.role)}</span>
+                        <span className="ops-staff-role-cell">
+                          {staffRoleLabel(row.role)}
+                        </span>
                       ) : (
-                        <label className="ops-staff-role">
+                        <label className="ops-staff-role ops-staff-role-cell">
                           <span className="sr-only">Role</span>
                           <select
                             value={draftRole(row)}
@@ -347,7 +354,7 @@ export function AdminStaffPanel({
                           </select>
                         </label>
                       )}
-                      <span className="ops-status-pill is-ok">
+                      <span className="ops-status-pill is-ok ops-staff-status">
                         {statusLabel(row)}
                       </span>
                       <div className="ops-staff-actions">
