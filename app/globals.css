@@ -3927,18 +3927,17 @@
     padding: 0.25rem 0 0;
     list-style: none;
     display: flex;
-    align-items: flex-start;
+    align-items: stretch;
     gap: 0;
     width: 100%;
   }
 
   .order-progress-step {
     position: relative;
-    display: grid;
-    grid-template-rows: auto minmax(2.45em, auto) auto;
-    justify-items: center;
-    align-content: start;
+    display: flex;
     flex: 1 1 0;
+    flex-direction: column;
+    align-items: center;
     gap: 0.4rem;
     min-width: 0;
     padding: 0;
@@ -3986,11 +3985,8 @@
   }
 
   .order-progress-label {
-    display: flex;
-    align-items: flex-start;
-    justify-content: center;
+    display: block;
     max-width: 100%;
-    min-height: 2.45em;
     font-size: clamp(0.62rem, 2.4vw, 0.74rem);
     font-weight: 700;
     letter-spacing: -0.01em;
@@ -4034,7 +4030,8 @@
     justify-content: center;
     gap: 0.3rem;
     width: 100%;
-    margin-top: 0.15rem;
+    margin-top: auto;
+    padding-top: 0.15rem;
   }
 
   .order-progress-thumb {
