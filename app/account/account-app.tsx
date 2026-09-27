@@ -376,7 +376,7 @@ function AccountProfile({
                       <p>
                         {profile.weeklyRepeatEnabled
                           ? "Active — 10% off your next order."
-                          : "Turn this on when you book to get 10% off your next order."}
+                          : "Finish a booking to turn this on — 10% off your next order."}
                       </p>
                     </div>
                     {profile.weeklyRepeatEnabled ? (
@@ -399,8 +399,7 @@ function AccountProfile({
                   </div>
                   {profile.weeklyRepeatEnabled ? (
                     <p className="account-ops-weekly-warn">
-                      Cancelling stops future automated pickups and removes the
-                      10% discount on the next automated order.
+                      Cancelling removes the 10% off your next order.
                     </p>
                   ) : null}
                   {weeklyNote || weeklyBusy ? (
