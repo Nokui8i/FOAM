@@ -26,22 +26,22 @@
   box-sizing: border-box;
 }
 
-/* Sit tight under the fixed site header */
+/* Stay clearly below the fixed site header */
 .account-ops-page .account-section {
-  padding-top: 4.75rem;
+  padding-top: 5.75rem;
   padding-bottom: 1.25rem;
 }
 
 @media (min-width: 640px) {
   .account-ops-page .account-section {
-    padding-top: 5rem;
+    padding-top: 6.5rem;
     padding-bottom: 1.75rem;
   }
 }
 
 @media (min-width: 1024px) {
   .account-ops-page .account-section {
-    padding-top: 5.15rem;
+    padding-top: 7.25rem;
     padding-bottom: 2rem;
   }
 }
@@ -50,7 +50,7 @@
   width: 100%;
   max-width: 920px;
   margin: 0 auto;
-  padding: 0.35rem 0 1.5rem;
+  padding: 0.5rem 0 1.5rem;
 }
 
 .account-ops-frame {
@@ -84,9 +84,9 @@
 @media (min-width: 900px) {
   .account-ops-rail {
     position: sticky;
-    top: 5.35rem;
+    top: 6.5rem;
     align-self: start;
-    max-height: calc(100dvh - 5.85rem);
+    max-height: calc(100dvh - 7rem);
   }
 }
 
