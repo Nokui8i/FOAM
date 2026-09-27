@@ -435,13 +435,15 @@
   border: 1px solid var(--ops-border);
   border-radius: 12px;
   background: var(--ops-surface);
-  color: var(--ops-muted);
-  font-size: 13.5px;
-  line-height: 1.5;
+  color: var(--ops-ink);
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.45;
 }
 
 .account-ops-note strong {
   color: var(--ops-ink);
+  font-weight: 750;
 }
 
 .account-ops-weekly {
