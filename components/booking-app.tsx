@@ -887,20 +887,10 @@ function BookingAppInner() {
               <span className="book-repeat-banner-copy">
                 <strong>Make this a repeat pickup</strong>
                 <span className="book-repeat-lines">
-                  <span>Same day &amp; time every week</span>
-                  <span>
-                    Weekly rate <b>{formatRateUsd(rates.weeklyPerLb)}/lb</b>{" "}
-                    (vs {formatRateUsd(rates.standardPerLb)} on-demand) +{" "}
-                    {formatRateUsd(rates.deliveryFee)} pickup
-                  </span>
-                  <span>
-                    <b>10% off</b> on your next automated pickup
-                  </span>
-                  <span>Cancel anytime</span>
+                  <span>Weekly pickups — 10% off your next order.</span>
                   {!user ? (
                     <span className="book-repeat-note">
-                      Automation &amp; weekly rate:{" "}
-                      <b>registered accounts only</b>
+                      Registered accounts only.
                     </span>
                   ) : null}
                 </span>
