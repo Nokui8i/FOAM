@@ -14,8 +14,8 @@ export default function AccountPage() {
   return (
     <main className="account-ops-page flex min-h-svh flex-col text-foreground selection:bg-accent">
       <SiteHeader />
-      <section className="account-section flex-1 pb-8 sm:pb-10">
-        <div className="site-shell px-4 sm:px-[var(--shell-pad,1.25rem)]">
+      <section className="account-section flex min-h-0 flex-1 flex-col">
+        <div className="site-shell flex min-h-0 flex-1 flex-col px-4 sm:px-[var(--shell-pad,1.25rem)]">
           <AccountApp />
         </div>
       </section>
