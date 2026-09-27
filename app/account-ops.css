@@ -772,16 +772,21 @@ button.account-ops-control {
   align-self: flex-start;
   width: auto;
   height: auto;
-  padding: 10px 10px 0 0;
+  padding: 6px 6px 0 0;
 }
 
 .account-ops-page .account-order-menu-trigger {
-  width: 34px;
-  height: 34px;
-  border: 1px solid var(--ops-border);
-  border-radius: 9px;
-  background: #fff;
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--ops-muted);
+}
+
+.account-ops-page .account-order-menu-trigger:hover {
   color: var(--ops-ink);
+  background: rgba(20, 32, 51, 0.05);
 }
 
 .account-ops-page .account-order-menu-panel {

@@ -12,7 +12,7 @@ import {
 import {
   ArrowRight,
   ChevronDown,
-  MoreVertical,
+  MoreHorizontal,
   PackageOpen,
   Pencil,
   XCircle,
@@ -314,7 +314,7 @@ export function AccountOrders({ uid }: { uid: string }) {
                       setMenuId(menuOpen ? null : order.id);
                     }}
                   >
-                    <MoreVertical size={18} aria-hidden />
+                    <MoreHorizontal size={18} aria-hidden />
                   </button>
 
                   {menuOpen ? (

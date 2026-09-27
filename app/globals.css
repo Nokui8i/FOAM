@@ -4182,19 +4182,20 @@
     appearance: none;
     display: inline-grid;
     place-items: center;
-    width: 2.15rem;
-    height: 2.15rem;
+    width: 1.85rem;
+    height: 1.85rem;
     margin: 0;
     padding: 0;
-    border: 1px solid var(--color-border);
-    border-radius: 0.65rem;
-    background: #fff;
-    color: var(--color-foreground);
+    border: 0;
+    border-radius: 0.45rem;
+    background: transparent;
+    color: var(--color-muted-foreground);
     cursor: pointer;
   }
 
   .account-order-menu-trigger:hover {
-    background: color-mix(in oklab, var(--color-foreground) 4%, #fff);
+    color: var(--color-foreground);
+    background: color-mix(in oklab, var(--color-foreground) 5%, transparent);
   }
 
   .account-order-menu-panel {
