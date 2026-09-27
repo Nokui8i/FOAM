@@ -3344,9 +3344,10 @@
 
   .book-frame {
     display: flex;
-    flex: 1;
+    flex: 1 1 auto;
     flex-direction: column;
     width: 100%;
+    min-height: 0;
     padding-bottom: 0.5rem;
   }
 
@@ -3424,25 +3425,18 @@
   .book-panel {
     flex: 0 0 auto;
     width: 100%;
-    min-height: 18rem;
+    min-height: 0;
     overflow: visible;
-    border: 1px solid var(--color-border);
-    border-radius: 0.9rem;
-    background: #fff;
-    padding: 1rem;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    padding: 0;
   }
 
   .book-panel--center {
     display: grid;
     place-items: center;
-    min-height: 22rem;
-  }
-
-  @media (min-width: 640px) {
-    .book-panel {
-      min-height: 20rem;
-      padding: 1.15rem;
-    }
+    min-height: 16rem;
   }
 
   .book-stack {
@@ -3832,8 +3826,8 @@
   }
 
   .book-cta {
-    margin-top: 0.85rem;
-    padding: 0.25rem 0 calc(0.85rem + env(safe-area-inset-bottom, 0px));
+    margin-top: auto;
+    padding: 1rem 0 calc(0.85rem + env(safe-area-inset-bottom, 0px));
   }
 
   .book-guest-note {
