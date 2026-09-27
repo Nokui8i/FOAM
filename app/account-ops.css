@@ -284,14 +284,14 @@
 
 .account-ops-signout-confirm {
   display: grid;
-  gap: 8px;
+  gap: 6px;
   justify-items: stretch;
 }
 
 .account-ops-signout-confirm > strong {
   padding-inline: 4px;
   color: #fff;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 800;
   letter-spacing: -0.01em;
   text-align: center;
@@ -300,13 +300,15 @@
 .account-ops-signout-actions {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 2px;
+  gap: 4px;
+  justify-items: center;
 }
 
 .account-ops-signout-img-btn {
   appearance: none;
   display: block;
   width: 100%;
+  max-width: 148px;
   margin: 0;
   padding: 0;
   border: 0;
@@ -321,6 +323,19 @@
   display: block;
   width: 100%;
   height: auto;
+  max-height: 34px;
+  object-fit: contain;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+.account-ops-signout-img-btn:hover {
+  filter: brightness(1.04);
+}
+
+.account-ops-signout-img-btn:active {
+  filter: brightness(0.97);
+  transform: scale(0.985);
 }
 
 .account-ops-plane {
