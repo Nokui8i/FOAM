@@ -915,3 +915,148 @@ button.account-ops-control {
   font-size: 13.5px;
   line-height: 1.45;
 }
+
+/* Payments demo */
+.account-ops-payments {
+  display: grid;
+  gap: 14px;
+}
+
+.account-ops-payments-demo-flag {
+  margin-top: 0;
+}
+
+.account-ops-pay-card {
+  padding: 16px;
+  border: 1px solid var(--ops-border);
+  border-radius: 14px;
+  background:
+    linear-gradient(145deg, #16324a 0%, #1c4564 55%, #0f6f95 100%);
+  color: #fff;
+  box-shadow: 0 16px 30px -22px rgba(22, 50, 74, 0.7);
+}
+
+.account-ops-pay-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.account-ops-pay-card-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font: 700 13px/1 var(--ops-body);
+  color: rgba(255, 255, 255, 0.82);
+}
+
+.account-ops-pay-card-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 0 9px;
+  border-radius: 999px;
+  background: rgba(0, 168, 216, 0.22);
+  color: #9fe8ff;
+  font-size: 11px;
+  font-weight: 750;
+}
+
+.account-ops-pay-card-number {
+  margin: 18px 0 10px;
+  font: 750 1.25rem/1.1 var(--ops-display);
+  letter-spacing: 0.08em;
+}
+
+.account-ops-pay-card-meta {
+  display: flex;
+  gap: 14px;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.account-ops-pay-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.account-ops-pay-card-actions .account-ops-btn {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.16);
+}
+
+.account-ops-pay-card-actions .account-ops-btn:disabled {
+  opacity: 0.7;
+}
+
+.account-ops-pay-invoices h3 {
+  margin: 2px 0 10px;
+  font: 800 0.95rem/1.2 var(--ops-display);
+  letter-spacing: -0.02em;
+  color: var(--ops-ink);
+}
+
+.account-ops-pay-invoices ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 8px;
+}
+
+.account-ops-pay-invoices li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--ops-border);
+  border-radius: 12px;
+  background: #fff;
+}
+
+.account-ops-pay-invoices li strong {
+  display: block;
+  color: var(--ops-ink);
+  font-size: 14px;
+  font-weight: 750;
+}
+
+.account-ops-pay-invoices li span {
+  display: block;
+  margin-top: 3px;
+  color: var(--ops-muted);
+  font-size: 12px;
+}
+
+.account-ops-pay-invoice-right {
+  text-align: right;
+}
+
+.account-ops-pay-invoice-right b {
+  display: block;
+  color: var(--ops-ink);
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.account-ops-pay-invoice-right em {
+  display: inline-block;
+  margin-top: 4px;
+  color: var(--ops-success);
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 750;
+}
+
+.account-ops-pay-footnote {
+  margin: 0;
+  color: var(--ops-muted);
+  font-size: 12.5px;
+  line-height: 1.45;
+}

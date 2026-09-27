@@ -8,9 +8,7 @@ import {
   type KeyboardEvent,
   type ReactNode,
 } from "react";
-import Link from "next/link";
 import {
-  ArrowRight,
   Check,
   ChevronDown,
   CreditCard,
@@ -679,19 +677,7 @@ function AccountProfile({
 
             {activeTab === "Orders" ? <AccountOrders uid={uid} /> : null}
 
-            {activeTab === "Payments" ? (
-              <EmptyState
-                id="panel-payments"
-                labelledBy="tab-payments"
-                icon={<CreditCard />}
-                title="Payments"
-                text="Invoices and card-on-file details will appear here once billing is connected. For now, payment setup happens with your first order."
-              >
-                <Link href="/specialty" className="account-ops-btn is-ghost">
-                  View fees &amp; policies <ArrowRight />
-                </Link>
-              </EmptyState>
-            ) : null}
+            {activeTab === "Payments" ? <PaymentsDemo /> : null}
           </div>
         </section>
       </div>
@@ -699,6 +685,94 @@ function AccountProfile({
   );
 }
 
+
+function PaymentsDemo() {
+  const demoInvoices = [
+    {
+      id: "inv_demo_1",
+      label: "Sep 22 pickup",
+      when: "Sep 24, 2026",
+      amount: "$64.55",
+      status: "Paid",
+    },
+    {
+      id: "inv_demo_2",
+      label: "Sep 15 pickup",
+      when: "Sep 17, 2026",
+      amount: "$48.20",
+      status: "Paid",
+    },
+    {
+      id: "inv_demo_3",
+      label: "Sep 8 pickup",
+      when: "Sep 10, 2026",
+      amount: "$71.00",
+      status: "Paid",
+    },
+  ] as const;
+
+  return (
+    <section
+      id="panel-payments"
+      role="tabpanel"
+      aria-labelledby="tab-payments"
+      className="account-ops-payments"
+    >
+      <PanelIntro title="Payments" />
+
+      <div className="account-ops-note account-ops-payments-demo-flag">
+        <strong>Demo only.</strong> Sample card and invoices so you can see the
+        layout. Real Stripe billing is not connected yet.
+      </div>
+
+      <div className="account-ops-pay-card">
+        <div className="account-ops-pay-card-top">
+          <span className="account-ops-pay-card-brand">
+            <CreditCard size={18} aria-hidden />
+            Card on file
+          </span>
+          <span className="account-ops-pay-card-chip">Default</span>
+        </div>
+        <p className="account-ops-pay-card-number">•••• •••• •••• 4242</p>
+        <div className="account-ops-pay-card-meta">
+          <span>Visa</span>
+          <span>Exp 12/28</span>
+        </div>
+        <div className="account-ops-pay-card-actions">
+          <button type="button" className="account-ops-btn is-ghost" disabled>
+            Update card
+          </button>
+          <button type="button" className="account-ops-btn is-ghost" disabled>
+            Remove
+          </button>
+        </div>
+      </div>
+
+      <div className="account-ops-pay-invoices">
+        <h3>Recent invoices</h3>
+        <ul>
+          {demoInvoices.map((row) => (
+            <li key={row.id}>
+              <div>
+                <strong>{row.label}</strong>
+                <span>{row.when}</span>
+              </div>
+              <div className="account-ops-pay-invoice-right">
+                <b>{row.amount}</b>
+                <em>{row.status}</em>
+              </div>
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      <p className="account-ops-pay-footnote">
+        Live billing will charge the card on file after weight is confirmed —
+        same flow as your first order.
+      </p>
+    </section>
+  );
+}
 
 function PanelIntro({ title }: { title: string }) {
   return (
@@ -778,36 +852,6 @@ function SaveRow({ saved, saving }: { saved: boolean; saving: boolean }) {
         Settings saved.
       </p>
     </div>
-  );
-}
-
-function EmptyState({
-  id,
-  labelledBy,
-  icon,
-  title,
-  text,
-  children,
-}: {
-  id: string;
-  labelledBy: string;
-  icon: ReactNode;
-  title: string;
-  text: string;
-  children: ReactNode;
-}) {
-  return (
-    <section
-      id={id}
-      role="tabpanel"
-      aria-labelledby={labelledBy}
-      className="account-ops-empty"
-    >
-      <div className="account-ops-empty-icon">{icon}</div>
-      <h2>{title}</h2>
-      <p>{text}</p>
-      <div>{children}</div>
-    </section>
   );
 }
 
