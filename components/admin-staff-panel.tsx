@@ -192,41 +192,46 @@ export function AdminStaffPanel({
         <div className="ops-catalog-plane-title-row">
           <h1 className="ops-list-title">Staff</h1>
         </div>
-        <div
-          className="ops-filter-row is-alerts ops-staff-tabs"
-          role="tablist"
-          aria-label="Staff views"
-        >
-          <button
-            type="button"
-            role="tab"
-            aria-selected={tab === "employees"}
-            className={cn("ops-filter-chip", tab === "employees" && "is-active")}
-            onClick={() => setTab("employees")}
+        <div className="ops-staff-toolbar">
+          <div
+            className="ops-filter-row is-alerts ops-staff-tabs"
+            role="tablist"
+            aria-label="Staff views"
           >
-            Employees
-            <span className="ops-radio-count">{activeTotal}</span>
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={tab === "pending"}
-            className={cn("ops-filter-chip", tab === "pending" && "is-active")}
-            onClick={() => setTab("pending")}
-          >
-            Pending
-            <span className="ops-radio-count">{pendingTotal}</span>
-          </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={tab === "employees"}
+              className={cn(
+                "ops-filter-chip",
+                tab === "employees" && "is-active"
+              )}
+              onClick={() => setTab("employees")}
+            >
+              Employees
+              <span className="ops-radio-count">{activeTotal}</span>
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={tab === "pending"}
+              className={cn("ops-filter-chip", tab === "pending" && "is-active")}
+              onClick={() => setTab("pending")}
+            >
+              Pending
+              <span className="ops-radio-count">{pendingTotal}</span>
+            </button>
+          </div>
+          <label className="ops-search ops-staff-search">
+            <Search size={16} aria-hidden />
+            <input
+              value={queryText}
+              onChange={(e) => setQueryText(e.target.value)}
+              placeholder="Search name, email, or role"
+              aria-label="Search staff"
+            />
+          </label>
         </div>
-        <label className="ops-search ops-staff-search">
-          <Search size={16} aria-hidden />
-          <input
-            value={queryText}
-            onChange={(e) => setQueryText(e.target.value)}
-            placeholder="Search name, email, or role"
-            aria-label="Search staff"
-          />
-        </label>
       </header>
 
       {(okMsg || error) && (
