@@ -53,7 +53,6 @@ import {
 import {
   cancelFutureWeeklyOrders,
 } from "@/lib/weekly-automation";
-import { BOOKING_PATH } from "@/lib/site-config";
 
 type Mode = "signin" | "signup";
 const tabs = ["Details", "Preferences", "Orders", "Payments"] as const;
@@ -347,22 +346,13 @@ function AccountProfile({
                 onSubmit={(event) => saveProfile(event, "details")}
               >
                 <PanelIntro title="Personal details" />
-                <div
-                  className={cn(
-                    "account-ops-weekly",
-                    profile.weeklyRepeatEnabled && "is-active"
-                  )}
-                >
-                  <div className="account-ops-weekly-row">
-                    <div>
-                      <h3>Weekly repeat pickup</h3>
-                      <p>
-                        {profile.weeklyRepeatEnabled
-                          ? "Active — 10% off your next order."
-                          : "Finish a booking to turn this on — 10% off your next order."}
-                      </p>
-                    </div>
-                    {profile.weeklyRepeatEnabled ? (
+                {profile.weeklyRepeatEnabled ? (
+                  <div className="account-ops-weekly is-active">
+                    <div className="account-ops-weekly-row">
+                      <div>
+                        <h3>Weekly repeat pickup</h3>
+                        <p>Active — 10% off your next order.</p>
+                      </div>
                       <button
                         type="button"
                         className="account-ops-btn is-ghost"
@@ -371,26 +361,14 @@ function AccountProfile({
                       >
                         {weeklyBusy ? "Cancelling…" : "Cancel weekly"}
                       </button>
-                    ) : (
-                      <Link
-                        href={BOOKING_PATH}
-                        className="account-ops-btn is-primary"
-                      >
-                        Book to enable
-                      </Link>
-                    )}
+                    </div>
+                    {weeklyNote || weeklyBusy ? (
+                      <p className="account-ops-weekly-status">
+                        {weeklyBusy ? "Updating…" : weeklyNote}
+                      </p>
+                    ) : null}
                   </div>
-                  {profile.weeklyRepeatEnabled ? (
-                    <p className="account-ops-weekly-warn">
-                      Cancelling removes the 10% off your next order.
-                    </p>
-                  ) : null}
-                  {weeklyNote || weeklyBusy ? (
-                    <p className="account-ops-weekly-status">
-                      {weeklyBusy ? "Updating…" : weeklyNote}
-                    </p>
-                  ) : null}
-                </div>
+                ) : null}
                 <div className="account-ops-grid">
                   <Field label="Full name">
                     <input
