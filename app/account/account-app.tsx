@@ -57,7 +57,7 @@ import {
 import {
   cancelFutureWeeklyOrders,
 } from "@/lib/weekly-automation";
-import { BOOKING_PATH, isAdminEmail } from "@/lib/site-config";
+import { BOOKING_PATH } from "@/lib/site-config";
 
 type Mode = "signin" | "signup";
 const tabs = ["Details", "Preferences", "Orders", "Payments"] as const;
@@ -93,13 +93,11 @@ function AccountProfile({
   uid,
   email,
   displayName,
-  isAdmin,
   onSignOut,
 }: {
   uid: string;
   email: string;
   displayName: string;
-  isAdmin: boolean;
   onSignOut: () => void;
 }) {
   const { searchParams, replaceQuery } = useQueryReplace();
@@ -372,11 +370,6 @@ function AccountProfile({
               <Link href={BOOKING_PATH} className="account-ops-btn is-primary">
                 Book a Pickup <ArrowRight />
               </Link>
-              {isAdmin ? (
-                <Link href="/ops" className="account-ops-btn is-ghost">
-                  OPS
-                </Link>
-              ) : null}
               <button
                 type="button"
                 className="account-ops-btn is-ghost"
@@ -949,7 +942,6 @@ export function AccountApp() {
           displayName={
             user.displayName?.trim() || user.email?.split("@")[0] || ""
           }
-          isAdmin={isAdminEmail(user.email)}
           onSignOut={handleSignOut}
         />
       </Suspense>
