@@ -26,6 +26,11 @@ import { getFirebaseDb } from "@/lib/firebase";
 import { BUSINESS_WHATSAPP } from "@/lib/site-config";
 import { useQueryReplace } from "@/lib/use-query-replace";
 import { cn } from "@/lib/utils";
+import {
+  buildDemoSupportVolume,
+  mergeDemoSupport,
+  isOpsDemoId,
+} from "@/lib/ops-demo-volume";
 
 type ContactRow = {
   id: string;
@@ -114,7 +119,12 @@ export function AdminContactsPanel({
             createdAt: (data.createdAt as Timestamp | null) ?? null,
           } satisfies ContactRow;
         });
-        setRows(next);
+        setRows(
+          mergeDemoSupport(
+            next,
+            buildDemoSupportVolume() as ContactRow[]
+          )
+        );
         setListReady(true);
         setError("");
       },
@@ -151,12 +161,27 @@ export function AdminContactsPanel({
     filtered.find((row) => row.id === selectedId) ?? filtered[0] ?? null;
 
   async function markRead(id: string) {
+    if (isOpsDemoId(id)) return;
     await updateDoc(doc(getFirebaseDb(), "contactMessages", id), {
       read: true,
     });
   }
 
   async function toggleDone(row: ContactRow) {
+    if (isOpsDemoId(row.id)) {
+      setRows((prev) =>
+        prev.map((item) =>
+          item.id === row.id
+            ? {
+                ...item,
+                status: item.status === "done" ? "new" : "done",
+                read: true,
+              }
+            : item
+        )
+      );
+      return;
+    }
     await updateDoc(doc(getFirebaseDb(), "contactMessages", row.id), {
       status: row.status === "done" ? "new" : "done",
       read: true,

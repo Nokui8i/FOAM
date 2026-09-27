@@ -687,29 +687,18 @@ function AccountProfile({
 
 
 function PaymentsDemo() {
-  const demoInvoices = [
-    {
-      id: "inv_demo_1",
-      label: "Sep 22 pickup",
-      when: "Sep 24, 2026",
-      amount: "$64.55",
-      status: "Paid",
-    },
-    {
-      id: "inv_demo_2",
-      label: "Sep 15 pickup",
-      when: "Sep 17, 2026",
-      amount: "$48.20",
-      status: "Paid",
-    },
-    {
-      id: "inv_demo_3",
-      label: "Sep 8 pickup",
-      when: "Sep 10, 2026",
-      amount: "$71.00",
-      status: "Paid",
-    },
-  ] as const;
+  const demoInvoices = Array.from({ length: 30 }, (_, index) => {
+    const n = index + 1;
+    const day = 27 - (index % 26);
+    const amount = (32 + (index % 17) * 3.25 + (index % 5) * 1.1).toFixed(2);
+    return {
+      id: `inv_demo_${n}`,
+      label: `Demo pickup #${String(n).padStart(2, "0")}`,
+      when: `Sep ${day}, 2026`,
+      amount: `$${amount}`,
+      status: "Paid" as const,
+    };
+  });
 
   return (
     <section
@@ -721,8 +710,8 @@ function PaymentsDemo() {
       <PanelIntro title="Payments" />
 
       <div className="account-ops-note account-ops-payments-demo-flag">
-        <strong>Demo only.</strong> Sample card and invoices so you can see the
-        layout. Real Stripe billing is not connected yet.
+        <strong>Demo only.</strong> 30 sample paid invoices so you can review
+        the list layout. Real Stripe billing is not connected yet.
       </div>
 
       <div className="account-ops-pay-card">
@@ -749,7 +738,7 @@ function PaymentsDemo() {
       </div>
 
       <div className="account-ops-pay-invoices">
-        <h3>Recent invoices</h3>
+        <h3>Recent invoices · 30 demo</h3>
         <ul>
           {demoInvoices.map((row) => (
             <li key={row.id}>

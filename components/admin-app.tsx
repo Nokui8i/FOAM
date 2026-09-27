@@ -48,6 +48,7 @@ import {
   type FoamOrder,
 } from "@/lib/orders";
 import { isAdminEmail } from "@/lib/site-config";
+import { OPS_DEMO_VOLUME } from "@/lib/ops-demo-volume";
 import { useQueryReplace } from "@/lib/use-query-replace";
 import { cn } from "@/lib/utils";
 import {
@@ -220,7 +221,7 @@ function AdminAppInner() {
     const db = getFirebaseDb();
     const unsubContacts = onSnapshot(collection(db, "contactMessages"), (snap) => {
       const open = snap.docs.filter((d) => d.data().status !== "done").length;
-      setOpenInquiriesCount(open);
+      setOpenInquiriesCount(open + OPS_DEMO_VOLUME);
     });
     const unsubOrders = onSnapshot(collection(db, "orders"), (snap) => {
       let todayActive = 0;
@@ -252,10 +253,10 @@ function AdminAppInner() {
           todayActive += 1;
         }
       }
-      setOrdersCount(todayActive);
-      setFutureCount(future);
-      setHistoryCount(history);
-      setAlertsTodoCount(alertsTodo);
+      setOrdersCount(todayActive + OPS_DEMO_VOLUME);
+      setFutureCount(future + OPS_DEMO_VOLUME);
+      setHistoryCount(history + OPS_DEMO_VOLUME);
+      setAlertsTodoCount(alertsTodo + OPS_DEMO_VOLUME);
     });
     return () => {
       unsubContacts();

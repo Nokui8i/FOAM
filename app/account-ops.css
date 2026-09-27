@@ -1010,6 +1010,10 @@ button.account-ops-control {
   list-style: none;
   display: grid;
   gap: 8px;
+  max-height: min(52vh, 28rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-right: 2px;
 }
 
 .account-ops-pay-invoices li {
