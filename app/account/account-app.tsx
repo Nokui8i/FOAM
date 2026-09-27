@@ -24,6 +24,7 @@ import {
 import { AddressAutocomplete } from "@/components/address-autocomplete";
 import { AccountOrders } from "@/components/account-orders";
 import { OptionSheet } from "@/components/option-sheet";
+import { BrandSplash } from "@/components/brand-splash";
 import { useAuth } from "@/components/auth-provider";
 import { GoogleSignInButton } from "@/components/google-sign-in-button";
 import { useQueryReplace } from "@/lib/use-query-replace";
@@ -860,6 +861,7 @@ function EmptyState({
 export function AccountApp() {
   const {
     user,
+    ready,
     signInEmail,
     signUpEmail,
     signInApple,
@@ -932,10 +934,15 @@ export function AccountApp() {
     }
   }
 
-  // Don't block the sign-in UI on Firebase ready — LAN/mobile often delays auth init.
+  // Wait for Firebase to restore the session before choosing login vs profile,
+  // otherwise a refresh flashes the login card for already-signed-in users.
+  if (!ready) {
+    return <BrandSplash label="Loading account…" />;
+  }
+
   if (user) {
     return (
-      <Suspense fallback={<p className="text-sm text-muted-foreground">Loading…</p>}>
+      <Suspense fallback={<BrandSplash label="Loading account…" />}>
         <AccountProfile
           uid={user.uid}
           email={user.email ?? ""}
