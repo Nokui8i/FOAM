@@ -4,20 +4,20 @@ import { useEffect, useMemo, useState } from "react";
 import { Users } from "lucide-react";
 
 import { useOpsPageReadyWhen } from "@/components/ops-boot";
+import { isAdminEmail } from "@/lib/site-config";
 import {
-  isBootstrapStaffRow,
   mergeStaffWithBootstrap,
+  removeStaffMember,
   reviewStaffMember,
   staffRoleLabel,
   subscribeAllStaff,
   type StaffProfile,
   type StaffRole,
-  type StaffStatus,
 } from "@/lib/staff-access";
 import { cn } from "@/lib/utils";
 
 function statusLabel(row: StaffProfile) {
-  if (isBootstrapStaffRow(row) && row.uid.startsWith("bootstrap:")) {
+  if (isAdminEmail(row.email) && row.uid.startsWith("bootstrap:")) {
     return "Allowlist";
   }
   switch (row.status) {
@@ -72,15 +72,16 @@ export function AdminStaffPanel({
     return roleDraft[row.uid] ?? row.role;
   }
 
-  function isLockedBootstrap(row: StaffProfile) {
-    return row.uid.startsWith("bootstrap:");
+  /** Code allowlist admins cannot be demoted/fired from this UI. */
+  function isProtectedAdmin(row: StaffProfile) {
+    return isAdminEmail(row.email) || row.uid.startsWith("bootstrap:");
   }
 
   async function review(
     row: StaffProfile,
     status: "approved" | "denied" | "revoked"
   ) {
-    if (isLockedBootstrap(row)) return;
+    if (isProtectedAdmin(row)) return;
     setError("");
     setOkMsg("");
     setBusyId(row.uid);
@@ -98,7 +99,7 @@ export function AdminStaffPanel({
           ? `${row.displayName || row.email} approved as ${staffRoleLabel(draftRole(row))}.`
           : status === "denied"
             ? `${row.displayName || row.email} denied.`
-            : `${row.displayName || row.email} revoked.`
+            : `${row.displayName || row.email} access revoked.`
       );
     } catch {
       setError("Could not update staff member.");
@@ -108,7 +109,7 @@ export function AdminStaffPanel({
   }
 
   async function saveRole(row: StaffProfile) {
-    if (isLockedBootstrap(row)) return;
+    if (isProtectedAdmin(row)) return;
     const nextRole = draftRole(row);
     if (nextRole === row.role) return;
     setBusyId(row.uid);
@@ -125,6 +126,25 @@ export function AdminStaffPanel({
       );
     } catch {
       setError("Could not change role.");
+    } finally {
+      setBusyId("");
+    }
+  }
+
+  async function remove(row: StaffProfile) {
+    if (isProtectedAdmin(row)) return;
+    const ok = window.confirm(
+      `Remove ${row.displayName || row.email}?\n\nThey will lose access to OPS and Driver immediately. They can request access again later.`
+    );
+    if (!ok) return;
+    setBusyId(row.uid);
+    setError("");
+    setOkMsg("");
+    try {
+      await removeStaffMember(row.uid);
+      setOkMsg(`${row.displayName || row.email} removed.`);
+    } catch {
+      setError("Could not remove staff member.");
     } finally {
       setBusyId("");
     }
@@ -229,7 +249,7 @@ export function AdminStaffPanel({
                 <span>Actions</span>
               </div>
               {active.map((row) => {
-                const locked = isLockedBootstrap(row);
+                const locked = isProtectedAdmin(row);
                 return (
                   <div key={row.uid} className="ops-staff-table-row">
                     <strong>{row.displayName || "—"}</strong>
@@ -276,9 +296,9 @@ export function AdminStaffPanel({
                             type="button"
                             className="ops-catalog-editor-btn is-secondary"
                             disabled={busyId === row.uid}
-                            onClick={() => void review(row, "revoked")}
+                            onClick={() => void remove(row)}
                           >
-                            Revoke
+                            {busyId === row.uid ? "Removing…" : "Remove"}
                           </button>
                         </>
                       )}
@@ -317,6 +337,14 @@ export function AdminStaffPanel({
                       onClick={() => void review(row, "approved")}
                     >
                       Re-approve
+                    </button>
+                    <button
+                      type="button"
+                      className="ops-catalog-editor-btn is-secondary"
+                      disabled={busyId === row.uid}
+                      onClick={() => void remove(row)}
+                    >
+                      Remove
                     </button>
                   </div>
                 </div>

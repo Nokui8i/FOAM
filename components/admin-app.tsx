@@ -63,6 +63,7 @@ import {
 import {
   canAccessOps,
   ensureStaffProfile,
+  isStaffAdmin,
   subscribePendingStaff,
   subscribeStaffProfile,
   type StaffProfile,
@@ -193,6 +194,7 @@ function AdminAppInner() {
   const [showLoginBrand, setShowLoginBrand] = useState(false);
 
   const allowed = canAccessOps(staffProfile, user?.email);
+  const canManageStaff = isStaffAdmin(staffProfile, user?.email);
   const pendingAccess =
     Boolean(user) &&
     staffReady &&
@@ -718,6 +720,7 @@ function AdminAppInner() {
         openInquiriesCount={openInquiriesCount}
         alertsTodoCount={alertsTodoCount}
         pendingStaffCount={pendingStaffCount}
+        canManageStaff={canManageStaff}
         setAlertsTodoCount={setAlertsTodoCount}
         ordersCount={ordersCount}
         futureCount={futureCount}
@@ -740,6 +743,7 @@ function OpsConsole({
   openInquiriesCount,
   alertsTodoCount,
   pendingStaffCount,
+  canManageStaff,
   setAlertsTodoCount,
   ordersCount,
   futureCount,
@@ -756,6 +760,7 @@ function OpsConsole({
   openInquiriesCount: number;
   alertsTodoCount: number;
   pendingStaffCount: number;
+  canManageStaff: boolean;
   setAlertsTodoCount: (count: number) => void;
   ordersCount: number;
   futureCount: number;
@@ -768,6 +773,12 @@ function OpsConsole({
   const [signOutConfirm, setSignOutConfirm] = useState(false);
   const [moreMenuOpen, setMoreMenuOpen] = useState(false);
   const moreMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (tab === "staff" && !canManageStaff) {
+      setDestination("orders");
+    }
+  }, [tab, canManageStaff, setDestination]);
 
   useEffect(() => {
     if (!accountMenuOpen && !moreMenuOpen) setSignOutConfirm(false);
@@ -809,7 +820,7 @@ function OpsConsole({
 
   const moreActive =
     tab === "history" ||
-    tab === "staff" ||
+    (canManageStaff && tab === "staff") ||
     tab === "catalog" ||
     tab === "promos" ||
     tab === "pricing" ||
@@ -874,19 +885,21 @@ function OpsConsole({
               <span>Notifications</span>
               <b>{alertsTodoCount}</b>
             </button>
-            <button
-              type="button"
-              className={cn(
-                "nav-button",
-                "is-rail-more",
-                tab === "staff" && "active"
-              )}
-              onClick={() => setDestination("staff")}
-            >
-              <Users size={18} aria-hidden />
-              <span>Staff</span>
-              <b>{pendingStaffCount}</b>
-            </button>
+            {canManageStaff ? (
+              <button
+                type="button"
+                className={cn(
+                  "nav-button",
+                  "is-rail-more",
+                  tab === "staff" && "active"
+                )}
+                onClick={() => setDestination("staff")}
+              >
+                <Users size={18} aria-hidden />
+                <span>Staff</span>
+                <b>{pendingStaffCount}</b>
+              </button>
+            ) : null}
             <button
               type="button"
               className={cn(
@@ -975,19 +988,21 @@ function OpsConsole({
                   <span>History</span>
                   <b>{historyCount}</b>
                 </button>
-                <button
-                  type="button"
-                  role="menuitem"
-                  className={cn(
-                    "ops-more-item",
-                    tab === "staff" && "is-active"
-                  )}
-                  onClick={() => goMore("staff")}
-                >
-                  <Users size={18} aria-hidden />
-                  <span>Staff</span>
-                  <b>{pendingStaffCount}</b>
-                </button>
+                {canManageStaff ? (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className={cn(
+                      "ops-more-item",
+                      tab === "staff" && "is-active"
+                    )}
+                    onClick={() => goMore("staff")}
+                  >
+                    <Users size={18} aria-hidden />
+                    <span>Staff</span>
+                    <b>{pendingStaffCount}</b>
+                  </button>
+                ) : null}
                 <button
                   type="button"
                   role="menuitem"
@@ -1184,7 +1199,7 @@ function OpsConsole({
                 onMobileViewChange={setMobileView}
                 onTodoCountChange={setAlertsTodoCount}
               />
-            ) : tab === "staff" ? (
+            ) : tab === "staff" && canManageStaff ? (
               <AdminStaffPanel adminEmail={user.email ?? ""} />
             ) : tab === "catalog" ? (
               <AdminCatalogPanel

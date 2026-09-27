@@ -1,5 +1,6 @@
 import {
   collection,
+  deleteDoc,
   doc,
   getDoc,
   onSnapshot,
@@ -79,7 +80,9 @@ export function staffRoleLabel(role: StaffRole) {
 }
 
 function defaultRoleForPortal(portal: StaffPortal): StaffRole {
-  return portal === "ops" ? "admin" : "driver";
+  // OPS applicants start as manager candidates; drivers as driver.
+  // Admins promote to admin explicitly from Staff.
+  return portal === "ops" ? "manager" : "driver";
 }
 
 /**
@@ -220,6 +223,22 @@ export async function reviewStaffMember(
   };
   if (next.role) payload.role = next.role;
   await updateDoc(doc(getFirebaseDb(), "staff", uid), payload);
+}
+
+/** Fire / remove — deletes staff doc so all portal access is gone. */
+export async function removeStaffMember(uid: string) {
+  if (uid.startsWith("bootstrap:")) {
+    throw new Error("Cannot remove bootstrap allowlist admin.");
+  }
+  await deleteDoc(doc(getFirebaseDb(), "staff", uid));
+}
+
+export function isStaffAdmin(
+  profile: StaffProfile | null,
+  email?: string | null
+) {
+  if (isAdminEmail(email)) return true;
+  return Boolean(profile && profile.status === "approved" && profile.role === "admin");
 }
 
 export function canAccessOps(profile: StaffProfile | null, email?: string | null) {
