@@ -386,10 +386,7 @@ function AccountProfile({
                 aria-labelledby="tab-details"
                 onSubmit={(event) => saveProfile(event, "details")}
               >
-                <PanelIntro
-                  title="Personal details"
-                  helper="Contact and pickup address — reused on future bookings."
-                />
+                <PanelIntro title="Personal details" />
                 <div
                   className={cn(
                     "account-ops-weekly",

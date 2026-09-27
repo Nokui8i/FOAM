@@ -1,0 +1,16 @@
+---
+description: Never add subtitles, subtext, helper lines, or explanatory lead paragraphs under headings
+alwaysApply: true
+---
+
+# No subtitles / subtext
+
+Do **not** add secondary copy under titles, section headings, or panel names.
+
+Forbidden patterns include:
+- Subtitles / subtext / helper lines under an `h1` / `h2` / section title
+- Lead paragraphs like “Contact and pickup address — reused on…”
+- Explanatory one-liners under “Personal details”, “Preferences”, etc.
+- Marketing-style supporting sentences that only restate the heading
+
+Use the heading alone. Put needed explanation inside the control, note box, empty state, or field label — not as a subtitle under the title.
