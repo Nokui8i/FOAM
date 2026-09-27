@@ -294,7 +294,41 @@ function AccountProfile({
               height={72}
             />
             <small>ACCOUNT</small>
+            {!signOutConfirm ? (
+              <button
+                type="button"
+                className="account-ops-rail-signout-icon"
+                aria-label="Sign out"
+                title="Sign out"
+                onClick={() => setSignOutConfirm(true)}
+              >
+                <LogOut size={16} aria-hidden />
+              </button>
+            ) : null}
           </div>
+
+          {signOutConfirm ? (
+            <div className="account-ops-signout-confirm">
+              <strong>Are you sure?</strong>
+              <div className="account-ops-signout-actions">
+                <button
+                  type="button"
+                  className="account-ops-signout-btn is-cancel"
+                  onClick={() => setSignOutConfirm(false)}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="account-ops-signout-btn is-confirm"
+                  onClick={onSignOut}
+                >
+                  <LogOut size={14} aria-hidden />
+                  Sign out
+                </button>
+              </div>
+            </div>
+          ) : null}
 
           <div
             className="account-ops-nav"
@@ -325,40 +359,7 @@ function AccountProfile({
           </div>
 
           <div className="account-ops-rail-foot">
-            {signOutConfirm ? (
-              <div className="account-ops-signout-confirm">
-                <strong>Are you sure?</strong>
-                <div className="account-ops-signout-actions">
-                  <button
-                    type="button"
-                    className="account-ops-signout-btn is-cancel"
-                    onClick={() => setSignOutConfirm(false)}
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="button"
-                    className="account-ops-signout-btn is-confirm"
-                    onClick={onSignOut}
-                  >
-                    <LogOut size={14} aria-hidden />
-                    Sign out
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <>
-                <span className="account-ops-rail-email">{email}</span>
-                <button
-                  type="button"
-                  className="account-ops-rail-signout"
-                  onClick={() => setSignOutConfirm(true)}
-                >
-                  <LogOut size={14} aria-hidden />
-                  Sign out
-                </button>
-              </>
-            )}
+            <span className="account-ops-rail-email">{email}</span>
           </div>
         </aside>
 

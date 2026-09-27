@@ -148,7 +148,7 @@
   flex-direction: column;
   align-items: center;
   text-align: center;
-  padding: 0 7px;
+  padding: 0 40px;
 }
 
 .account-ops-brand img {
@@ -167,6 +167,30 @@
   font-weight: 700;
   letter-spacing: 0.18em;
   text-align: center;
+}
+
+.account-ops-rail-signout-icon {
+  appearance: none;
+  position: absolute;
+  top: -4px;
+  right: 0;
+  z-index: 2;
+  display: inline-grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.06);
+  color: #ffb4ae;
+  cursor: pointer;
+  transition: background 0.16s ease, border-color 0.16s ease;
+}
+
+.account-ops-rail-signout-icon:hover {
+  background: rgba(217, 74, 61, 0.22);
+  border-color: rgba(255, 180, 174, 0.35);
 }
 
 .account-ops-nav {
@@ -262,29 +286,12 @@
   overflow-wrap: anywhere;
 }
 
-.account-ops-rail-signout {
-  appearance: none;
-  display: inline-flex;
-  align-items: center;
-  gap: 9px;
-  width: 100%;
-  min-height: 40px;
-  padding: 9px 12px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 11px;
-  background: rgba(255, 255, 255, 0.06);
-  color: #ffb4ae;
-  font: 700 13px/1 var(--ops-body);
-  cursor: pointer;
-}
-
-.account-ops-rail-signout:hover {
-  background: rgba(217, 74, 61, 0.18);
-}
-
 .account-ops-signout-confirm {
+  position: relative;
+  z-index: 1;
   display: grid;
   gap: 8px;
+  margin-top: 12px;
   justify-items: stretch;
 }
 
