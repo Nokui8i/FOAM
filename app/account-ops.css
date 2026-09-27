@@ -26,31 +26,28 @@
   box-sizing: border-box;
 }
 
-/* Stay clearly below the fixed site header */
+/* Close under the fixed header — header stays the top boundary */
 .account-ops-page .account-section {
-  padding-top: 5.75rem;
-  padding-bottom: 1.25rem;
+  padding-top: 4.85rem;
+  padding-bottom: 1rem;
 }
 
 @media (min-width: 640px) {
   .account-ops-page .account-section {
-    padding-top: 6.5rem;
-    padding-bottom: 1.75rem;
+    padding-top: 5rem;
+    padding-bottom: 1rem;
   }
 }
 
-@media (min-width: 1024px) {
-  .account-ops-page .account-section {
-    padding-top: 7.25rem;
-    padding-bottom: 2rem;
-  }
+.account-ops-page .account-section > .site-shell {
+  width: 100%;
 }
 
 .account-ops-shell {
   width: 100%;
   max-width: 920px;
   margin: 0 auto;
-  padding: 0.5rem 0 1.5rem;
+  padding: 0.2rem 0 1rem;
 }
 
 .account-ops-frame {
@@ -60,9 +57,60 @@
 }
 
 @media (min-width: 900px) {
+  /* Locked workspace: rail stays put, only the plane body scrolls */
+  .account-ops-page {
+    height: 100dvh;
+    max-height: 100dvh;
+    overflow: hidden;
+  }
+
+  .account-ops-page .site-footer {
+    display: none;
+  }
+
+  .account-ops-page .account-section {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
+    height: 100%;
+    padding-top: 5rem;
+    padding-bottom: 0.85rem;
+    overflow: hidden;
+  }
+
+  .account-ops-page .account-section > .site-shell {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
+    height: 100%;
+  }
+
+  .account-ops-shell {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
+    height: 100%;
+    padding: 0.15rem 0 0;
+  }
+
   .account-ops-frame {
     grid-template-columns: 228px minmax(0, 1fr);
     gap: 16px;
+    align-items: stretch;
+    flex: 1 1 auto;
+    min-height: 0;
+    height: 100%;
+  }
+
+  .account-ops-rail {
+    position: relative;
+    align-self: stretch;
+    height: 100%;
+    max-height: none;
+    overflow: hidden;
   }
 }
 
@@ -79,15 +127,6 @@
     0 28px 55px -28px rgba(22, 50, 74, 0.75),
     inset 0 1px 0 rgba(255, 255, 255, 0.12);
   overflow: hidden;
-}
-
-@media (min-width: 900px) {
-  .account-ops-rail {
-    position: sticky;
-    top: 6.5rem;
-    align-self: start;
-    max-height: calc(100dvh - 7rem);
-  }
 }
 
 .account-ops-rail::after {
@@ -239,6 +278,8 @@
 
 .account-ops-plane {
   min-width: 0;
+  display: flex;
+  flex-direction: column;
   border: 1px solid rgba(219, 228, 238, 0.85);
   border-radius: 16px;
   background: var(--ops-card);
@@ -246,7 +287,15 @@
   overflow: hidden;
 }
 
+@media (min-width: 900px) {
+  .account-ops-plane {
+    height: 100%;
+    min-height: 0;
+  }
+}
+
 .account-ops-plane-head {
+  flex: 0 0 auto;
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -348,6 +397,8 @@
 }
 
 .account-ops-plane-body {
+  flex: 1 1 auto;
+  min-height: 0;
   padding: 16px 18px 18px;
   max-width: 640px;
 }
@@ -355,6 +406,13 @@
 @media (min-width: 640px) {
   .account-ops-plane-body {
     padding: 18px 20px 20px;
+  }
+}
+
+@media (min-width: 900px) {
+  .account-ops-plane-body {
+    overflow-y: auto;
+    overscroll-behavior: contain;
   }
 }
 
