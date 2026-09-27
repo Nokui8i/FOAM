@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { Search } from "lucide-react";
 
 import { useOpsPageReadyWhen } from "@/components/ops-boot";
 import { isAdminEmail } from "@/lib/site-config";
@@ -33,6 +34,19 @@ function statusLabel(row: StaffProfile) {
   }
 }
 
+function matchesStaffQuery(row: StaffProfile, query: string) {
+  const q = query.trim().toLowerCase();
+  if (!q) return true;
+  return (
+    row.displayName.toLowerCase().includes(q) ||
+    row.email.toLowerCase().includes(q) ||
+    row.role.toLowerCase().includes(q) ||
+    staffRoleLabel(row.role).toLowerCase().includes(q) ||
+    row.requestedPortal.toLowerCase().includes(q) ||
+    (row.requestedPortal === "ops" ? "ops" : "driver").includes(q)
+  );
+}
+
 export function AdminStaffPanel({
   adminEmail,
 }: {
@@ -41,6 +55,7 @@ export function AdminStaffPanel({
   const [rows, setRows] = useState<StaffProfile[]>([]);
   const [ready, setReady] = useState(false);
   const [tab, setTab] = useState<StaffTab>("employees");
+  const [queryText, setQueryText] = useState("");
   const [error, setError] = useState("");
   const [okMsg, setOkMsg] = useState("");
   const [busyId, setBusyId] = useState("");
@@ -55,18 +70,35 @@ export function AdminStaffPanel({
   }, []);
 
   const pending = useMemo(
-    () => rows.filter((row) => row.status === "pending"),
-    [rows]
+    () =>
+      rows
+        .filter((row) => row.status === "pending")
+        .filter((row) => matchesStaffQuery(row, queryText)),
+    [rows, queryText]
   );
   const active = useMemo(
-    () => rows.filter((row) => row.status === "approved"),
-    [rows]
+    () =>
+      rows
+        .filter((row) => row.status === "approved")
+        .filter((row) => matchesStaffQuery(row, queryText)),
+    [rows, queryText]
   );
   const other = useMemo(
     () =>
-      rows.filter(
-        (row) => row.status === "denied" || row.status === "revoked"
-      ),
+      rows
+        .filter(
+          (row) => row.status === "denied" || row.status === "revoked"
+        )
+        .filter((row) => matchesStaffQuery(row, queryText)),
+    [rows, queryText]
+  );
+
+  const pendingTotal = useMemo(
+    () => rows.filter((row) => row.status === "pending").length,
+    [rows]
+  );
+  const activeTotal = useMemo(
+    () => rows.filter((row) => row.status === "approved").length,
     [rows]
   );
 
@@ -173,7 +205,7 @@ export function AdminStaffPanel({
             onClick={() => setTab("employees")}
           >
             Employees
-            <span className="ops-radio-count">{active.length}</span>
+            <span className="ops-radio-count">{activeTotal}</span>
           </button>
           <button
             type="button"
@@ -183,9 +215,18 @@ export function AdminStaffPanel({
             onClick={() => setTab("pending")}
           >
             Pending
-            <span className="ops-radio-count">{pending.length}</span>
+            <span className="ops-radio-count">{pendingTotal}</span>
           </button>
         </div>
+        <label className="ops-search ops-staff-search">
+          <Search size={16} aria-hidden />
+          <input
+            value={queryText}
+            onChange={(e) => setQueryText(e.target.value)}
+            placeholder="Search name, email, or role"
+            aria-label="Search staff"
+          />
+        </label>
       </header>
 
       {(okMsg || error) && (
@@ -198,7 +239,11 @@ export function AdminStaffPanel({
         {tab === "pending" ? (
           <section className="ops-staff-section" role="tabpanel">
             {pending.length === 0 ? (
-              <p className="ops-staff-empty">No pending requests.</p>
+              <p className="ops-staff-empty">
+                {queryText.trim()
+                  ? "No pending matches."
+                  : "No pending requests."}
+              </p>
             ) : (
               <div className="ops-staff-table">
                 <div className="ops-staff-table-head">
@@ -257,7 +302,11 @@ export function AdminStaffPanel({
         ) : (
           <section className="ops-staff-section" role="tabpanel">
             {active.length === 0 ? (
-              <p className="ops-staff-empty">No employees yet.</p>
+              <p className="ops-staff-empty">
+                {queryText.trim()
+                  ? "No employee matches."
+                  : "No employees yet."}
+              </p>
             ) : (
               <div className="ops-staff-table">
                 <div className="ops-staff-table-head">

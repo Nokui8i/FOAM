@@ -1793,6 +1793,10 @@
   margin-top: 4px;
   max-width: 420px;
 }
+.admin-page .ops-staff-search {
+  margin-top: 12px;
+  max-width: 420px;
+}
 .admin-page .ops-staff-denied-block {
   margin-top: 28px;
 }
