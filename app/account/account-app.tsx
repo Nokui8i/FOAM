@@ -109,6 +109,7 @@ function AccountProfile({
   );
   const [error, setError] = useState("");
   const [prefPicker, setPrefPicker] = useState<keyof LaundryPrefs | null>(null);
+  const [signOutConfirm, setSignOutConfirm] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -324,15 +325,55 @@ function AccountProfile({
           </div>
 
           <div className="account-ops-rail-foot">
-            <span className="account-ops-rail-email">{email}</span>
-            <button
-              type="button"
-              className="account-ops-rail-signout"
-              onClick={onSignOut}
-            >
-              <LogOut size={14} aria-hidden />
-              Sign out
-            </button>
+            {signOutConfirm ? (
+              <div className="account-ops-signout-confirm">
+                <strong>Are you sure?</strong>
+                <div className="account-ops-signout-actions">
+                  <button
+                    type="button"
+                    className="account-ops-signout-img-btn"
+                    aria-label="Cancel"
+                    onClick={() => setSignOutConfirm(false)}
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src="/ops-signout-cancel.png"
+                      alt=""
+                      width={1161}
+                      height={261}
+                      draggable={false}
+                    />
+                  </button>
+                  <button
+                    type="button"
+                    className="account-ops-signout-img-btn"
+                    aria-label="Sign out"
+                    onClick={onSignOut}
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src="/ops-signout-confirm.png"
+                      alt=""
+                      width={1171}
+                      height={269}
+                      draggable={false}
+                    />
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <>
+                <span className="account-ops-rail-email">{email}</span>
+                <button
+                  type="button"
+                  className="account-ops-rail-signout"
+                  onClick={() => setSignOutConfirm(true)}
+                >
+                  <LogOut size={14} aria-hidden />
+                  Sign out
+                </button>
+              </>
+            )}
           </div>
         </aside>
 
@@ -798,8 +839,6 @@ export function AccountApp() {
   }, [oauthReturnError, clearOauthReturnError]);
 
   async function handleSignOut() {
-    const ok = window.confirm("Are you sure you want to sign out?");
-    if (!ok) return;
     await signOut();
     window.location.assign("/");
   }
