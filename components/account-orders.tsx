@@ -12,7 +12,6 @@ import {
 import {
   ArrowRight,
   ChevronDown,
-  ExternalLink,
   MoreVertical,
   PackageOpen,
   Pencil,
@@ -243,7 +242,7 @@ export function AccountOrders({ uid }: { uid: string }) {
           isWaitingForPickup(order.status) || isInProgressOrder(order.status);
         const canCancel = isWaitingForPickup(order.status);
         const canEdit = canCancel && Boolean(order.trackKey);
-        const hasActions = Boolean(order.trackKey) || canCancel;
+        const hasActions = canEdit || canCancel;
         const services = [
           order.laundry
             ? `Laundry${order.bagCount > 0 ? ` (${order.bagCount})` : ""}`
@@ -320,17 +319,6 @@ export function AccountOrders({ uid }: { uid: string }) {
 
                   {menuOpen ? (
                     <div className="account-order-menu-panel" role="menu">
-                      {order.trackKey ? (
-                        <Link
-                          role="menuitem"
-                          className="account-order-menu-item"
-                          href={trackPath(order.trackKey)}
-                          onClick={() => setMenuId(null)}
-                        >
-                          <ExternalLink size={16} aria-hidden />
-                          Open tracking page
-                        </Link>
-                      ) : null}
                       {canEdit && order.trackKey ? (
                         <Link
                           role="menuitem"
@@ -344,12 +332,12 @@ export function AccountOrders({ uid }: { uid: string }) {
                       ) : null}
                       {canCancel ? (
                         <>
-                          {(order.trackKey || canEdit) && (
+                          {canEdit ? (
                             <div
                               className="account-order-menu-sep"
                               role="separator"
                             />
-                          )}
+                          ) : null}
                           <button
                             type="button"
                             role="menuitem"
