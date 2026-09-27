@@ -2,7 +2,6 @@
 
 import {
   useEffect,
-  useRef,
   useState,
   Suspense,
   type FormEvent,
@@ -114,7 +113,6 @@ function AccountProfile({
   );
   const [error, setError] = useState("");
   const [prefPicker, setPrefPicker] = useState<keyof LaundryPrefs | null>(null);
-  const panelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     let alive = true;
@@ -158,10 +156,6 @@ function AccountProfile({
     });
     setSavedPanel(null);
     setError("");
-    // Scroll the page (not an inner frame) so switching tabs feels natural.
-    requestAnimationFrame(() => {
-      panelRef.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
-    });
   };
 
   const handleTabKeyDown = (
@@ -384,7 +378,7 @@ function AccountProfile({
             <span className="account-ops-rail-email">{email}</span>
           </div>
 
-          <div ref={panelRef} className="account-ops-plane-body">
+          <div className="account-ops-plane-body">
             {activeTab === "Details" ? (
               <form
                 id="panel-details"
