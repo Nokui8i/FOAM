@@ -475,9 +475,8 @@ function AccountProfile({
               >
                 <PanelIntro title="Laundry preferences" />
                 <div className="account-ops-note">
-                  These defaults fill the booking form when you&apos;re signed
-                  in. You can still change them per order, or tick{" "}
-                  <strong>Save as my account defaults</strong> on checkout.
+                  These settings are saved to your account and used when you
+                  book.
                 </div>
                 <div className="account-ops-grid">
                   {(
