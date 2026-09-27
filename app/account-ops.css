@@ -248,18 +248,12 @@
 .account-ops-rail-foot {
   position: relative;
   z-index: 1;
-  display: none;
+  display: grid;
+  gap: 9px;
   margin-top: auto;
   margin-inline: 0;
   padding-top: 12px;
   border-top: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-@media (min-width: 900px) {
-  .account-ops-rail-foot {
-    display: grid;
-    gap: 9px;
-  }
 }
 
 .account-ops-rail-email {

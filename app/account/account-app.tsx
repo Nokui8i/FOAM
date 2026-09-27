@@ -355,29 +355,6 @@ function AccountProfile({
         </aside>
 
         <section className="account-ops-plane">
-          <header className="account-ops-plane-head">
-            <h1>
-              Hello
-              {profile.name.trim() ? ` ${profile.name.trim()}` : ""}
-            </h1>
-            <div className="account-ops-plane-actions">
-              <Link href={BOOKING_PATH} className="account-ops-btn is-primary">
-                Book a Pickup <ArrowRight />
-              </Link>
-              <button
-                type="button"
-                className="account-ops-btn is-ghost"
-                onClick={onSignOut}
-              >
-                <LogOut /> Sign out
-              </button>
-            </div>
-          </header>
-
-          <div className="account-ops-mobile-actions">
-            <span className="account-ops-rail-email">{email}</span>
-          </div>
-
           <div className="account-ops-plane-body">
             {activeTab === "Details" ? (
               <form
