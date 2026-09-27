@@ -360,6 +360,16 @@ function AccountProfile({
 
           <div className="account-ops-rail-foot">
             <span className="account-ops-rail-email">{email}</span>
+            {!signOutConfirm ? (
+              <button
+                type="button"
+                className="account-ops-rail-signout"
+                onClick={() => setSignOutConfirm(true)}
+              >
+                <LogOut size={14} aria-hidden />
+                Sign out
+              </button>
+            ) : null}
           </div>
         </aside>
 

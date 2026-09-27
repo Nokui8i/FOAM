@@ -3934,10 +3934,11 @@
 
   .order-progress-step {
     position: relative;
-    display: flex;
+    display: grid;
+    grid-template-rows: auto minmax(2.45em, auto) auto;
+    justify-items: center;
+    align-content: start;
     flex: 1 1 0;
-    flex-direction: column;
-    align-items: center;
     gap: 0.4rem;
     min-width: 0;
     padding: 0;
@@ -3985,8 +3986,11 @@
   }
 
   .order-progress-label {
-    display: block;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
     max-width: 100%;
+    min-height: 2.45em;
     font-size: clamp(0.62rem, 2.4vw, 0.74rem);
     font-weight: 700;
     letter-spacing: -0.01em;
@@ -4362,7 +4366,9 @@
   }
 
   .track-order-card .order-progress-thumb {
-    max-width: 6.5rem;
+    width: 4.25rem;
+    height: 4.25rem;
+    max-width: 4.25rem;
     border-radius: 0.55rem;
   }
 
