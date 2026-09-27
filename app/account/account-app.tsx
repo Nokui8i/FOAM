@@ -49,9 +49,6 @@ import {
   FOLD_ITEM_OPTIONS,
   SOFTENER_BOOKING_OPTIONS,
   WASH_TEMP_BOOKING_OPTIONS,
-  draftFromProfile,
-  loadBookingDraft,
-  saveBookingDraft,
 } from "@/lib/booking";
 import {
   cancelFutureWeeklyOrders,
@@ -232,20 +229,6 @@ function AccountProfile({
       await saveUserProfile(uid, next);
       setProfile({ uid, ...next });
       setSavedPanel(panel);
-      // Keep an in-progress booking draft in sync with Account Details/Preferences
-      // (contact, address, Access notes, wash prefs, washing notes).
-      const saved = loadBookingDraft();
-      if (saved) {
-        saveBookingDraft(
-          {
-            ...saved.draft,
-            ...draftFromProfile({ uid, ...next }),
-            saveDetailsToProfile: true,
-            savePrefsToProfile: true,
-          },
-          saved.step
-        );
-      }
     } catch {
       setError("Could not save your settings. Try again.");
     } finally {

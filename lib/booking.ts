@@ -91,41 +91,17 @@ export function pricingForOrder(opts: {
   };
 }
 
-export function saveBookingDraft(draft: BookingDraft, step?: BookingStep) {
-  if (typeof window === "undefined") return;
-  try {
-    sessionStorage.setItem(
-      BOOKING_DRAFT_STORAGE_KEY,
-      JSON.stringify({ draft, step: step ?? "confirm", savedAt: Date.now() })
-    );
-  } catch {
-    /* ignore quota / private mode */
-  }
+export function saveBookingDraft(_draft: BookingDraft, _step?: BookingStep) {
+  // Intentionally no-op — booking progress is never persisted.
+  void _draft;
+  void _step;
 }
 
 export function loadBookingDraft(): {
   draft: BookingDraft;
   step: BookingStep;
 } | null {
-  if (typeof window === "undefined") return null;
-  try {
-    const raw = sessionStorage.getItem(BOOKING_DRAFT_STORAGE_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as {
-      draft?: Partial<BookingDraft>;
-      step?: BookingStep;
-    };
-    if (!parsed?.draft) return null;
-    return {
-      draft: { ...emptyBookingDraft(), ...parsed.draft },
-      step:
-        parsed.step && BOOKING_STEPS.includes(parsed.step)
-          ? parsed.step
-          : "confirm",
-    };
-  } catch {
-    return null;
-  }
+  return null;
 }
 
 export function clearBookingDraft() {

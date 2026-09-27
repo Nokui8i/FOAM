@@ -1,0 +1,15 @@
+---
+description: Booking form progress must never be saved or restored
+alwaysApply: true
+---
+
+# Booking form — no draft persistence
+
+Leaving `/book` always means start over from the beginning.
+
+Do **not**:
+- Save booking draft to `sessionStorage` / `localStorage`
+- Restore a previous step or form values when reopening `/book`
+- Sync an in-progress booking draft from the account page
+
+Signed-in users may still prefill from their saved **account** profile (name, address, prefs) on a fresh booking — that is not draft persistence.

@@ -55,12 +55,10 @@ import {
   isPickupDateAllowed,
   isPickupSlotStillOpen,
   latestPickupDate,
-  loadBookingDraft,
   nextPickupDates,
   orderEstimate,
   pricingForOrder,
   resolvedTip,
-  saveBookingDraft,
   servicesLabel,
   toIsoDate,
   type BookingDraft,
@@ -163,7 +161,6 @@ function BookingAppInner() {
   const [doneTrackKey, setDoneTrackKey] = useState<string | null>(null);
   const [repeatDiscountEligible, setRepeatDiscountEligible] = useState(false);
   const [guestGateOpen, setGuestGateOpen] = useState(false);
-  const [draftHydrated, setDraftHydrated] = useState(false);
   const [promoStatus, setPromoStatus] = useState<
     | { state: "idle" }
     | { state: "checking" }
@@ -199,23 +196,15 @@ function BookingAppInner() {
   }
 
   useEffect(() => {
-    const saved = loadBookingDraft();
-    const fromUrl = parseBookingStep(searchParams.get("step"));
-    if (saved) {
-      setDraft(saved.draft);
-      if (!fromUrl && saved.step !== "services") {
-        replaceQuery({ step: saved.step });
-      }
+    // Booking never resumes — leaving the form means start over.
+    clearBookingDraft();
+    setDraft(emptyBookingDraft());
+    if (searchParams.get("step")) {
+      replaceQuery({ step: null });
     }
-    setDraftHydrated(true);
-    // Restore once on mount.
+    // Fresh start once on mount.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  useEffect(() => {
-    if (!draftHydrated) return;
-    saveBookingDraft(draft, step);
-  }, [draft, step, draftHydrated]);
 
   useEffect(() => {
     if (!draft.pickupDate && dates[0]) {
@@ -278,7 +267,7 @@ function BookingAppInner() {
   ]);
 
   useEffect(() => {
-    if (!ready || !user || !draftHydrated) return;
+    if (!ready || !user) return;
     let alive = true;
     getUserProfile(user.uid)
       .then((profile) => {
@@ -296,7 +285,7 @@ function BookingAppInner() {
     return () => {
       alive = false;
     };
-  }, [ready, user, draftHydrated]);
+  }, [ready, user]);
 
   // Repeat-pickup 10% discount: only for signed-in accounts, and only once
   // they already have a prior order with repeat pickup active — i.e. this
@@ -438,7 +427,6 @@ function BookingAppInner() {
   }
 
   function signUpForBenefits() {
-    saveBookingDraft(draft, "confirm");
     setGuestGateOpen(false);
     router.push("/account");
   }
