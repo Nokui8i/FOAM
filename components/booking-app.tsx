@@ -100,7 +100,8 @@ import {
 import { cn } from "@/lib/utils";
 import { useQueryReplace } from "@/lib/use-query-replace";
 
-const fieldClass = "book-control";
+const fieldClass =
+  "mt-1.5 w-full rounded-lg border border-border/80 bg-white px-3 py-2.5 text-[15px] outline-none transition focus:border-accent-strong focus:ring-2 focus:ring-accent-strong/20";
 
 function parseBookingStep(raw: string | null): BookingStep | null {
   if (raw && (BOOKING_STEPS as readonly string[]).includes(raw)) {
@@ -109,22 +110,25 @@ function parseBookingStep(raw: string | null): BookingStep | null {
   return null;
 }
 
-const STEP_COPY: Record<BookingStep, { title: string; rail: string }> = {
+const STEP_COPY: Record<
+  BookingStep,
+  { title: string; hint: string }
+> = {
   services: {
     title: "What do you need?",
-    rail: "Services",
+    hint: "Choose one or both services.",
   },
   schedule: {
     title: "Pick a day & time",
-    rail: "Schedule",
+    hint: "We'll come to you in this window.",
   },
   address: {
     title: "Where should we pick up?",
-    rail: "Address",
+    hint: "Contact info and pickup address.",
   },
   confirm: {
     title: "Confirm your order",
-    rail: "Confirm",
+    hint: "Review details, preferences, and total.",
   },
 };
 
@@ -656,45 +660,36 @@ function BookingAppInner() {
   if (doneId) {
     return (
       <div className="book-frame">
-        <aside className="book-ops-rail" aria-hidden>
-          <div className="book-ops-rail-brand">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/foam-ops-logo-on-dark.png" alt="" width={217} height={72} />
-            <small>BOOK</small>
-          </div>
-        </aside>
-        <div className="book-ops-plane">
-          <div className="book-panel book-panel--center">
-            <div className="book-success">
-              <span className="book-success-icon">
-                <Check size={20} strokeWidth={2.5} />
-              </span>
-              <p className="eyebrow">ORDER RECEIVED</p>
-              <h1 className="book-success-title">We&apos;ll confirm your pickup.</h1>
-              <p className="book-success-ref">
-                Ref <span>{orderRefFromId(doneId)}</span>
-              </p>
-              <p className="book-hint book-success-note">
-                {user
-                  ? "Saved to Account → Orders."
-                  : "Save your tracking link to follow this order."}
-              </p>
-              <div className="book-success-actions">
-                {doneTrackKey ? (
-                  <Button asChild>
-                    <Link href={trackPath(doneTrackKey)}>Track your order</Link>
-                  </Button>
-                ) : null}
-                {user ? (
-                  <Button variant="outline" asChild>
-                    <Link href="/account">My account</Link>
-                  </Button>
-                ) : (
-                  <Button variant="outline" asChild>
-                    <Link href="/">Home</Link>
-                  </Button>
-                )}
-              </div>
+        <div className="book-panel book-panel--center">
+          <div className="book-success">
+            <span className="book-success-icon">
+              <Check size={22} strokeWidth={2.5} />
+            </span>
+            <p className="eyebrow">Order received</p>
+            <h1 className="book-success-title">We&apos;ll confirm your pickup.</h1>
+            <p className="book-success-ref">
+              Ref <span>{orderRefFromId(doneId)}</span>
+            </p>
+            <p className="book-hint">
+              {user
+                ? "Saved to Account → Orders. You can also track with the link below."
+                : "Save your tracking link — it’s the only way to follow this order as a guest."}
+            </p>
+            <div className="book-success-actions">
+              {doneTrackKey ? (
+                <Button asChild>
+                  <Link href={trackPath(doneTrackKey)}>Track your order</Link>
+                </Button>
+              ) : null}
+              {user ? (
+                <Button variant="outline" asChild>
+                  <Link href="/account">My account</Link>
+                </Button>
+              ) : (
+                <Button variant="outline" asChild>
+                  <Link href="/">Home</Link>
+                </Button>
+              )}
             </div>
           </div>
         </div>
@@ -704,30 +699,6 @@ function BookingAppInner() {
 
   return (
     <div className="book-frame">
-      <aside className="book-ops-rail" aria-label="Booking steps">
-        <div className="book-ops-rail-brand">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/foam-ops-logo-on-dark.png" alt="FOAM" width={217} height={72} />
-          <small>BOOK · LAS VEGAS</small>
-        </div>
-        <nav className="book-ops-rail-nav">
-          {BOOKING_STEPS.map((s, i) => (
-            <div
-              key={s}
-              className={cn(
-                "book-ops-rail-step",
-                i < stepIndex && "is-done",
-                i === stepIndex && "is-active"
-              )}
-            >
-              <b>{i < stepIndex ? "✓" : i + 1}</b>
-              <span>{STEP_COPY[s].rail}</span>
-            </div>
-          ))}
-        </nav>
-      </aside>
-
-      <div className="book-ops-plane">
       <header className="book-chrome">
         <button
           type="button"
@@ -738,12 +709,12 @@ function BookingAppInner() {
           }}
           aria-label="Back"
         >
-          <ArrowLeft size={16} />
+          <ArrowLeft size={18} />
         </button>
 
         <div className="book-chrome-copy">
-          <span className="book-chrome-brand">BOOK · LAS VEGAS</span>
           <h1 className="book-title">{copy.title}</h1>
+          <p className="book-hint">{copy.hint}</p>
         </div>
 
         <ol className="book-progress" aria-label="Booking steps">
@@ -1229,6 +1200,7 @@ function BookingAppInner() {
           <Button
             type="button"
             className="w-full"
+            size="lg"
             disabled={step === "services" && !hasService(draft)}
             onClick={goNext}
           >
@@ -1238,6 +1210,7 @@ function BookingAppInner() {
           <Button
             type="button"
             className="w-full"
+            size="lg"
             disabled={busy}
             onClick={requestSubmit}
           >
@@ -1269,7 +1242,6 @@ function BookingAppInner() {
           }}
         />
       ) : null}
-      </div>
     </div>
   );
 }
