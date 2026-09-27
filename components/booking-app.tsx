@@ -109,18 +109,22 @@ function parseBookingStep(raw: string | null): BookingStep | null {
   return null;
 }
 
-const STEP_COPY: Record<BookingStep, { title: string }> = {
+const STEP_COPY: Record<BookingStep, { title: string; rail: string }> = {
   services: {
     title: "What do you need?",
+    rail: "Services",
   },
   schedule: {
     title: "Pick a day & time",
+    rail: "Schedule",
   },
   address: {
     title: "Where should we pick up?",
+    rail: "Address",
   },
   confirm: {
     title: "Confirm your order",
+    rail: "Confirm",
   },
 };
 
@@ -652,36 +656,45 @@ function BookingAppInner() {
   if (doneId) {
     return (
       <div className="book-frame">
-        <div className="book-panel book-panel--center">
-          <div className="book-success">
-            <span className="book-success-icon">
-              <Check size={22} strokeWidth={2.5} />
-            </span>
-            <p className="eyebrow">Order received</p>
-            <h1 className="book-success-title">We&apos;ll confirm your pickup.</h1>
-            <p className="book-success-ref">
-              Ref <span>{orderRefFromId(doneId)}</span>
-            </p>
-            <p className="book-hint book-success-note">
-              {user
-                ? "Saved to Account → Orders."
-                : "Save your tracking link to follow this order."}
-            </p>
-            <div className="book-success-actions">
-              {doneTrackKey ? (
-                <Button asChild>
-                  <Link href={trackPath(doneTrackKey)}>Track your order</Link>
-                </Button>
-              ) : null}
-              {user ? (
-                <Button variant="outline" asChild>
-                  <Link href="/account">My account</Link>
-                </Button>
-              ) : (
-                <Button variant="outline" asChild>
-                  <Link href="/">Home</Link>
-                </Button>
-              )}
+        <aside className="book-ops-rail" aria-hidden>
+          <div className="book-ops-rail-brand">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/foam-ops-logo-on-dark.png" alt="" width={217} height={72} />
+            <small>BOOK</small>
+          </div>
+        </aside>
+        <div className="book-ops-plane">
+          <div className="book-panel book-panel--center">
+            <div className="book-success">
+              <span className="book-success-icon">
+                <Check size={20} strokeWidth={2.5} />
+              </span>
+              <p className="eyebrow">ORDER RECEIVED</p>
+              <h1 className="book-success-title">We&apos;ll confirm your pickup.</h1>
+              <p className="book-success-ref">
+                Ref <span>{orderRefFromId(doneId)}</span>
+              </p>
+              <p className="book-hint book-success-note">
+                {user
+                  ? "Saved to Account → Orders."
+                  : "Save your tracking link to follow this order."}
+              </p>
+              <div className="book-success-actions">
+                {doneTrackKey ? (
+                  <Button asChild>
+                    <Link href={trackPath(doneTrackKey)}>Track your order</Link>
+                  </Button>
+                ) : null}
+                {user ? (
+                  <Button variant="outline" asChild>
+                    <Link href="/account">My account</Link>
+                  </Button>
+                ) : (
+                  <Button variant="outline" asChild>
+                    <Link href="/">Home</Link>
+                  </Button>
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -691,6 +704,30 @@ function BookingAppInner() {
 
   return (
     <div className="book-frame">
+      <aside className="book-ops-rail" aria-label="Booking steps">
+        <div className="book-ops-rail-brand">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/foam-ops-logo-on-dark.png" alt="FOAM" width={217} height={72} />
+          <small>BOOK · LAS VEGAS</small>
+        </div>
+        <nav className="book-ops-rail-nav">
+          {BOOKING_STEPS.map((s, i) => (
+            <div
+              key={s}
+              className={cn(
+                "book-ops-rail-step",
+                i < stepIndex && "is-done",
+                i === stepIndex && "is-active"
+              )}
+            >
+              <b>{i < stepIndex ? "✓" : i + 1}</b>
+              <span>{STEP_COPY[s].rail}</span>
+            </div>
+          ))}
+        </nav>
+      </aside>
+
+      <div className="book-ops-plane">
       <header className="book-chrome">
         <button
           type="button"
@@ -701,7 +738,7 @@ function BookingAppInner() {
           }}
           aria-label="Back"
         >
-          <ArrowLeft size={18} />
+          <ArrowLeft size={16} />
         </button>
 
         <div className="book-chrome-copy">
@@ -1192,7 +1229,6 @@ function BookingAppInner() {
           <Button
             type="button"
             className="w-full"
-            size="lg"
             disabled={step === "services" && !hasService(draft)}
             onClick={goNext}
           >
@@ -1202,7 +1238,6 @@ function BookingAppInner() {
           <Button
             type="button"
             className="w-full"
-            size="lg"
             disabled={busy}
             onClick={requestSubmit}
           >
@@ -1234,6 +1269,7 @@ function BookingAppInner() {
           }}
         />
       ) : null}
+      </div>
     </div>
   );
 }

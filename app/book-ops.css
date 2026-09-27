@@ -1,4 +1,4 @@
-/* Booking form — OPS visual language */
+/* Booking — true OPS density (not just scaled-up spacing) */
 .book-ops-page {
   --ops-navy: #16324a;
   --ops-sky: #00a8d8;
@@ -9,14 +9,13 @@
   --ops-muted: #64748b;
   --ops-border: #dbe4ee;
   --ops-danger: #d94a3d;
-  --ops-success: #0f766e;
   --ops-card: #fff;
   --ops-display: var(--font-manrope, "Manrope"), "Manrope", sans-serif;
   --ops-body: var(--font-dm-sans, "DM Sans"), "DM Sans", sans-serif;
-  --ops-shadow: 0 22px 45px -30px rgba(22, 50, 74, 0.55);
+  --ops-shadow: 0 18px 36px -28px rgba(22, 50, 74, 0.55);
   color: var(--ops-ink);
   background:
-    radial-gradient(ellipse at 8% 0%, rgba(255, 255, 255, 0.92), transparent 42%),
+    radial-gradient(ellipse at 8% 0%, rgba(255, 255, 255, 0.9), transparent 42%),
     linear-gradient(145deg, var(--ops-wash), var(--ops-surface));
   font-family: var(--ops-body);
 }
@@ -27,11 +26,8 @@
 }
 
 .book-ops-page .book-section {
-  display: flex;
-  flex-direction: column;
-  padding-top: 4.85rem;
+  padding-top: 4.75rem;
   padding-bottom: 1rem;
-  min-height: 0;
 }
 
 @media (min-width: 640px) {
@@ -40,30 +36,11 @@
   }
 }
 
-@media (min-width: 900px) {
-  .book-ops-page {
-    height: 100dvh;
-    max-height: 100dvh;
-    overflow: hidden;
-  }
-
-  .book-ops-page .book-section {
-    flex: 1 1 auto;
-    height: 100%;
-    overflow: hidden;
-    padding-bottom: 0.85rem;
-  }
-}
-
 .book-ops-page .book-shell {
-  display: flex;
-  flex-direction: column;
-  flex: 1 1 auto;
   width: 100%;
-  max-width: 42rem;
+  max-width: 1080px;
   margin: 0 auto;
-  min-height: 0;
-  padding-inline: 1rem;
+  padding-inline: 0.85rem;
 }
 
 @media (min-width: 640px) {
@@ -73,60 +50,199 @@
 }
 
 .book-ops-page .book-frame {
-  display: flex;
-  flex: 1 1 auto;
-  flex-direction: column;
+  display: grid;
   gap: 12px;
   width: 100%;
   max-width: none;
   margin: 0;
-  min-height: 0;
-  padding-bottom: 0;
+  padding: 0;
+}
+
+@media (min-width: 900px) {
+  .book-ops-page .book-frame {
+    grid-template-columns: 220px minmax(0, 1fr);
+    gap: 16px;
+    align-items: stretch;
+  }
+}
+
+/* Left OPS-style rail */
+.book-ops-page .book-ops-rail {
+  display: none;
+}
+
+@media (min-width: 900px) {
+  .book-ops-page .book-ops-rail {
+    position: sticky;
+    top: 5.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    min-height: 28rem;
+    padding: 22px 14px 16px;
+    border-radius: 16px;
+    color: #fff;
+    background: linear-gradient(155deg, #17415e, var(--ops-navy));
+    box-shadow:
+      0 28px 55px -28px rgba(22, 50, 74, 0.8),
+      inset 0 1px 0 rgba(255, 255, 255, 0.12);
+    overflow: hidden;
+  }
+
+  .book-ops-page .book-ops-rail::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: linear-gradient(
+      115deg,
+      transparent 42%,
+      rgba(0, 168, 216, 0.07) 50%,
+      transparent 58%
+    );
+  }
+}
+
+.book-ops-page .book-ops-rail-brand {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 0 6px;
+}
+
+.book-ops-page .book-ops-rail-brand img {
+  display: block;
+  height: 32px;
+  width: auto;
+  object-fit: contain;
+}
+
+.book-ops-page .book-ops-rail-brand small {
+  display: block;
+  margin-top: 7px;
+  color: rgba(255, 255, 255, 0.46);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+}
+
+.book-ops-page .book-ops-rail-nav {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  margin-top: 42px;
+}
+
+.book-ops-page .book-ops-rail-step {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
+  align-items: center;
+  column-gap: 12px;
+  min-height: 46px;
+  padding: 0 12px;
+  border-radius: 10px;
+  color: rgba(255, 255, 255, 0.6);
+  font: 700 15px/1.1 var(--ops-body);
+}
+
+.book-ops-page .book-ops-rail-step b {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  font-size: 0.68rem;
+  font-weight: 800;
+  justify-self: center;
+}
+
+.book-ops-page .book-ops-rail-step.is-done,
+.book-ops-page .book-ops-rail-step.is-active {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.11);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.13),
+    0 10px 22px -17px #000;
+}
+
+.book-ops-page .book-ops-rail-step.is-active b {
+  border-color: transparent;
+  background: var(--ops-sky);
+  color: #fff;
+  box-shadow: 0 3px 6px rgba(0, 168, 216, 0.45);
+}
+
+.book-ops-page .book-ops-rail-step.is-done b {
+  border-color: transparent;
+  background: rgba(0, 168, 216, 0.28);
+  color: #fff;
+}
+
+/* Main plane */
+.book-ops-page .book-ops-plane {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  border: 1px solid rgba(219, 228, 238, 0.9);
+  border-radius: 16px;
+  background: var(--ops-card);
+  box-shadow: var(--ops-shadow), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  overflow: hidden;
 }
 
 .book-ops-page .book-chrome {
   display: grid;
-  grid-template-columns: 2.5rem minmax(0, 1fr) auto;
+  grid-template-columns: 2.15rem minmax(0, 1fr) auto;
   align-items: center;
-  gap: 0.75rem;
-  padding: 0.15rem 0 0;
+  gap: 0.65rem;
+  margin: 0;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--ops-border);
+  background: linear-gradient(180deg, #fff, #fbfcfe);
 }
 
 .book-ops-page .book-back {
-  width: 2.5rem;
-  height: 2.5rem;
-  border: 1px solid rgba(219, 228, 238, 0.95);
-  border-radius: 10px;
+  width: 2.15rem;
+  height: 2.15rem;
+  border: 1px solid var(--ops-border);
+  border-radius: 8px;
   background: #fff;
   color: var(--ops-ink);
-  box-shadow: 0 8px 18px -16px rgba(22, 50, 74, 0.45);
-}
-
-.book-ops-page .book-back:hover {
-  background: var(--ops-surface);
+  box-shadow: none;
 }
 
 .book-ops-page .book-chrome-copy {
-  padding-top: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
+  padding: 0;
   min-width: 0;
 }
 
 .book-ops-page .book-chrome-brand {
-  display: block;
-  color: rgba(22, 50, 74, 0.45);
-  font-size: 9px;
-  font-weight: 800;
-  letter-spacing: 0.16em;
+  display: none;
+}
+
+@media (max-width: 899px) {
+  .book-ops-page .book-chrome-brand {
+    display: block;
+    margin-bottom: 2px;
+    color: var(--ops-sky);
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: 0.14em;
+  }
 }
 
 .book-ops-page .book-title {
   margin: 0;
   color: var(--ops-ink);
-  font: 800 clamp(1.15rem, 2.2vw, 1.4rem) / 1.15 var(--ops-display);
-  letter-spacing: -0.03em;
+  font: 800 1.05rem/1.15 var(--ops-display);
+  letter-spacing: -0.02em;
 }
 
 .book-ops-page .book-hint {
@@ -135,32 +251,37 @@
 
 .book-ops-page .book-hint.book-success-note {
   display: block;
-  margin-top: 0.35rem;
+  margin-top: 0.25rem;
   color: var(--ops-ink);
-  font-size: 0.9rem;
+  font-size: 0.82rem;
   font-weight: 500;
 }
 
 .book-ops-page .book-progress {
   display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  padding-top: 0;
+  gap: 0.3rem;
   margin: 0;
+  padding: 0;
   list-style: none;
 }
 
+@media (min-width: 900px) {
+  .book-ops-page .book-progress {
+    display: none;
+  }
+}
+
 .book-ops-page .book-progress-dot {
-  width: 0.45rem;
-  height: 0.45rem;
+  width: 0.35rem;
+  height: 0.35rem;
   border-radius: 999px;
   background: #c9d6e4;
 }
 
 .book-ops-page .book-progress-dot.is-active {
-  width: 1.15rem;
+  width: 0.85rem;
   background: var(--ops-sky);
-  box-shadow: 0 0 0 3px rgba(0, 168, 216, 0.16);
+  box-shadow: none;
 }
 
 .book-ops-page .book-progress-dot.is-done {
@@ -170,38 +291,40 @@
 .book-ops-page .book-panel {
   flex: 1 1 auto;
   min-height: 0;
-  overflow-x: hidden;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  border: 1px solid rgba(219, 228, 238, 0.85);
-  border-radius: 16px;
-  background: var(--ops-card);
-  box-shadow: var(--ops-shadow), inset 0 1px 0 rgba(255, 255, 255, 0.9);
-  padding: 16px 16px 18px;
-}
-
-@media (min-width: 640px) {
-  .book-ops-page .book-panel {
-    padding: 18px 20px 20px;
-    min-height: 0;
-  }
+  margin: 0;
+  padding: 12px 14px 4px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  overflow: visible;
 }
 
 .book-ops-page .book-panel--center {
   display: grid;
   place-items: center;
+  min-height: 16rem;
+  padding: 1.25rem;
 }
 
 .book-ops-page .book-stack {
-  gap: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .book-ops-page .book-service {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  grid-template-areas:
+    "icon copy check"
+    "extra extra extra";
+  gap: 0.55rem 0.7rem;
+  padding: 10px 11px;
   border: 1px solid var(--ops-border);
-  border-radius: 12px;
+  border-radius: 10px;
   background: #fff;
-  padding: 14px;
-  transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+  transition: border-color 0.15s ease, background 0.15s ease;
 }
 
 .book-ops-page .book-service:hover {
@@ -209,15 +332,15 @@
 }
 
 .book-ops-page .book-service.is-active {
-  border-color: rgba(0, 168, 216, 0.45);
-  background: rgba(0, 168, 216, 0.06);
-  box-shadow: inset 0 0 0 1px rgba(0, 168, 216, 0.12);
+  border-color: rgba(0, 168, 216, 0.4);
+  background: rgba(0, 168, 216, 0.07);
+  box-shadow: none;
 }
 
 .book-ops-page .book-service-icon {
-  width: 2.35rem;
-  height: 2.35rem;
-  border-radius: 10px;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 8px;
   border: 1px solid var(--ops-border);
   background: var(--ops-surface);
   color: var(--ops-navy);
@@ -231,20 +354,21 @@
 
 .book-ops-page .book-service-copy strong {
   color: var(--ops-ink);
-  font: 750 15px/1.2 var(--ops-body);
+  font: 750 0.92rem/1.15 var(--ops-body);
 }
 
 .book-ops-page .book-service-copy small {
   color: var(--ops-ink);
-  font-size: 13px;
+  font-size: 0.75rem;
   font-weight: 500;
-  opacity: 0.72;
+  opacity: 0.7;
 }
 
 .book-ops-page .book-check {
-  border-radius: 8px;
+  width: 1.15rem;
+  height: 1.15rem;
+  border-radius: 5px;
   border: 1.5px solid var(--ops-border);
-  background: #fff;
 }
 
 .book-ops-page .book-check.is-on {
@@ -253,138 +377,196 @@
 }
 
 .book-ops-page .book-service-extra {
-  border-top-color: var(--ops-border);
+  padding-top: 0.55rem;
+  border-top: 1px solid var(--ops-border);
 }
 
 .book-ops-page .book-bag-row {
+  font-size: 0.8rem;
+  font-weight: 650;
   color: var(--ops-ink);
-  font-size: 13.5px;
 }
 
 .book-ops-page .book-stepper {
   border: 1px solid var(--ops-border);
-  border-radius: 10px;
+  border-radius: 8px;
   background: var(--ops-surface);
-  overflow: hidden;
 }
 
 .book-ops-page .book-stepper button {
-  color: var(--ops-ink);
+  width: 1.85rem;
+  height: 1.85rem;
   background: #fff;
+  color: var(--ops-ink);
 }
 
 .book-ops-page .book-stepper strong {
-  color: var(--ops-ink);
+  min-width: 1.4rem;
+  font-size: 0.85rem;
   font-weight: 800;
+  color: var(--ops-ink);
+}
+
+.book-ops-page .book-block {
+  display: grid;
+  gap: 0.45rem;
 }
 
 .book-ops-page .book-block-title {
+  margin: 0;
   color: var(--ops-ink);
-  font: 800 0.95rem/1.2 var(--ops-display);
-  letter-spacing: -0.02em;
+  font: 800 0.82rem/1.2 var(--ops-display);
+  letter-spacing: -0.01em;
 }
 
-.book-ops-page .book-day-pill,
-.book-ops-page .book-slot,
-.book-ops-page .book-tip,
-.book-ops-page .book-pref-row,
+.book-ops-page .book-day-pills {
+  gap: 0.4rem;
+}
+
+.book-ops-page .book-day-pill {
+  min-width: 3.1rem;
+  padding: 0.4rem 0.35rem;
+  border: 1px solid var(--ops-border);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--ops-ink);
+}
+
+.book-ops-page .book-day-pill.is-active {
+  border-color: var(--ops-sky);
+  background: rgba(0, 168, 216, 0.1);
+  color: var(--ops-ink);
+}
+
+.book-ops-page .book-day-pill-dow {
+  font-size: 0.65rem;
+}
+
+.book-ops-page .book-day-pill-num {
+  font-size: 0.95rem;
+  font-weight: 800;
+}
+
 .book-ops-page .book-more-dates {
-  border-color: var(--ops-border);
+  font-size: 0.75rem;
+  font-weight: 650;
+  color: var(--ops-primary);
+  background: transparent;
+  border: 0;
+  padding: 0;
+  text-align: left;
+}
+
+.book-ops-page .book-slot {
+  min-height: 2.35rem;
+  padding: 0.45rem 0.7rem;
+  border: 1px solid var(--ops-border);
+  border-radius: 8px;
+  font-size: 0.82rem;
   color: var(--ops-ink);
   background: #fff;
 }
 
-.book-ops-page .book-day-pill.is-active,
-.book-ops-page .book-slot.is-active,
-.book-ops-page .book-tip.is-active {
+.book-ops-page .book-slot.is-active {
   border-color: var(--ops-sky);
   background: rgba(0, 168, 216, 0.1);
-  color: var(--ops-ink);
-  box-shadow: inset 0 0 0 1px rgba(0, 168, 216, 0.18);
 }
 
 .book-ops-page .book-field {
-  color: var(--ops-ink);
-  font-size: 13.5px;
+  gap: 0.3rem;
+  font-size: 0.78rem;
   font-weight: 700;
+  color: var(--ops-ink);
 }
 
 .book-ops-page .book-field input,
 .book-ops-page .book-field textarea,
 .book-ops-page .book-field select,
 .book-ops-page .book-control {
-  width: 100%;
-  min-height: 44px;
-  padding: 0 12px;
+  min-height: 38px;
+  padding: 0 10px;
   border: 1px solid var(--ops-border);
-  border-radius: 9px;
+  border-radius: 8px;
   background: #fff;
   color: var(--ops-ink);
-  font: 500 15px/1.35 var(--ops-body);
-  outline: 0;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  font: 500 0.88rem/1.3 var(--ops-body);
 }
 
 .book-ops-page .book-field textarea,
 .book-ops-page textarea.book-control {
-  min-height: 84px;
-  padding: 10px 12px;
-  resize: vertical;
+  min-height: 68px;
+  padding: 8px 10px;
 }
 
 .book-ops-page .book-field input:focus,
 .book-ops-page .book-field textarea:focus,
-.book-ops-page .book-field select:focus,
 .book-ops-page .book-control:focus {
   border-color: var(--ops-primary);
-  box-shadow: 0 0 0 3px #e4f4fa;
+  box-shadow: 0 0 0 2px #e4f4fa;
+}
+
+.book-ops-page .book-grid {
+  gap: 0.55rem 0.65rem;
 }
 
 .book-ops-page .book-repeat-banner {
+  gap: 0.55rem;
+  padding: 0.65rem 0.75rem;
   border: 1px solid var(--ops-border);
-  border-radius: 12px;
+  border-radius: 10px;
   background: #fff;
-  box-shadow: none;
 }
 
 .book-ops-page .book-repeat-banner.is-active {
-  border-color: rgba(0, 168, 216, 0.45);
-  background: rgba(0, 168, 216, 0.06);
+  border-color: rgba(0, 168, 216, 0.4);
+  background: rgba(0, 168, 216, 0.07);
 }
 
 .book-ops-page .book-repeat-banner-icon {
-  border-color: var(--ops-border);
+  width: 1.85rem;
+  height: 1.85rem;
+  border-radius: 7px;
+  border: 1px solid var(--ops-border);
   background: var(--ops-surface);
   color: var(--ops-navy);
 }
 
-.book-ops-page .book-repeat-banner-copy strong,
-.book-ops-page .book-repeat-lines,
-.book-ops-page .book-repeat-note {
+.book-ops-page .book-repeat-banner-copy {
+  gap: 0.15rem;
+}
+
+.book-ops-page .book-repeat-banner-copy strong {
+  font-size: 0.82rem;
   color: var(--ops-ink);
 }
 
-.book-ops-page .book-toggle.is-on {
-  background: var(--ops-sky);
-}
-
-.book-ops-page .book-summary {
-  border: 1px solid var(--ops-border);
-  border-radius: 12px;
-  background: var(--ops-surface);
+.book-ops-page .book-repeat-lines {
+  font-size: 0.75rem;
+  font-weight: 500;
   color: var(--ops-ink);
 }
 
+.book-ops-page .book-toggle {
+  width: 2.15rem;
+  height: 1.2rem;
+}
+
+.book-ops-page .book-summary,
 .book-ops-page .book-prefs {
   border: 1px solid var(--ops-border);
-  border-radius: 12px;
-  overflow: hidden;
+  border-radius: 10px;
   background: #fff;
 }
 
-.book-ops-page .book-prefs-head {
+.book-ops-page .book-summary {
   background: var(--ops-surface);
-  border-bottom: 1px solid var(--ops-border);
+  padding: 0.7rem 0.8rem;
+  font-size: 0.82rem;
+}
+
+.book-ops-page .book-prefs-head {
+  padding: 0.55rem 0.7rem;
+  background: var(--ops-surface);
 }
 
 .book-ops-page .book-prefs-head strong,
@@ -394,68 +576,74 @@
   color: var(--ops-ink);
 }
 
-.book-ops-page .book-error {
-  color: var(--ops-danger);
-  font-weight: 650;
+.book-ops-page .book-pref-row {
+  min-height: 2.2rem;
+  padding: 0.45rem 0.7rem;
+  font-size: 0.8rem;
 }
 
 .book-ops-page .book-cta {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
   flex: 0 0 auto;
-  margin-top: 2px;
-  padding: 10px 0 2px;
-  background: linear-gradient(180deg, transparent, var(--ops-wash) 28%);
+  margin: 0;
+  padding: 10px 14px 12px;
+  border-top: 1px solid var(--ops-border);
+  background: #fff;
 }
 
 .book-ops-page .book-cta .bg-accent-strong,
 .book-ops-page .book-success-actions .bg-accent-strong {
   background: var(--ops-sky) !important;
-  box-shadow: 0 8px 18px -10px rgba(0, 168, 216, 0.7);
+  box-shadow: 0 6px 14px -10px rgba(0, 168, 216, 0.65);
 }
 
 .book-ops-page .book-cta .h-10,
-.book-ops-page .book-success-actions .h-10 {
-  min-height: 44px;
-  height: auto;
-  border-radius: 9px;
+.book-ops-page .book-cta .h-9,
+.book-ops-page .book-success-actions .h-10,
+.book-ops-page .book-success-actions .h-9 {
+  min-height: 38px;
+  height: 38px;
+  border-radius: 8px;
+  font-size: 0.84rem;
   font-weight: 700;
+}
+
+.book-ops-page .book-error {
+  margin: 0 14px;
+  color: var(--ops-danger);
+  font-size: 0.78rem;
+  font-weight: 650;
 }
 
 .book-ops-page .book-guest-note,
 .book-ops-page .book-price-note,
 .book-ops-page .book-note {
   color: var(--ops-ink);
+  font-size: 0.78rem;
   font-weight: 500;
 }
 
-.book-ops-page .book-guest-note a,
-.book-ops-page .book-note a {
-  color: var(--ops-primary);
-  font-weight: 700;
-}
-
 .book-ops-page .book-success-title {
+  font: 800 1.15rem/1.15 var(--ops-display);
   color: var(--ops-ink);
-  font: 800 1.35rem/1.15 var(--ops-display);
-  letter-spacing: -0.03em;
 }
 
 .book-ops-page .book-success-icon {
+  width: 2.5rem;
+  height: 2.5rem;
   background: rgba(0, 168, 216, 0.14);
   color: var(--ops-sky);
 }
 
-.book-ops-page .book-success-ref span {
-  color: var(--ops-navy);
+.book-ops-page .eyebrow {
+  color: var(--ops-sky);
+  font-size: 9px;
   font-weight: 800;
+  letter-spacing: 0.14em;
 }
 
 .book-ops-page .book-cal {
   border: 1px solid var(--ops-border);
-  border-radius: 12px;
-  background: #fff;
+  border-radius: 10px;
 }
 
 .book-ops-page .book-cal-day.is-active {
@@ -463,9 +651,14 @@
   color: #fff;
 }
 
-.book-ops-page .eyebrow {
-  color: var(--ops-sky);
-  font-size: 10px;
-  font-weight: 800;
-  letter-spacing: 0.16em;
+.book-ops-page .book-tip {
+  min-height: 2.1rem;
+  border-radius: 8px;
+  border: 1px solid var(--ops-border);
+  font-size: 0.8rem;
+}
+
+.book-ops-page .book-tip.is-active {
+  border-color: var(--ops-sky);
+  background: rgba(0, 168, 216, 0.1);
 }
