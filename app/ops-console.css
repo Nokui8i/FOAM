@@ -1789,6 +1789,20 @@
   font-weight: 600;
   color: #64748b;
 }
+.admin-page .ops-staff-tabs {
+  margin-top: 4px;
+  max-width: 420px;
+}
+.admin-page .ops-staff-denied-block {
+  margin-top: 28px;
+}
+.admin-page .ops-staff-denied-block h2 {
+  margin: 0 0 12px;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--ops-ink, #0f172a);
+}
 @media (max-width: 900px) {
   .admin-page .ops-staff-table-head {
     display: none;
