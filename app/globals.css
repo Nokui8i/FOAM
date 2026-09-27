@@ -4658,15 +4658,17 @@
   .book-repeat-banner-copy strong {
     font-size: 0.9rem;
     font-weight: 750;
+    color: var(--color-foreground);
   }
 
   .book-repeat-lines {
     display: flex;
     flex-direction: column;
     gap: 0.2rem;
-    font-size: 0.78rem;
+    font-size: 0.82rem;
     line-height: 1.35;
-    color: var(--color-muted-foreground);
+    font-weight: 500;
+    color: var(--color-foreground);
   }
 
   .book-repeat-lines b {
@@ -4675,7 +4677,8 @@
   }
 
   .book-repeat-note {
-    margin-top: 0.15rem;
+    margin-top: 0.1rem;
+    color: var(--color-foreground);
   }
 
   .book-toggle {
