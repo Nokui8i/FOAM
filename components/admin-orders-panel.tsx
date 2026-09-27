@@ -103,7 +103,7 @@ import { BUSINESS_WHATSAPP } from "@/lib/site-config";
 import { useOpsPageReadyWhen } from "@/components/ops-boot";
 import { cn } from "@/lib/utils";
 import { useQueryReplace } from "@/lib/use-query-replace";
-import { mergeDemoOrders, isOpsDemoId } from "@/lib/ops-demo-volume";
+import { mergeDemoOrders } from "@/lib/ops-demo-volume";
 
 type Filter = "waiting" | "progress" | "ready" | "all";
 type MobileView = "list" | "detail";
