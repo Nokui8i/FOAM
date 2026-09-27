@@ -120,7 +120,7 @@ const STEP_COPY: Record<
   },
   schedule: {
     title: "Pick a day & time",
-    hint: "We'll come to you in this window.",
+    hint: "",
   },
   address: {
     title: "Where should we pick up?",
@@ -714,7 +714,7 @@ function BookingAppInner() {
 
         <div className="book-chrome-copy">
           <h1 className="book-title">{copy.title}</h1>
-          <p className="book-hint">{copy.hint}</p>
+          {copy.hint ? <p className="book-hint">{copy.hint}</p> : null}
         </div>
 
         <ol className="book-progress" aria-label="Booking steps">
