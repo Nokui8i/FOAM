@@ -637,38 +637,23 @@ function OpsConsole({
                     <div className="account-menu-actions">
                       <button
                         type="button"
-                        className="account-menu-img-btn"
+                        className="account-menu-action-btn is-cancel"
                         role="menuitem"
-                        aria-label="Cancel"
                         onClick={() => setSignOutConfirm(false)}
                       >
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src="/ops-signout-cancel.png"
-                          alt=""
-                          width={1161}
-                          height={261}
-                          draggable={false}
-                        />
+                        Cancel
                       </button>
                       <button
                         type="button"
-                        className="account-menu-img-btn"
+                        className="account-menu-action-btn is-confirm"
                         role="menuitem"
-                        aria-label="Sign out"
                         onClick={() => {
                           setAccountMenuOpen(false);
                           void signOut(getFirebaseAuth());
                         }}
                       >
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src="/ops-signout-confirm.png"
-                          alt=""
-                          width={1171}
-                          height={269}
-                          draggable={false}
-                        />
+                        <LogOut size={14} aria-hidden />
+                        Sign out
                       </button>
                     </div>
                   </div>
@@ -678,19 +663,12 @@ function OpsConsole({
                     <span>{user.email}</span>
                     <button
                       type="button"
-                      className="account-menu-img-btn"
+                      className="account-menu-action-btn is-confirm"
                       role="menuitem"
-                      aria-label="Sign out"
                       onClick={() => setSignOutConfirm(true)}
                     >
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src="/ops-signout-confirm.png"
-                        alt=""
-                        width={1171}
-                        height={269}
-                        draggable={false}
-                      />
+                      <LogOut size={14} aria-hidden />
+                      Sign out
                     </button>
                   </div>
                 )}
