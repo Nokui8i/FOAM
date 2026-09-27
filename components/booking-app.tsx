@@ -100,8 +100,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useQueryReplace } from "@/lib/use-query-replace";
 
-const fieldClass =
-  "mt-1.5 w-full rounded-lg border border-border/80 bg-white px-3 py-2.5 text-[15px] outline-none transition focus:border-accent-strong focus:ring-2 focus:ring-accent-strong/20";
+const fieldClass = "book-control";
 
 function parseBookingStep(raw: string | null): BookingStep | null {
   if (raw && (BOOKING_STEPS as readonly string[]).includes(raw)) {
@@ -110,25 +109,18 @@ function parseBookingStep(raw: string | null): BookingStep | null {
   return null;
 }
 
-const STEP_COPY: Record<
-  BookingStep,
-  { title: string; hint: string }
-> = {
+const STEP_COPY: Record<BookingStep, { title: string }> = {
   services: {
     title: "What do you need?",
-    hint: "Choose one or both services.",
   },
   schedule: {
     title: "Pick a day & time",
-    hint: "We'll come to you in this window.",
   },
   address: {
     title: "Where should we pick up?",
-    hint: "Contact info and pickup address.",
   },
   confirm: {
     title: "Confirm your order",
-    hint: "Review details, preferences, and total.",
   },
 };
 
@@ -670,10 +662,10 @@ function BookingAppInner() {
             <p className="book-success-ref">
               Ref <span>{orderRefFromId(doneId)}</span>
             </p>
-            <p className="book-hint">
+            <p className="book-hint book-success-note">
               {user
-                ? "Saved to Account → Orders. You can also track with the link below."
-                : "Save your tracking link — it’s the only way to follow this order as a guest."}
+                ? "Saved to Account → Orders."
+                : "Save your tracking link to follow this order."}
             </p>
             <div className="book-success-actions">
               {doneTrackKey ? (
@@ -713,8 +705,8 @@ function BookingAppInner() {
         </button>
 
         <div className="book-chrome-copy">
+          <span className="book-chrome-brand">BOOK · LAS VEGAS</span>
           <h1 className="book-title">{copy.title}</h1>
-          <p className="book-hint">{copy.hint}</p>
         </div>
 
         <ol className="book-progress" aria-label="Booking steps">
