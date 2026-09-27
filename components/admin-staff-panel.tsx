@@ -1,0 +1,316 @@
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import { Users } from "lucide-react";
+
+import { useOpsPageReadyWhen } from "@/components/ops-boot";
+import {
+  canAccessOps,
+  reviewStaffMember,
+  staffRoleLabel,
+  subscribeAllStaff,
+  type StaffProfile,
+  type StaffRole,
+  type StaffStatus,
+} from "@/lib/staff-access";
+import { cn } from "@/lib/utils";
+
+function statusLabel(status: StaffStatus) {
+  switch (status) {
+    case "approved":
+      return "Active";
+    case "denied":
+      return "Denied";
+    case "revoked":
+      return "Revoked";
+    default:
+      return "Waiting for approval";
+  }
+}
+
+export function AdminStaffPanel({
+  adminEmail,
+}: {
+  adminEmail: string;
+}) {
+  const [rows, setRows] = useState<StaffProfile[]>([]);
+  const [ready, setReady] = useState(false);
+  const [error, setError] = useState("");
+  const [okMsg, setOkMsg] = useState("");
+  const [busyId, setBusyId] = useState("");
+  const [roleDraft, setRoleDraft] = useState<Record<string, StaffRole>>({});
+  useOpsPageReadyWhen(ready);
+
+  useEffect(() => {
+    return subscribeAllStaff((next) => {
+      setRows(next);
+      setReady(true);
+    });
+  }, []);
+
+  const pending = useMemo(
+    () => rows.filter((row) => row.status === "pending"),
+    [rows]
+  );
+  const active = useMemo(
+    () => rows.filter((row) => row.status === "approved"),
+    [rows]
+  );
+  const other = useMemo(
+    () =>
+      rows.filter(
+        (row) => row.status === "denied" || row.status === "revoked"
+      ),
+    [rows]
+  );
+
+  function draftRole(row: StaffProfile): StaffRole {
+    return roleDraft[row.uid] ?? row.role;
+  }
+
+  async function review(
+    row: StaffProfile,
+    status: "approved" | "denied" | "revoked"
+  ) {
+    setError("");
+    setOkMsg("");
+    setBusyId(row.uid);
+    try {
+      await reviewStaffMember(
+        row.uid,
+        {
+          status,
+          role: status === "approved" ? draftRole(row) : undefined,
+        },
+        adminEmail || "admin"
+      );
+      setOkMsg(
+        status === "approved"
+          ? `${row.displayName || row.email} approved as ${staffRoleLabel(draftRole(row))}.`
+          : status === "denied"
+            ? `${row.displayName || row.email} denied.`
+            : `${row.displayName || row.email} revoked.`
+      );
+    } catch {
+      setError("Could not update staff member.");
+    } finally {
+      setBusyId("");
+    }
+  }
+
+  async function saveRole(row: StaffProfile) {
+    const nextRole = draftRole(row);
+    if (nextRole === row.role) return;
+    setBusyId(row.uid);
+    setError("");
+    setOkMsg("");
+    try {
+      await reviewStaffMember(
+        row.uid,
+        { status: "approved", role: nextRole },
+        adminEmail || "admin"
+      );
+      setOkMsg(
+        `${row.displayName || row.email} is now ${staffRoleLabel(nextRole)}.`
+      );
+    } catch {
+      setError("Could not change role.");
+    } finally {
+      setBusyId("");
+    }
+  }
+
+  return (
+    <section className="ops-catalog-plane ops-staff-plane">
+      <header className="ops-catalog-plane-head">
+        <div className="ops-catalog-plane-title-row">
+          <h1 className="ops-list-title">Staff</h1>
+          <div className="ops-catalog-plane-chip is-meta" aria-current="page">
+            <span className="ops-catalog-plane-chip-icon" aria-hidden>
+              <Users size={16} />
+            </span>
+            <span className="ops-catalog-plane-chip-copy">
+              <strong>
+                {pending.length} pending · {active.length} active
+              </strong>
+            </span>
+          </div>
+        </div>
+      </header>
+
+      {(okMsg || error) && (
+        <p className={cn("ops-flash", error ? "is-error" : "is-ok")}>
+          {error || okMsg}
+        </p>
+      )}
+
+      <div className="ops-staff-sections">
+        <section className="ops-staff-section">
+          <h2>Waiting for approval</h2>
+          {pending.length === 0 ? (
+            <p className="ops-staff-empty">No pending requests.</p>
+          ) : (
+            <div className="ops-staff-table">
+              <div className="ops-staff-table-head">
+                <span>Name</span>
+                <span>Email</span>
+                <span>Requested</span>
+                <span>Role</span>
+                <span>Actions</span>
+              </div>
+              {pending.map((row) => (
+                <div key={row.uid} className="ops-staff-table-row">
+                  <strong>{row.displayName || "—"}</strong>
+                  <span>{row.email}</span>
+                  <span className="ops-staff-portal">
+                    {row.requestedPortal === "ops" ? "OPS" : "Driver"}
+                  </span>
+                  <label className="ops-staff-role">
+                    <span className="sr-only">Role</span>
+                    <select
+                      value={draftRole(row)}
+                      onChange={(e) =>
+                        setRoleDraft((prev) => ({
+                          ...prev,
+                          [row.uid]: e.target.value as StaffRole,
+                        }))
+                      }
+                    >
+                      <option value="admin">Admin</option>
+                      <option value="manager">Manager</option>
+                      <option value="driver">Driver</option>
+                    </select>
+                  </label>
+                  <div className="ops-staff-actions">
+                    <button
+                      type="button"
+                      className="ops-catalog-editor-btn is-secondary"
+                      disabled={busyId === row.uid}
+                      onClick={() => void review(row, "denied")}
+                    >
+                      Deny
+                    </button>
+                    <button
+                      type="button"
+                      className="ops-catalog-editor-btn"
+                      disabled={busyId === row.uid}
+                      onClick={() => void review(row, "approved")}
+                    >
+                      {busyId === row.uid ? "Saving…" : "Approve"}
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+
+        <section className="ops-staff-section">
+          <h2>Active</h2>
+          {active.length === 0 ? (
+            <p className="ops-staff-empty">No active staff yet.</p>
+          ) : (
+            <div className="ops-staff-table">
+              <div className="ops-staff-table-head">
+                <span>Name</span>
+                <span>Email</span>
+                <span>Role</span>
+                <span>Status</span>
+                <span>Actions</span>
+              </div>
+              {active.map((row) => (
+                <div key={row.uid} className="ops-staff-table-row">
+                  <strong>{row.displayName || "—"}</strong>
+                  <span>{row.email}</span>
+                  <label className="ops-staff-role">
+                    <span className="sr-only">Role</span>
+                    <select
+                      value={draftRole(row)}
+                      onChange={(e) =>
+                        setRoleDraft((prev) => ({
+                          ...prev,
+                          [row.uid]: e.target.value as StaffRole,
+                        }))
+                      }
+                    >
+                      <option value="admin">Admin</option>
+                      <option value="manager">Manager</option>
+                      <option value="driver">Driver</option>
+                    </select>
+                  </label>
+                  <span className="ops-status-pill is-ok">
+                    {statusLabel(row.status)}
+                  </span>
+                  <div className="ops-staff-actions">
+                    <button
+                      type="button"
+                      className="ops-catalog-editor-btn is-secondary"
+                      disabled={
+                        busyId === row.uid || draftRole(row) === row.role
+                      }
+                      onClick={() => void saveRole(row)}
+                    >
+                      Save role
+                    </button>
+                    <button
+                      type="button"
+                      className="ops-catalog-editor-btn is-secondary"
+                      disabled={busyId === row.uid}
+                      onClick={() => void review(row, "revoked")}
+                    >
+                      Revoke
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+
+        {other.length > 0 ? (
+          <section className="ops-staff-section">
+            <h2>Denied / revoked</h2>
+            <div className="ops-staff-table">
+              <div className="ops-staff-table-head">
+                <span>Name</span>
+                <span>Email</span>
+                <span>Requested</span>
+                <span>Status</span>
+                <span>Actions</span>
+              </div>
+              {other.map((row) => (
+                <div key={row.uid} className="ops-staff-table-row">
+                  <strong>{row.displayName || "—"}</strong>
+                  <span>{row.email}</span>
+                  <span className="ops-staff-portal">
+                    {row.requestedPortal === "ops" ? "OPS" : "Driver"}
+                  </span>
+                  <span className="ops-status-pill">{statusLabel(row.status)}</span>
+                  <div className="ops-staff-actions">
+                    <button
+                      type="button"
+                      className="ops-catalog-editor-btn"
+                      disabled={busyId === row.uid}
+                      onClick={() => void review(row, "approved")}
+                    >
+                      Re-approve
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        ) : null}
+      </div>
+    </section>
+  );
+}
+
+/** Kept for count badge helpers */
+export function countPendingStaff(rows: StaffProfile[]) {
+  return rows.filter((row) => row.status === "pending").length;
+}
+
+export function isOpsCapableStaff(row: StaffProfile, email?: string | null) {
+  return canAccessOps(row, email);
+}

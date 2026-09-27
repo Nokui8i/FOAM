@@ -1,25 +1,52 @@
 rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
-    function isAdmin() {
+    function isBootstrapAdmin() {
       return request.auth != null
         && request.auth.token.email is string
         && request.auth.token.email.lower() in [
           'paylocksmith@gmail.com',
-          'iaaoamar12@gmail.com'
+          'iaaoamar12@gmail.com',
+          'liran4004@gmail.com'
         ];
     }
 
+    function staffDoc() {
+      return firestore.get(/databases/(default)/documents/staff/$(request.auth.uid));
+    }
+
+    function isApprovedStaff() {
+      return request.auth != null
+        && firestore.exists(/databases/(default)/documents/staff/$(request.auth.uid))
+        && staffDoc().data.status == 'approved'
+        && staffDoc().data.role in ['admin', 'manager', 'driver'];
+    }
+
+    function isAdmin() {
+      return isBootstrapAdmin()
+        || (
+          request.auth != null
+          && firestore.exists(/databases/(default)/documents/staff/$(request.auth.uid))
+          && staffDoc().data.status == 'approved'
+          && staffDoc().data.role in ['admin', 'manager']
+        );
+    }
+
+    function isStaff() {
+      return isBootstrapAdmin() || isApprovedStaff();
+    }
+
     match /order-photos/{orderId}/{fileName} {
-      allow read: if isAdmin();
-      allow write: if isAdmin()
+      allow read: if isStaff();
+      allow write: if isStaff()
         && request.resource.size < 8 * 1024 * 1024
         && request.resource.contentType.matches('image/.*');
       allow delete: if isAdmin();
     }
 
     match /order-photos/{orderId} {
-      allow read, delete: if isAdmin();
+      allow read: if isStaff();
+      allow delete: if isAdmin();
     }
 
     match /{allPaths=**} {

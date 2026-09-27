@@ -22,6 +22,8 @@ import { useOpsPageReadyWhen } from "@/components/ops-boot";
 import { Button } from "@/components/ui/button";
 import {
   buildReminderMessage,
+  buildNotificationSummary,
+  buildStaffNotificationNote,
   isInPickupReminderWindow,
   reminderSortKey,
   type PickupReminderAlert,
@@ -37,13 +39,6 @@ import { releasePickupSlot } from "@/lib/pickup-availability";
 import { mergeDemoAlerts, isOpsDemoId } from "@/lib/ops-demo-volume";
 
 type MobileView = "list" | "detail";
-type AlertFilter = "todo" | "done" | "all";
-
-const FILTERS: { id: AlertFilter; label: string }[] = [
-  { id: "todo", label: "New" },
-  { id: "done", label: "Confirmed" },
-  { id: "all", label: "All" },
-];
 
 function formatSlotShort(slot: string) {
   if (!slot) return "—";
@@ -142,10 +137,6 @@ export function AdminAlertsPanel({
   const [okMsg, setOkMsg] = useState("");
   const [queryText, setQueryText] = useState("");
   const selectedId = searchParams.get("id");
-  const filter = (searchParams.get("filter") as AlertFilter) || "todo";
-  const safeFilter: AlertFilter = ["todo", "done", "all"].includes(filter)
-    ? filter
-    : "todo";
 
   useEffect(() => {
     const unsub = onSnapshot(
@@ -166,30 +157,28 @@ export function AdminAlertsPanel({
       },
       () => {
         setListReady(true);
-        setError("Could not load pickup alerts.");
+        setError("Could not load notifications.");
       }
     );
-    return () => unsub();
+    return () => {
+      unsub();
+    };
   }, []);
 
-  const counts = useMemo(
-    () => ({
-      todo: rows.filter((row) => !row.contacted).length,
-      done: rows.filter((row) => row.contacted).length,
-      all: rows.length,
-    }),
+  const reminderTodoCount = useMemo(
+    () => rows.filter((row) => !row.contacted).length,
     [rows]
   );
 
   useEffect(() => {
-    onTodoCountChange?.(counts.todo);
-  }, [counts.todo, onTodoCountChange]);
+    onTodoCountChange?.(reminderTodoCount);
+  }, [reminderTodoCount, onTodoCountChange]);
 
+  // Only pickups still waiting for staff confirm — confirmed ones live in Future.
   const filtered = useMemo(() => {
     const q = queryText.trim().toLowerCase();
     return rows.filter((row) => {
-      if (safeFilter === "todo" && row.contacted) return false;
-      if (safeFilter === "done" && !row.contacted) return false;
+      if (row.contacted) return false;
       if (!q) return true;
       return (
         row.name.toLowerCase().includes(q) ||
@@ -199,30 +188,27 @@ export function AdminAlertsPanel({
         row.pickupDate.includes(q)
       );
     });
-  }, [rows, safeFilter, queryText]);
+  }, [rows, queryText]);
 
   const selected =
-    filtered.find((row) => row.orderId === selectedId) ??
-    rows.find((row) => row.orderId === selectedId) ??
-    null;
+    filtered.find((row) => row.orderId === selectedId) ?? null;
 
   useEffect(() => {
-    if (selectedId) onMobileViewChange("detail");
-  }, [selectedId, onMobileViewChange]);
+    if (selectedId && selected) onMobileViewChange("detail");
+  }, [selectedId, selected, onMobileViewChange]);
 
-  function setFilter(next: AlertFilter) {
-    replaceQuery({
-      filter: next === "todo" ? null : next,
-      id: null,
-      view: null,
-    });
-  }
+  // Stale detail URL after confirm / cancel — drop back to the list.
+  useEffect(() => {
+    if (selectedId && listReady && !selected) {
+      replaceQuery({ id: null, view: null, filter: null });
+    }
+  }, [selectedId, selected, listReady, replaceQuery]);
 
   function selectAlert(id: string) {
-    replaceQuery({ id, view: "detail" });
+    replaceQuery({ id, view: "detail", filter: null });
   }
 
-  async function markContacted(orderId: string, contacted: boolean) {
+  async function markContacted(orderId: string) {
     setError("");
     setOkMsg("");
     if (isOpsDemoId(orderId)) {
@@ -231,48 +217,32 @@ export function AdminAlertsPanel({
           row.orderId === orderId
             ? {
                 ...row,
-                contacted,
-                contactedAt: contacted ? new Date().toISOString() : null,
-                contactedBy: contacted ? adminEmail || "admin" : null,
+                contacted: true,
+                contactedAt: new Date().toISOString(),
+                contactedBy: adminEmail || "admin",
               }
             : row
         )
       );
       setOkMsg(
-        contacted
-          ? "DEMO — marked confirmed locally (not saved)."
-          : "DEMO — confirmation cleared locally."
+        "DEMO — confirmed for the schedule locally (not saved)."
       );
+      replaceQuery({ id: null, view: null, filter: null });
       return;
     }
     try {
       await updateDoc(doc(getFirebaseDb(), "orders", orderId), {
-        opsReminder: contacted
-          ? {
-              contacted: true,
-              contactedAt: serverTimestamp(),
-              contactedBy: adminEmail || "admin",
-              outcome: "confirmed",
-            }
-          : {
-              contacted: false,
-              contactedAt: null,
-              contactedBy: null,
-              outcome: null,
-            },
+        opsReminder: {
+          contacted: true,
+          contactedAt: serverTimestamp(),
+          contactedBy: adminEmail || "admin",
+          outcome: "confirmed",
+        },
       });
-      if (contacted) {
-        setOkMsg(
-          "Confirmed — pickup stays on the schedule in Future / Orders by date."
-        );
-        replaceQuery({
-          filter: "done",
-          id: orderId,
-          view: "detail",
-        });
-      } else {
-        setOkMsg("Confirmation cleared.");
-      }
+      setOkMsg(
+        "Confirmed — pickup stays on the schedule in Future / Orders by date."
+      );
+      replaceQuery({ id: null, view: null, filter: null });
     } catch {
       setError("Could not update reminder status.");
     }
@@ -331,7 +301,6 @@ export function AdminAlertsPanel({
           : "Order cancelled."
       );
       replaceQuery({ id: null, view: null });
-      onMobileViewChange("list");
     } catch (err) {
       setError(
         err instanceof Error
@@ -353,7 +322,7 @@ export function AdminAlertsPanel({
       >
         <div className="ops-list-head">
           <div className="queue-heading">
-            <h1 className="ops-list-title">Alerts</h1>
+            <h1 className="ops-list-title">Notifications</h1>
           </div>
 
           <label className="ops-search">
@@ -364,29 +333,6 @@ export function AdminAlertsPanel({
               placeholder="Search name, phone, or date"
             />
           </label>
-
-          <div
-            className="ops-filter-row is-alerts"
-            role="group"
-            aria-label="Alert filters"
-          >
-            {FILTERS.map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                className={cn(
-                  "ops-filter-chip",
-                  safeFilter === item.id && "is-active"
-                )}
-                onClick={() => setFilter(item.id)}
-              >
-                {item.label}
-                <span className="ops-radio-count">
-                  {listReady ? counts[item.id] : "…"}
-                </span>
-              </button>
-            ))}
-          </div>
         </div>
 
         {error ? <p className="ops-error ops-pad">{error}</p> : null}
@@ -394,7 +340,7 @@ export function AdminAlertsPanel({
         <div className="ops-list-scroll">
           <div className="ops-list-card">
             {!listReady ? (
-              <div className="ops-list-skeleton" aria-busy="true" aria-label="Loading alerts">
+              <div className="ops-list-skeleton" aria-busy="true" aria-label="Loading notifications">
                 {[0, 1, 2].map((key) => (
                   <div key={key} className="ops-row-skeleton">
                     <span className="ops-skel ops-skel-title" />
@@ -405,54 +351,51 @@ export function AdminAlertsPanel({
               </div>
             ) : filtered.length === 0 ? (
               <p className="ops-empty">
-                No pickups in the 3–4 day reminder window.
+                No automated pickups waiting for confirmation.
               </p>
             ) : (
               filtered.map((row) => (
-                <button
+                <div
                   key={row.orderId}
-                  type="button"
                   className={cn(
                     "ops-row",
                     selectedId === row.orderId && "is-active"
                   )}
-                  onClick={() => selectAlert(row.orderId)}
                 >
-                  <span className="ops-row-top">
-                    <span className="ops-row-name">
-                      {row.name || "Customer"}
+                  <button
+                    type="button"
+                    className="ops-row-main"
+                    onClick={() => selectAlert(row.orderId)}
+                  >
+                    <span className="ops-row-top">
+                      <span className="ops-row-name">
+                        {row.name || "Customer"}
+                      </span>
+                      <span className="ops-status-pill is-open">
+                        Needs confirm
+                      </span>
                     </span>
-                    <span
-                      className={cn(
-                        "ops-status-pill",
-                        row.contacted ? "is-ready" : "is-open"
-                      )}
-                    >
-                      {row.contacted ? "Confirmed" : "Call needed"}
+                    <span className="ops-row-when">
+                      {buildNotificationSummary(row)}
                     </span>
-                  </span>
-                  <span className="ops-row-when">
-                    {formatAlertDate(row.pickupDate)},{" "}
-                    {formatSlotShort(row.pickupSlot)}
-                    {" · "}
-                    in {row.daysUntil} day{row.daysUntil === 1 ? "" : "s"}
-                  </span>
-                  <span className="ops-row-address">
-                    {row.address || "No address on file"}
-                  </span>
-                  <span className="ops-row-foot">
-                    <span className="ops-row-ref">
-                      {orderDisplayId(row.orderId)}
+                    <span className="ops-row-address">
+                      {row.address || "No address on file"}
                     </span>
-                    <span className="ops-row-price">
-                      {row.weekly
-                        ? row.hasDiscount
-                          ? "Weekly · 10% off"
-                          : "Weekly"
-                        : "Pickup"}
+                    <span className="ops-row-foot">
+                      <span className="ops-row-ref">
+                        {formatAlertDate(row.pickupDate)},{" "}
+                        {formatSlotShort(row.pickupSlot)}
+                      </span>
+                      <span className="ops-row-price">
+                        {row.weekly
+                          ? row.hasDiscount
+                            ? "Weekly · 10% off"
+                            : "Weekly auto"
+                          : "Pickup"}
+                      </span>
                     </span>
-                  </span>
-                </button>
+                  </button>
+                </div>
               ))
             )}
           </div>
@@ -467,7 +410,7 @@ export function AdminAlertsPanel({
       >
         {!selected ? (
           <p className="ops-empty ops-pad">
-            Select an alert to view details.
+            Select a notification to view details.
           </p>
         ) : (
           <article className="ops-detail">
@@ -479,7 +422,6 @@ export function AdminAlertsPanel({
                 className="ops-back ops-back-labeled"
                 onClick={() => {
                   replaceQuery({ id: null, view: null });
-                  onMobileViewChange("list");
                 }}
               >
                 <ArrowLeft size={16} />
@@ -489,7 +431,7 @@ export function AdminAlertsPanel({
               <div className="ops-detail-top">
                 <div className="ops-detail-top-main">
                   <p className="ops-breadcrumb">
-                    <span>Alerts</span>
+                    <span>Notifications</span>
                     <span aria-hidden>›</span>
                     <span>{orderDisplayId(selected.orderId)}</span>
                   </p>
@@ -513,9 +455,9 @@ export function AdminAlertsPanel({
                       In {selected.daysUntil} day
                       {selected.daysUntil === 1 ? "" : "s"}
                     </span>
-                    {selected.weekly ? (
+                    {selected.weekly || selected.automatedWeekly ? (
                       <span>
-                        Weekly
+                        Weekly auto
                         {selected.hasDiscount ? " · 10% off" : ""}
                       </span>
                     ) : null}
@@ -582,42 +524,20 @@ export function AdminAlertsPanel({
             <div className="ops-detail-stack">
               <section className="ops-stage-card">
                 <div className="ops-soft-section-head">
-                  <h3>After the call</h3>
+                  <h3>Staff note</h3>
                 </div>
-                {selected.contacted ? (
-                  <p className="ops-call-note">
-                    Confirmed
-                    {selected.contactedBy ? ` by ${selected.contactedBy}` : ""}
-                    {selected.contactedAt ? ` · ${selected.contactedAt}` : ""}
-                  </p>
-                ) : (
-                  <p className="ops-call-note">
-                    {selected.weekly || selected.automatedWeekly
-                      ? "This pickup was created by weekly automation. Call the customer — make sure they know the date & time and are ready. Confirm if yes. Cancel stops this pickup, future weekly orders, and the 10% off."
-                      : "Call the customer — make sure they know the date & time and are ready. Confirm if yes. Cancel only if they asked to cancel."}
-                  </p>
-                )}
-                <div className="ops-action-row is-pair" style={{ marginTop: 12 }}>
-                  {!selected.contacted ? (
-                    <button
-                      type="button"
-                      className="ops-soft-btn is-primary"
-                      onClick={() => void markContacted(selected.orderId, true)}
-                    >
-                      <Check size={17} aria-hidden />
-                      Confirm
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      className="ops-soft-btn"
-                      onClick={() =>
-                        void markContacted(selected.orderId, false)
-                      }
-                    >
-                      Undo
-                    </button>
-                  )}
+                <p className="ops-call-note is-multiline">
+                  {buildStaffNotificationNote(selected)}
+                </p>
+                <div className="ops-action-row is-pair is-centered" style={{ marginTop: 12 }}>
+                  <button
+                    type="button"
+                    className="ops-soft-btn is-primary"
+                    onClick={() => void markContacted(selected.orderId)}
+                  >
+                    <Check size={17} aria-hidden />
+                    Confirm for schedule
+                  </button>
                   <button
                     type="button"
                     className="ops-soft-btn is-danger"

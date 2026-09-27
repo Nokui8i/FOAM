@@ -7,11 +7,38 @@ service cloud.firestore {
 
     function isAdmin() {
       return isSignedIn()
-        && request.auth.token.email is string
-        && request.auth.token.email.lower() in [
-          'paylocksmith@gmail.com',
-          'iaaoamar12@gmail.com'
-        ];
+        && (
+          (
+            request.auth.token.email is string
+            && request.auth.token.email.lower() in [
+              'paylocksmith@gmail.com',
+              'iaaoamar12@gmail.com',
+              'liran4004@gmail.com'
+            ]
+          )
+          || (
+            exists(/databases/$(database)/documents/staff/$(request.auth.uid))
+            && get(/databases/$(database)/documents/staff/$(request.auth.uid)).data.status == 'approved'
+            && get(/databases/$(database)/documents/staff/$(request.auth.uid)).data.role in ['admin', 'manager']
+          )
+        );
+    }
+
+    function isDriver() {
+      return isSignedIn()
+        && exists(/databases/$(database)/documents/staff/$(request.auth.uid))
+        && get(/databases/$(database)/documents/staff/$(request.auth.uid)).data.status == 'approved'
+        && get(/databases/$(database)/documents/staff/$(request.auth.uid)).data.role == 'driver';
+    }
+
+    function isStaff() {
+      return isAdmin() || isDriver()
+        || (
+          isSignedIn()
+          && exists(/databases/$(database)/documents/staff/$(request.auth.uid))
+          && get(/databases/$(database)/documents/staff/$(request.auth.uid)).data.status == 'approved'
+          && get(/databases/$(database)/documents/staff/$(request.auth.uid)).data.role == 'manager'
+        );
     }
 
     function isOwner(uid) {
@@ -52,6 +79,64 @@ service cloud.firestore {
         && request.resource.data.name is string;
       allow update: if isOwner(uid) || isAdmin();
       allow delete: if isAdmin();
+    }
+
+    match /staff/{uid} {
+      allow read: if isAdmin() || isOwner(uid);
+
+      allow create: if isOwner(uid)
+        && request.resource.data.uid == uid
+        && request.resource.data.role in ['admin', 'manager', 'driver']
+        && request.resource.data.email is string
+        && request.resource.data.email.size() > 3
+        && request.resource.data.email.size() <= 200
+        && request.resource.data.displayName is string
+        && request.resource.data.displayName.size() <= 120
+        && request.resource.data.requestedPortal in ['ops', 'driver']
+        && request.resource.data.keys().hasAll([
+          'uid', 'email', 'displayName', 'role', 'status',
+          'requestedPortal', 'createdAt', 'updatedAt'
+        ])
+        && (
+          request.resource.data.status == 'pending'
+          || (
+            request.resource.data.status == 'approved'
+            && request.auth.token.email is string
+            && request.auth.token.email.lower() in [
+              'paylocksmith@gmail.com',
+              'iaaoamar12@gmail.com',
+              'liran4004@gmail.com'
+            ]
+          )
+        );
+
+      allow update: if isAdmin() || (
+        isOwner(uid)
+        && request.resource.data.uid == resource.data.uid
+        && (
+          (
+            request.resource.data.status == resource.data.status
+            && request.resource.data.role == resource.data.role
+            && request.resource.data.diff(resource.data).affectedKeys()
+              .hasOnly(['email', 'displayName', 'updatedAt'])
+          )
+          || (
+            request.auth.token.email is string
+            && request.auth.token.email.lower() in [
+              'paylocksmith@gmail.com',
+              'iaaoamar12@gmail.com',
+              'liran4004@gmail.com'
+            ]
+          )
+        )
+      );
+
+      allow delete: if isAdmin();
+    }
+
+    // Legacy driver docs — admin cleanup only
+    match /drivers/{uid} {
+      allow read, write, delete: if isAdmin();
     }
 
     match /contactMessages/{id} {
@@ -100,12 +185,12 @@ service cloud.firestore {
           || (isSignedIn() && request.resource.data.uid == request.auth.uid)
         );
 
-      allow read: if isAdmin()
+      allow read: if isStaff()
         || (isSignedIn()
           && resource.data.uid is string
           && resource.data.uid == request.auth.uid);
 
-      allow update: if isAdmin() || (
+      allow update: if isStaff() || (
         // Owner cancel
         isSignedIn()
         && resource.data.uid is string
@@ -170,7 +255,7 @@ service cloud.firestore {
         && request.resource.data.createdAt == request.time
         && request.resource.data.updatedAt == request.time;
 
-      allow update: if isAdmin() || (
+      allow update: if isStaff() || (
         isSignedIn()
         && resource.data.orderId is string
         && get(/databases/$(database)/documents/orders/$(resource.data.orderId)).data.uid
@@ -212,7 +297,7 @@ service cloud.firestore {
     }
 
     match /config/{docId} {
-      allow read: if isAdmin() || docId == 'pickupSchedule' || docId == 'laundryRates';
+      allow read: if isAdmin() || docId == 'pickupSchedule' || docId == 'laundryRates' || docId == 'dryCleanCatalog';
       allow write: if isAdmin() && (
         (
           docId == 'dryCleanCatalog'

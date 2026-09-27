@@ -1,14 +1,16 @@
 "use client";
 
-import { useEffect, useRef, useState, Suspense, type FormEvent, type RefObject } from "react";
+import { useCallback, useEffect, useRef, useState, Suspense, type FormEvent, type RefObject } from "react";
 import {
   GoogleAuthProvider,
+  createUserWithEmailAndPassword,
   getRedirectResult,
   onAuthStateChanged,
   signInWithEmailAndPassword,
   signInWithPopup,
   signInWithRedirect,
   signOut,
+  updateProfile,
   type User,
 } from "firebase/auth";
 import { collection, onSnapshot } from "firebase/firestore";
@@ -21,9 +23,12 @@ import {
   Headphones,
   History,
   LogOut,
+  Menu,
   Shirt,
   Ticket,
   Truck,
+  Users,
+  X,
 } from "lucide-react";
 
 import { AdminAlertsPanel } from "@/components/admin-alerts-panel";
@@ -33,7 +38,9 @@ import { AdminOrdersPanel } from "@/components/admin-orders-panel";
 import { AdminPricingPanel } from "@/components/admin-pricing-panel";
 import { AdminPromosPanel } from "@/components/admin-promos-panel";
 import { AdminSchedulePanel } from "@/components/admin-schedule-panel";
+import { AdminStaffPanel } from "@/components/admin-staff-panel";
 import { BrandSplash } from "@/components/brand-splash";
+import { GoogleGIcon } from "@/components/google-g-icon";
 import { OpsBootProvider } from "@/components/ops-boot";
 import { Button } from "@/components/ui/button";
 import { getFirebaseAuth, getFirebaseDb } from "@/lib/firebase";
@@ -47,13 +54,19 @@ import {
   normalizeOrderStatus,
   type FoamOrder,
 } from "@/lib/orders";
-import { isAdminEmail } from "@/lib/site-config";
 import { OPS_DEMO_VOLUME } from "@/lib/ops-demo-volume";
 import { useQueryReplace } from "@/lib/use-query-replace";
 import { cn } from "@/lib/utils";
 import {
   isInPickupReminderWindow,
 } from "@/lib/admin-alerts";
+import {
+  canAccessOps,
+  ensureStaffProfile,
+  subscribePendingStaff,
+  subscribeStaffProfile,
+  type StaffProfile,
+} from "@/lib/staff-access";
 import { reconcileWeeklyQueues } from "@/lib/weekly-automation";
 
 type AdminTab =
@@ -62,11 +75,13 @@ type AdminTab =
   | "history"
   | "support"
   | "alerts"
+  | "staff"
   | "catalog"
   | "promos"
   | "pricing"
   | "schedule";
 type MobileView = "list" | "detail";
+type AuthMode = "signin" | "signup";
 
 const TAB_FROM_PARAM: Record<string, AdminTab> = {
   orders: "orders",
@@ -75,6 +90,7 @@ const TAB_FROM_PARAM: Record<string, AdminTab> = {
   support: "support",
   contacts: "support",
   alerts: "alerts",
+  staff: "staff",
   catalog: "catalog",
   promos: "promos",
   pricing: "pricing",
@@ -158,20 +174,49 @@ function AdminAppInner() {
   const { searchParams, replaceQuery } = useQueryReplace();
   const [user, setUser] = useState<User | null>(null);
   const [authReady, setAuthReady] = useState(false);
+  const [staffProfile, setStaffProfile] = useState<StaffProfile | null>(null);
+  const [staffReady, setStaffReady] = useState(false);
   const [loginError, setLoginError] = useState("");
   const [loggingIn, setLoggingIn] = useState(false);
+  const [authMode, setAuthMode] = useState<AuthMode>("signin");
   const tab = parseAdminTab(searchParams.get("tab"));
   const mobileView: MobileView =
     searchParams.get("view") === "detail" ? "detail" : "list";
   const [openInquiriesCount, setOpenInquiriesCount] = useState(0);
   const [alertsTodoCount, setAlertsTodoCount] = useState(0);
+  const [pendingStaffCount, setPendingStaffCount] = useState(0);
   const [ordersCount, setOrdersCount] = useState(0);
   const [futureCount, setFutureCount] = useState(0);
   const [historyCount, setHistoryCount] = useState(0);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const accountMenuRef = useRef<HTMLDivElement>(null);
+  const [showLoginBrand, setShowLoginBrand] = useState(false);
 
-  const allowed = isAdminEmail(user?.email);
+  const allowed = canAccessOps(staffProfile, user?.email);
+  const pendingAccess =
+    Boolean(user) &&
+    staffReady &&
+    !allowed &&
+    staffProfile?.status === "pending";
+  const deniedAccess =
+    Boolean(user) &&
+    staffReady &&
+    !allowed &&
+    (staffProfile?.status === "denied" || staffProfile?.status === "revoked");
+  const driverOnlyAccess =
+    Boolean(user) &&
+    staffReady &&
+    !allowed &&
+    staffProfile?.status === "approved" &&
+    staffProfile.role === "driver";
+
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 821px)");
+    const sync = () => setShowLoginBrand(mq.matches);
+    sync();
+    mq.addEventListener("change", sync);
+    return () => mq.removeEventListener("change", sync);
+  }, []);
 
   useEffect(() => {
     if (!accountMenuOpen) return;
@@ -198,23 +243,47 @@ function AdminAppInner() {
 
   useEffect(() => {
     const auth = getFirebaseAuth();
-    void getRedirectResult(auth)
-      .then(async (result) => {
-        if (!result) return;
-        if (!isAdminEmail(result.user.email)) {
-          await signOut(auth);
-          setLoginError("This Google account is not allowed to access admin.");
-        }
-      })
-      .catch(() => {
-        /* ignore stray redirect errors */
-      });
+    void getRedirectResult(auth).catch(() => {
+      /* ignore stray redirect errors */
+    });
 
     return onAuthStateChanged(auth, (next) => {
       setUser(next);
       setAuthReady(true);
     });
   }, []);
+
+  useEffect(() => {
+    if (!user) {
+      setStaffProfile(null);
+      setStaffReady(false);
+      return;
+    }
+
+    let alive = true;
+    setStaffReady(false);
+    void ensureStaffProfile(user, "ops")
+      .then((created) => {
+        if (!alive) return;
+        setStaffProfile(created);
+        setStaffReady(true);
+      })
+      .catch(() => {
+        if (!alive) return;
+        setStaffProfile(null);
+        setStaffReady(true);
+      });
+
+    const unsub = subscribeStaffProfile(user.uid, (next) => {
+      if (!alive) return;
+      if (next) setStaffProfile(next);
+    });
+
+    return () => {
+      alive = false;
+      unsub();
+    };
+  }, [user]);
 
   useEffect(() => {
     if (!allowed) return;
@@ -258,9 +327,13 @@ function AdminAppInner() {
       setHistoryCount(history + OPS_DEMO_VOLUME);
       setAlertsTodoCount(alertsTodo + OPS_DEMO_VOLUME);
     });
+    const unsubStaff = subscribePendingStaff((rows) => {
+      setPendingStaffCount(rows.length);
+    });
     return () => {
       unsubContacts();
       unsubOrders();
+      unsubStaff();
     };
   }, [allowed]);
 
@@ -282,26 +355,51 @@ function AdminAppInner() {
     });
   }, [allowed]);
 
-  async function handleLogin(event: FormEvent<HTMLFormElement>) {
+  async function handleEmailAuth(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setLoggingIn(true);
     setLoginError("");
     const data = new FormData(event.currentTarget);
-    const email = String(data.get("email") ?? "");
+    const email = String(data.get("email") ?? "").trim();
     const password = String(data.get("password") ?? "");
+    const name = String(data.get("name") ?? "").trim();
 
     try {
-      const result = await signInWithEmailAndPassword(
-        getFirebaseAuth(),
-        email,
-        password
-      );
-      if (!isAdminEmail(result.user.email)) {
-        await signOut(getFirebaseAuth());
-        setLoginError("This account is not allowed to access admin.");
+      const auth = getFirebaseAuth();
+      if (authMode === "signup") {
+        const result = await createUserWithEmailAndPassword(
+          auth,
+          email,
+          password
+        );
+        if (name) {
+          await updateProfile(result.user, { displayName: name });
+        }
+        await ensureStaffProfile(result.user, "ops");
+      } else {
+        await signInWithEmailAndPassword(auth, email, password);
       }
-    } catch {
-      setLoginError("Login failed. Check email and password.");
+    } catch (err) {
+      const code =
+        err && typeof err === "object" && "code" in err
+          ? String((err as { code: string }).code)
+          : "";
+      if (code === "auth/email-already-in-use") {
+        setLoginError("Account already exists. Sign in instead.");
+      } else if (code === "auth/weak-password") {
+        setLoginError("Password must be at least 6 characters.");
+      } else if (
+        code === "auth/invalid-credential" ||
+        code === "auth/wrong-password"
+      ) {
+        setLoginError("Wrong email or password.");
+      } else {
+        setLoginError(
+          authMode === "signup"
+            ? "Could not create account. Try again."
+            : "Login failed. Check email and password."
+        );
+      }
     } finally {
       setLoggingIn(false);
     }
@@ -314,10 +412,7 @@ function AdminAppInner() {
     const provider = new GoogleAuthProvider();
     try {
       const result = await signInWithPopup(auth, provider);
-      if (!isAdminEmail(result.user.email)) {
-        await signOut(auth);
-        setLoginError("This Google account is not allowed to access admin.");
-      }
+      await ensureStaffProfile(result.user, "ops");
     } catch {
       try {
         await signInWithRedirect(auth, provider);
@@ -343,11 +438,18 @@ function AdminAppInner() {
     });
   }
 
-  function setMobileView(view: MobileView) {
-    replaceQuery({ view: view === "detail" ? "detail" : null });
-  }
+  const setMobileView = useCallback(
+    (view: MobileView) => {
+      if (view === "detail") {
+        replaceQuery({ view: "detail" });
+        return;
+      }
+      replaceQuery({ view: null, id: null });
+    },
+    [replaceQuery]
+  );
 
-  const consoleReady = Boolean(user && allowed);
+  const consoleReady = Boolean(user && allowed && staffReady);
 
   return (
     <OpsBootProvider authReady={authReady} consoleReady={consoleReady}>
@@ -358,10 +460,13 @@ function AdminAppInner() {
             <FoamMark />
             <div className="ops-login-intro">
               <p className="ops-eyebrow">Staff operations</p>
-              <h1 className="ops-login-title">Good to see you.</h1>
+              <h1 className="ops-login-title">
+                {authMode === "signup" ? "Join the team." : "Good to see you."}
+              </h1>
               <p className="ops-muted">
-                Sign in to manage pickups, plant workflow, deliveries, and
-                customer support.
+                {authMode === "signup"
+                  ? "Create an account. An admin must approve you before you can use OPS."
+                  : "Sign in to manage pickups, plant workflow, deliveries, and contact messages."}
               </p>
             </div>
 
@@ -373,9 +478,7 @@ function AdminAppInner() {
               disabled={loggingIn}
               onClick={() => void handleGoogleLogin()}
             >
-              <span className="ops-google-badge" aria-hidden>
-                G
-              </span>
+              <GoogleGIcon size={20} className="ops-google-icon" />
               Continue with Google
             </Button>
 
@@ -383,7 +486,18 @@ function AdminAppInner() {
               <span>or use email</span>
             </div>
 
-            <form className="ops-login-fields" onSubmit={handleLogin}>
+            <form className="ops-login-fields" onSubmit={handleEmailAuth}>
+              {authMode === "signup" ? (
+                <label>
+                  Full name
+                  <input
+                    name="name"
+                    type="text"
+                    autoComplete="name"
+                    placeholder="Your name"
+                  />
+                </label>
+              ) : null}
               <label>
                 Email address
                 <input
@@ -400,53 +514,175 @@ function AdminAppInner() {
                   name="password"
                   type="password"
                   required
-                  autoComplete="current-password"
-                  placeholder="Enter your password"
+                  autoComplete={
+                    authMode === "signup" ? "new-password" : "current-password"
+                  }
+                  placeholder={
+                    authMode === "signup"
+                      ? "Create a password"
+                      : "Enter your password"
+                  }
+                  minLength={6}
                 />
               </label>
               {loginError ? <p className="ops-error">{loginError}</p> : null}
               <Button type="submit" size="lg" disabled={loggingIn}>
-                {loggingIn ? "Signing in…" : "Sign in"}
+                {loggingIn
+                  ? authMode === "signup"
+                    ? "Creating…"
+                    : "Signing in…"
+                  : authMode === "signup"
+                    ? "Create account"
+                    : "Sign in"}
               </Button>
             </form>
 
             <p className="ops-login-foot">
-              Private console for authorized FOAM staff.
+              {authMode === "signup" ? (
+                <>
+                  Already have an account?{" "}
+                  <button
+                    type="button"
+                    className="ops-login-switch"
+                    onClick={() => {
+                      setAuthMode("signin");
+                      setLoginError("");
+                    }}
+                  >
+                    Sign in
+                  </button>
+                </>
+              ) : (
+                <>
+                  New staff?{" "}
+                  <button
+                    type="button"
+                    className="ops-login-switch"
+                    onClick={() => {
+                      setAuthMode("signup");
+                      setLoginError("");
+                    }}
+                  >
+                    Create account
+                  </button>
+                </>
+              )}
             </p>
           </div>
         </section>
 
-        <section className="ops-login-brand">
-          <div className="ops-login-brand-pattern" aria-hidden />
-          <div className="ops-login-brand-top">
-            <FoamMark rail />
-            <small>OPS · LAS VEGAS</small>
-          </div>
-          <div className="ops-login-brand-art" aria-hidden>
-            <span className="ops-login-brand-glow" />
-            <span className="ops-login-bubble ops-login-bubble-a" />
-            <span className="ops-login-bubble ops-login-bubble-b" />
-            <span className="ops-login-bubble ops-login-bubble-c" />
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              className="ops-login-koala"
-              src="/foam-koala.png"
-              alt=""
-              width={720}
-              height={720}
-            />
-          </div>
-          <div className="ops-login-brand-copy">
-            <p className="ops-login-brand-title">
-              Every pickup.
-              <br />
-              Every detail.
-              <br />
-              Right on time.
+        {showLoginBrand ? (
+          <section className="ops-login-brand">
+            <div className="ops-login-brand-pattern" aria-hidden />
+            <div className="ops-login-brand-top">
+              <FoamMark rail />
+              <small>OPS · LAS VEGAS</small>
+            </div>
+            <div className="ops-login-brand-art" aria-hidden>
+              <span className="ops-login-brand-glow" />
+              <span className="ops-login-bubble ops-login-bubble-a" />
+              <span className="ops-login-bubble ops-login-bubble-b" />
+              <span className="ops-login-bubble ops-login-bubble-c" />
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                className="ops-login-koala"
+                src="/foam-koala.png"
+                alt=""
+                width={720}
+                height={720}
+              />
+            </div>
+            <div className="ops-login-brand-copy">
+              <p className="ops-login-brand-title">
+                Every pickup.
+                <br />
+                Every detail.
+                <br />
+                Right on time.
+              </p>
+              <p className="ops-login-brand-sub">
+                The calm, focused workspace behind FOAM’s Las Vegas service.
+              </p>
+            </div>
+          </section>
+        ) : null}
+      </main>
+      ) : !staffReady ? null : pendingAccess ? (
+      <main className="ops-login">
+        <section className="ops-login-form-pane">
+          <div className="ops-login-card">
+            <FoamMark />
+            <div className="ops-driver-status-icon" aria-hidden>
+              <Clock3 size={28} />
+            </div>
+            <h1 className="ops-login-title">Waiting for approval</h1>
+            <p className="ops-muted">
+              Signed in as <strong>{user.email}</strong>. An admin must approve
+              you on the Staff page before you can use OPS.
             </p>
-            <p className="ops-login-brand-sub">
-              The calm, focused workspace behind FOAM’s Las Vegas service.
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                if (!window.confirm("Are you sure you want to sign out?")) return;
+                void signOut(getFirebaseAuth());
+              }}
+            >
+              Sign out
+            </Button>
+          </div>
+        </section>
+      </main>
+      ) : deniedAccess ? (
+      <main className="ops-login">
+        <section className="ops-login-form-pane">
+          <div className="ops-login-card">
+            <FoamMark />
+            <h1 className="ops-login-title">Access not approved</h1>
+            <p className="ops-muted">
+              This account was not approved for OPS. Contact a FOAM admin if you
+              think this is a mistake.
             </p>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                void signOut(getFirebaseAuth());
+              }}
+            >
+              Sign out
+            </Button>
+          </div>
+        </section>
+      </main>
+      ) : driverOnlyAccess ? (
+      <main className="ops-login">
+        <section className="ops-login-form-pane">
+          <div className="ops-login-card">
+            <FoamMark />
+            <h1 className="ops-login-title">Driver access only</h1>
+            <p className="ops-muted">
+              This account is approved as a driver. Use the driver portal
+              instead of OPS.
+            </p>
+            <Button
+              type="button"
+              size="lg"
+              onClick={() => {
+                window.location.href = "/driver";
+              }}
+            >
+              Open driver portal
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                void signOut(getFirebaseAuth());
+              }}
+            >
+              Sign out
+            </Button>
           </div>
         </section>
       </main>
@@ -457,7 +693,7 @@ function AdminAppInner() {
             <FoamMark />
             <h1 className="ops-login-title">Access denied</h1>
             <p className="ops-muted">
-              Signed in as {user.email}, but this account is not an admin.
+              Signed in as {user.email}, but this account cannot use OPS yet.
             </p>
             <Button
               type="button"
@@ -481,6 +717,7 @@ function AdminAppInner() {
         setDestination={setDestination}
         openInquiriesCount={openInquiriesCount}
         alertsTodoCount={alertsTodoCount}
+        pendingStaffCount={pendingStaffCount}
         setAlertsTodoCount={setAlertsTodoCount}
         ordersCount={ordersCount}
         futureCount={futureCount}
@@ -502,6 +739,7 @@ function OpsConsole({
   setDestination,
   openInquiriesCount,
   alertsTodoCount,
+  pendingStaffCount,
   setAlertsTodoCount,
   ordersCount,
   futureCount,
@@ -517,6 +755,7 @@ function OpsConsole({
   setDestination: (next: AdminTab) => void;
   openInquiriesCount: number;
   alertsTodoCount: number;
+  pendingStaffCount: number;
   setAlertsTodoCount: (count: number) => void;
   ordersCount: number;
   futureCount: number;
@@ -527,10 +766,54 @@ function OpsConsole({
 }) {
   const avatar = initialsFromEmail(user.email);
   const [signOutConfirm, setSignOutConfirm] = useState(false);
+  const [moreMenuOpen, setMoreMenuOpen] = useState(false);
+  const moreMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!accountMenuOpen) setSignOutConfirm(false);
-  }, [accountMenuOpen]);
+    if (!accountMenuOpen && !moreMenuOpen) setSignOutConfirm(false);
+  }, [accountMenuOpen, moreMenuOpen]);
+
+  useEffect(() => {
+    if (!moreMenuOpen) return;
+
+    let remove: (() => void) | undefined;
+    const attachId = window.setTimeout(() => {
+      function onPointerDown(event: PointerEvent) {
+        const root = moreMenuRef.current;
+        if (!root) return;
+        const target = event.target;
+        if (target instanceof Node && root.contains(target)) return;
+        setMoreMenuOpen(false);
+      }
+      function onKey(event: KeyboardEvent) {
+        if (event.key === "Escape") setMoreMenuOpen(false);
+      }
+      document.addEventListener("pointerdown", onPointerDown, true);
+      document.addEventListener("keydown", onKey);
+      remove = () => {
+        document.removeEventListener("pointerdown", onPointerDown, true);
+        document.removeEventListener("keydown", onKey);
+      };
+    }, 0);
+
+    return () => {
+      window.clearTimeout(attachId);
+      remove?.();
+    };
+  }, [moreMenuOpen]);
+
+  function goMore(next: AdminTab) {
+    setMoreMenuOpen(false);
+    setDestination(next);
+  }
+
+  const moreActive =
+    tab === "history" ||
+    tab === "staff" ||
+    tab === "catalog" ||
+    tab === "promos" ||
+    tab === "pricing" ||
+    tab === "schedule";
 
   return (
     <div className="ops-shell">
@@ -562,7 +845,11 @@ function OpsConsole({
             </button>
             <button
               type="button"
-              className={cn("nav-button", tab === "history" && "active")}
+              className={cn(
+                "nav-button",
+                "is-rail-more",
+                tab === "history" && "active"
+              )}
               onClick={() => setDestination("history")}
             >
               <History size={18} aria-hidden />
@@ -575,7 +862,7 @@ function OpsConsole({
               onClick={() => setDestination("support")}
             >
               <Headphones size={18} aria-hidden />
-              <span>Support</span>
+              <span>Contact</span>
               <b>{openInquiriesCount}</b>
             </button>
             <button
@@ -584,12 +871,29 @@ function OpsConsole({
               onClick={() => setDestination("alerts")}
             >
               <Bell size={18} aria-hidden />
-              <span>Alerts</span>
+              <span>Notifications</span>
               <b>{alertsTodoCount}</b>
             </button>
             <button
               type="button"
-              className={cn("nav-button", tab === "catalog" && "active")}
+              className={cn(
+                "nav-button",
+                "is-rail-more",
+                tab === "staff" && "active"
+              )}
+              onClick={() => setDestination("staff")}
+            >
+              <Users size={18} aria-hidden />
+              <span>Staff</span>
+              <b>{pendingStaffCount}</b>
+            </button>
+            <button
+              type="button"
+              className={cn(
+                "nav-button",
+                "is-rail-more",
+                tab === "catalog" && "active"
+              )}
               onClick={() => setDestination("catalog")}
             >
               <Shirt size={18} aria-hidden />
@@ -597,7 +901,11 @@ function OpsConsole({
             </button>
             <button
               type="button"
-              className={cn("nav-button", tab === "promos" && "active")}
+              className={cn(
+                "nav-button",
+                "is-rail-more",
+                tab === "promos" && "active"
+              )}
               onClick={() => setDestination("promos")}
             >
               <Ticket size={18} aria-hidden />
@@ -605,7 +913,11 @@ function OpsConsole({
             </button>
             <button
               type="button"
-              className={cn("nav-button", tab === "pricing" && "active")}
+              className={cn(
+                "nav-button",
+                "is-rail-more",
+                tab === "pricing" && "active"
+              )}
               onClick={() => setDestination("pricing")}
             >
               <CircleDollarSign size={18} aria-hidden />
@@ -613,13 +925,162 @@ function OpsConsole({
             </button>
             <button
               type="button"
-              className={cn("nav-button", tab === "schedule" && "active")}
+              className={cn(
+                "nav-button",
+                "is-rail-more",
+                tab === "schedule" && "active"
+              )}
               onClick={() => setDestination("schedule")}
             >
               <Clock3 size={18} aria-hidden />
               <span>Schedule</span>
             </button>
           </nav>
+
+          <div className="ops-more-wrap" ref={moreMenuRef}>
+            <button
+              type="button"
+              className={cn("ops-more-trigger", moreActive && "is-active")}
+              aria-label={moreMenuOpen ? "Close menu" : "Open menu"}
+              aria-expanded={moreMenuOpen}
+              onPointerDown={(event) => {
+                event.stopPropagation();
+              }}
+              onClick={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                setAccountMenuOpen(false);
+                setMoreMenuOpen((open) => !open);
+              }}
+            >
+              {moreMenuOpen ? (
+                <X size={22} strokeWidth={2.25} aria-hidden />
+              ) : (
+                <Menu size={22} strokeWidth={2.25} aria-hidden />
+              )}
+            </button>
+
+            {moreMenuOpen ? (
+              <div className="ops-more-panel" role="menu">
+                <button
+                  type="button"
+                  role="menuitem"
+                  className={cn(
+                    "ops-more-item",
+                    tab === "history" && "is-active"
+                  )}
+                  onClick={() => goMore("history")}
+                >
+                  <History size={18} aria-hidden />
+                  <span>History</span>
+                  <b>{historyCount}</b>
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  className={cn(
+                    "ops-more-item",
+                    tab === "staff" && "is-active"
+                  )}
+                  onClick={() => goMore("staff")}
+                >
+                  <Users size={18} aria-hidden />
+                  <span>Staff</span>
+                  <b>{pendingStaffCount}</b>
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  className={cn(
+                    "ops-more-item",
+                    tab === "catalog" && "is-active"
+                  )}
+                  onClick={() => goMore("catalog")}
+                >
+                  <Shirt size={18} aria-hidden />
+                  <span>Catalog</span>
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  className={cn(
+                    "ops-more-item",
+                    tab === "promos" && "is-active"
+                  )}
+                  onClick={() => goMore("promos")}
+                >
+                  <Ticket size={18} aria-hidden />
+                  <span>Promos</span>
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  className={cn(
+                    "ops-more-item",
+                    tab === "pricing" && "is-active"
+                  )}
+                  onClick={() => goMore("pricing")}
+                >
+                  <CircleDollarSign size={18} aria-hidden />
+                  <span>Pricing</span>
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  className={cn(
+                    "ops-more-item",
+                    tab === "schedule" && "is-active"
+                  )}
+                  onClick={() => goMore("schedule")}
+                >
+                  <Clock3 size={18} aria-hidden />
+                  <span>Schedule</span>
+                </button>
+
+                <div className="ops-more-sep" role="separator" />
+
+                <div className="ops-more-account">
+                  <strong>Operations</strong>
+                  <span>{user.email}</span>
+                </div>
+                {signOutConfirm ? (
+                  <div className="ops-more-signout-confirm">
+                    <strong>Are you sure?</strong>
+                    <div className="ops-more-signout-actions">
+                      <button
+                        type="button"
+                        className="ops-more-signout-btn is-cancel"
+                        onClick={() => setSignOutConfirm(false)}
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        className="ops-more-signout-btn is-confirm"
+                        onClick={() => {
+                          setMoreMenuOpen(false);
+                          void signOut(getFirebaseAuth());
+                        }}
+                      >
+                        <LogOut size={14} aria-hidden />
+                        Sign out
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className="ops-more-item is-danger"
+                    onClick={() => setSignOutConfirm(true)}
+                  >
+                    <LogOut size={18} aria-hidden />
+                    <span>Sign out</span>
+                  </button>
+                )}
+              </div>
+            ) : null}
+          </div>
 
           <div className="rail-status">
             <span className="status-light" />
@@ -681,7 +1142,10 @@ function OpsConsole({
               aria-label="Account menu"
               aria-expanded={accountMenuOpen}
               aria-haspopup="menu"
-              onClick={() => setAccountMenuOpen((open) => !open)}
+              onClick={() => {
+                setMoreMenuOpen(false);
+                setAccountMenuOpen((open) => !open);
+              }}
             >
               <span className="avatar">{avatar}</span>
               <span className="account-copy">
@@ -720,6 +1184,8 @@ function OpsConsole({
                 onMobileViewChange={setMobileView}
                 onTodoCountChange={setAlertsTodoCount}
               />
+            ) : tab === "staff" ? (
+              <AdminStaffPanel adminEmail={user.email ?? ""} />
             ) : tab === "catalog" ? (
               <AdminCatalogPanel
                 adminEmail={user.email ?? ""}
@@ -746,6 +1212,7 @@ function OpsConsole({
               />
             ) : (
               <AdminContactsPanel
+                adminEmail={user.email ?? ""}
                 mobileView={mobileView}
                 onMobileViewChange={setMobileView}
               />

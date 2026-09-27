@@ -1,9 +1,8 @@
 import type { OrderPhotoKind } from "@/lib/orders";
 
 /**
- * Storage is not provisioned on this Firebase project yet (needs Blaze).
- * Photos are stored compressed on the order document in Firestore.
- * Set NEXT_PUBLIC_FIREBASE_STORAGE_ENABLED=true after Storage is live.
+ * When Storage is live, set NEXT_PUBLIC_FIREBASE_STORAGE_ENABLED=true.
+ * Otherwise photos are compressed onto the order document in Firestore.
  */
 const STORAGE_ENABLED =
   process.env.NEXT_PUBLIC_FIREBASE_STORAGE_ENABLED === "true";
