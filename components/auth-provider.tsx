@@ -25,7 +25,7 @@ import {
 } from "firebase/auth";
 import { doc, getDoc, serverTimestamp, setDoc } from "firebase/firestore";
 
-import { getFirebaseAuth, getFirebaseDb } from "@/lib/firebase";
+import { getFirebaseAuth, getFirebaseDb, readyFirebaseAuth } from "@/lib/firebase";
 
 type AuthContextValue = {
   user: User | null;
@@ -191,7 +191,7 @@ function popupErrorCode(error: unknown) {
  * not guessed from viewport width.
  */
 async function signInWithProvider(provider: AuthProvider) {
-  const auth = getFirebaseAuth();
+  const auth = await readyFirebaseAuth();
 
   try {
     const result = await signInWithPopup(auth, provider);
@@ -246,7 +246,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     async function boot() {
       try {
-        const auth = getFirebaseAuth();
+        const auth = await readyFirebaseAuth();
         const pending = safeSessionStorage.get(OAUTH_PENDING_KEY);
 
         try {
@@ -313,18 +313,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signInEmail = useCallback(async (email: string, password: string) => {
-    const result = await signInWithEmailAndPassword(
-      getFirebaseAuth(),
-      email,
-      password
-    );
+    const auth = await readyFirebaseAuth();
+    const result = await signInWithEmailAndPassword(auth, email, password);
     void ensureUserProfile(result.user).catch(() => {});
   }, []);
 
   const signUpEmail = useCallback(
     async (name: string, email: string, password: string) => {
+      const auth = await readyFirebaseAuth();
       const result = await createUserWithEmailAndPassword(
-        getFirebaseAuth(),
+        auth,
         email,
         password
       );

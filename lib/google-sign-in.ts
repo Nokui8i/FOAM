@@ -6,7 +6,7 @@ import {
   type UserCredential,
 } from "firebase/auth";
 
-import { getFirebaseAuth } from "@/lib/firebase";
+import { getFirebaseAuth, readyFirebaseAuth } from "@/lib/firebase";
 
 function popupErrorCode(error: unknown): string {
   if (error && typeof error === "object" && "code" in error) {
@@ -22,7 +22,7 @@ function popupErrorCode(error: unknown): string {
  * when the app runs on *.web.app.
  */
 export async function signInWithGoogle(): Promise<User> {
-  const auth = getFirebaseAuth();
+  const auth = await readyFirebaseAuth();
   const provider = new GoogleAuthProvider();
   provider.setCustomParameters({ prompt: "select_account" });
 

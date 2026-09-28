@@ -30,7 +30,7 @@ import {
   subscribeStaffProfile,
   type StaffProfile,
 } from "@/lib/staff-access";
-import { getFirebaseAuth } from "@/lib/firebase";
+import { getFirebaseAuth, readyFirebaseAuth } from "@/lib/firebase";
 import {
   googleSignInErrorMessage,
   signInWithGoogle,
@@ -102,15 +102,25 @@ function DriverAppInner() {
   }, []);
 
   useEffect(() => {
-    const auth = getFirebaseAuth();
-    void getRedirectResult(auth).catch(() => {
-      /* ignore */
+    let alive = true;
+    let unsub = () => {};
+
+    void readyFirebaseAuth().then((auth) => {
+      if (!alive) return;
+      void getRedirectResult(auth).catch(() => {
+        /* ignore */
+      });
+      unsub = onAuthStateChanged(auth, (next) => {
+        if (!alive) return;
+        setUser(next);
+        setAuthReady(true);
+      });
     });
 
-    return onAuthStateChanged(auth, (next) => {
-      setUser(next);
-      setAuthReady(true);
-    });
+    return () => {
+      alive = false;
+      unsub();
+    };
   }, []);
 
   useEffect(() => {
@@ -208,7 +218,7 @@ function DriverAppInner() {
     const name = String(data.get("name") ?? "").trim();
 
     try {
-      const auth = getFirebaseAuth();
+      const auth = await readyFirebaseAuth();
       if (authMode === "signup") {
         const result = await createUserWithEmailAndPassword(
           auth,

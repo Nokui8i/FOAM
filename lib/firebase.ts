@@ -1,5 +1,11 @@
 import { initializeApp, getApps, getApp } from "firebase/app";
-import { getAuth } from "firebase/auth";
+import {
+  browserSessionPersistence,
+  getAuth,
+  initializeAuth,
+  setPersistence,
+  type Auth,
+} from "firebase/auth";
 import {
   initializeFirestore,
   getFirestore,
@@ -39,6 +45,7 @@ const firebaseConfig = {
 };
 
 let dbInstance: Firestore | null = null;
+let authInstance: Auth | null = null;
 
 function assertConfig() {
   if (!firebaseConfig.apiKey || !firebaseConfig.projectId) {
@@ -51,8 +58,30 @@ export function getFirebaseApp() {
   return getApps().length ? getApp() : initializeApp(firebaseConfig);
 }
 
+/**
+ * Session persistence (sessionStorage) — one login per browser tab/window.
+ * OPS, Driver, and other tabs do not share Auth; each can use a different user.
+ */
 export function getFirebaseAuth() {
-  return getAuth(getFirebaseApp());
+  if (authInstance) return authInstance;
+  const app = getFirebaseApp();
+  try {
+    authInstance = initializeAuth(app, {
+      persistence: browserSessionPersistence,
+    });
+  } catch {
+    // Already initialized in this runtime (HMR / duplicate import).
+    authInstance = getAuth(app);
+    void setPersistence(authInstance, browserSessionPersistence).catch(
+      () => undefined
+    );
+  }
+  return authInstance;
+}
+
+/** Resolves once Auth is ready (session persistence already applied at init). */
+export function readyFirebaseAuth(): Promise<Auth> {
+  return Promise.resolve(getFirebaseAuth());
 }
 
 export function getFirebaseDb() {

@@ -40,7 +40,7 @@ import { BrandSplash } from "@/components/brand-splash";
 import { GoogleGIcon } from "@/components/google-g-icon";
 import { OpsBootProvider } from "@/components/ops-boot";
 import { Button } from "@/components/ui/button";
-import { getFirebaseAuth, getFirebaseDb } from "@/lib/firebase";
+import { getFirebaseAuth, getFirebaseDb, readyFirebaseAuth } from "@/lib/firebase";
 import {
   googleSignInErrorMessage,
   signInWithGoogle,
@@ -261,15 +261,25 @@ function AdminAppInner() {
   }, [accountMenuOpen]);
 
   useEffect(() => {
-    const auth = getFirebaseAuth();
-    void getRedirectResult(auth).catch(() => {
-      /* ignore stray redirect errors */
+    let alive = true;
+    let unsub = () => {};
+
+    void readyFirebaseAuth().then((auth) => {
+      if (!alive) return;
+      void getRedirectResult(auth).catch(() => {
+        /* ignore stray redirect errors */
+      });
+      unsub = onAuthStateChanged(auth, (next) => {
+        if (!alive) return;
+        setUser(next);
+        setAuthReady(true);
+      });
     });
 
-    return onAuthStateChanged(auth, (next) => {
-      setUser(next);
-      setAuthReady(true);
-    });
+    return () => {
+      alive = false;
+      unsub();
+    };
   }, []);
 
   useEffect(() => {
@@ -410,7 +420,7 @@ function AdminAppInner() {
     const name = String(data.get("name") ?? "").trim();
 
     try {
-      const auth = getFirebaseAuth();
+      const auth = await readyFirebaseAuth();
       if (authMode === "signup") {
         const result = await createUserWithEmailAndPassword(
           auth,
