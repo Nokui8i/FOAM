@@ -235,104 +235,142 @@ export function AdminStaffPanel({
     if (isProtectedOwner(row)) return;
     setError("");
     setOkMsg("");
-    setBusyId(row.uid);
+    const role = status === "approved" ? draftRole(row) : undefined;
+    if (status === "approved" && role && !allowedRoles.includes(role)) {
+      setError("Role not allowed");
+      setConfirmAction(null);
+      return;
+    }
+
+    // Close the modal immediately — don't wait on Firebase round-trips.
+    setConfirmAction(null);
+    setBusyId("");
+
+    if (isOpsDemoId(row.uid)) {
+      if (status === "denied") {
+        patchDemoRow(row.uid, null);
+        setOkMsg(
+          `DEMO — ${row.displayName || row.email} denied. They can request again (local only).`
+        );
+      } else {
+        patchDemoRow(row.uid, {
+          status,
+          role: role ?? row.role,
+          reviewedBy: adminEmail || "demo",
+        });
+        setOkMsg(
+          status === "approved"
+            ? `DEMO — ${row.displayName || row.email} approved as ${staffRoleLabel(draftRole(row))} (local only).`
+            : `DEMO — ${row.displayName || row.email} revoked (local only).`
+        );
+      }
+      if (status === "approved") setTab("employees");
+      return;
+    }
+
+    // Optimistic list update so Pending/Employees move instantly.
+    if (status === "denied") {
+      setRows((prev) => prev.filter((r) => r.uid !== row.uid));
+    } else {
+      setRows((prev) =>
+        prev.map((r) =>
+          r.uid === row.uid
+            ? {
+                ...r,
+                status,
+                role: role ?? r.role,
+                reviewedBy: adminEmail || "admin",
+              }
+            : r
+        )
+      );
+    }
+    setOkMsg(
+      status === "approved"
+        ? `${row.displayName || row.email} approved as ${staffRoleLabel(draftRole(row))}.`
+        : status === "denied"
+          ? `${row.displayName || row.email} denied. They can sign in and request again.`
+          : `${row.displayName || row.email} access revoked.`
+    );
+    if (status === "approved") setTab("employees");
+
     try {
-      const role = status === "approved" ? draftRole(row) : undefined;
-      if (status === "approved" && role && !allowedRoles.includes(role)) {
-        throw new Error("Role not allowed");
-      }
-      if (isOpsDemoId(row.uid)) {
-        if (status === "denied") {
-          patchDemoRow(row.uid, null);
-          setOkMsg(
-            `DEMO — ${row.displayName || row.email} denied. They can request again (local only).`
-          );
-        } else {
-          patchDemoRow(row.uid, {
-            status,
-            role: role ?? row.role,
-            reviewedBy: adminEmail || "demo",
-          });
-          setOkMsg(
-            status === "approved"
-              ? `DEMO — ${row.displayName || row.email} approved as ${staffRoleLabel(draftRole(row))} (local only).`
-              : `DEMO — ${row.displayName || row.email} revoked (local only).`
-          );
-        }
-        if (status === "approved") setTab("employees");
-        return;
-      }
       await reviewStaffMember(
         row.uid,
         { status, role },
-        adminEmail || "admin"
+        adminEmail || "admin",
+        row.email
       );
-      setOkMsg(
-        status === "approved"
-          ? `${row.displayName || row.email} approved as ${staffRoleLabel(draftRole(row))}.`
-          : status === "denied"
-            ? `${row.displayName || row.email} denied. They can sign in and request again.`
-            : `${row.displayName || row.email} access revoked.`
-      );
-      if (status === "approved") setTab("employees");
     } catch {
-      setError("Could not update staff member.");
-    } finally {
-      setBusyId("");
-      setConfirmAction(null);
+      setError("Could not update staff member. Refresh if the list looks wrong.");
     }
   }
 
   async function ban(row: StaffProfile) {
     if (isProtectedOwner(row)) return;
-    setBusyId(row.uid);
     setError("");
     setOkMsg("");
-    try {
-      if (isOpsDemoId(row.uid)) {
-        patchDemoRow(row.uid, null);
-        setDemoBans((prev) => [
-          ...prev.filter((b) => b.email !== row.email),
-          {
-            email: row.email,
-            bannedBy: adminEmail || "demo",
-            reason: "DEMO ban",
-          },
-        ]);
-        setOkMsg(`DEMO — ${row.email} banned (local only).`);
-        setTab("banned");
-        return;
-      }
-      await banStaffMember(row, adminEmail || "admin");
-      setOkMsg(`${row.email} banned. They cannot request access until Unban.`);
+    setConfirmAction(null);
+    setBusyId("");
+
+    if (isOpsDemoId(row.uid)) {
+      patchDemoRow(row.uid, null);
+      setDemoBans((prev) => [
+        ...prev.filter((b) => b.email !== row.email),
+        {
+          email: row.email,
+          bannedBy: adminEmail || "demo",
+          reason: "DEMO ban",
+        },
+      ]);
+      setOkMsg(`DEMO — ${row.email} banned (local only).`);
       setTab("banned");
+      return;
+    }
+
+    setRows((prev) => prev.filter((r) => r.uid !== row.uid));
+    setBans((prev) => {
+      if (prev.some((b) => b.email === row.email)) return prev;
+      return [
+        ...prev,
+        {
+          email: row.email,
+          bannedBy: adminEmail || "admin",
+          reason: "Spam / blocked by ops",
+        },
+      ].sort((a, b) => a.email.localeCompare(b.email));
+    });
+    setOkMsg(`${row.email} banned. They cannot request access until Unban.`);
+    setTab("banned");
+
+    try {
+      await banStaffMember(row, adminEmail || "admin");
     } catch {
-      setError("Could not ban this email.");
-    } finally {
-      setBusyId("");
-      setConfirmAction(null);
+      setError("Could not ban this email. Refresh if the list looks wrong.");
     }
   }
 
   async function unban(email: string) {
-    setBusyId(email);
     setError("");
     setOkMsg("");
-    try {
-      if (email.startsWith("demo.") || demoBans.some((b) => b.email === email)) {
-        setDemoBans((prev) => prev.filter((b) => b.email !== email));
-        if (!bans.some((b) => b.email === email)) {
-          setOkMsg(`DEMO — ${email} unbanned (local only).`);
-          return;
-        }
+    setConfirmAction(null);
+    setBusyId("");
+
+    if (email.startsWith("demo.") || demoBans.some((b) => b.email === email)) {
+      setDemoBans((prev) => prev.filter((b) => b.email !== email));
+      if (!bans.some((b) => b.email === email)) {
+        setOkMsg(`DEMO — ${email} unbanned (local only).`);
+        return;
       }
+    }
+
+    setBans((prev) => prev.filter((b) => b.email !== email));
+    setOkMsg(`${email} unbanned. They can request access again.`);
+
+    try {
       await unbanStaffEmail(email);
-      setOkMsg(`${email} unbanned. They can request access again.`);
     } catch {
-      setError("Could not unban this email.");
-    } finally {
-      setBusyId("");
-      setConfirmAction(null);
+      setError("Could not unban this email. Refresh if the list looks wrong.");
     }
   }
 
@@ -340,50 +378,60 @@ export function AdminStaffPanel({
     if (isProtectedOwner(row) || !mayChangeRoles) return;
     const nextRole = draftRole(row);
     if (nextRole === row.role) return;
-    setBusyId(row.uid);
     setError("");
     setOkMsg("");
+
+    if (isOpsDemoId(row.uid)) {
+      patchDemoRow(row.uid, { role: nextRole, status: "approved" });
+      setOkMsg(
+        `DEMO — ${row.displayName || row.email} is now ${staffRoleLabel(nextRole)} (local only).`
+      );
+      return;
+    }
+
+    setRows((prev) =>
+      prev.map((r) =>
+        r.uid === row.uid
+          ? { ...r, role: nextRole, status: "approved" as const }
+          : r
+      )
+    );
+    setOkMsg(
+      `${row.displayName || row.email} is now ${staffRoleLabel(nextRole)}.`
+    );
+
     try {
-      if (isOpsDemoId(row.uid)) {
-        patchDemoRow(row.uid, { role: nextRole, status: "approved" });
-        setOkMsg(
-          `DEMO — ${row.displayName || row.email} is now ${staffRoleLabel(nextRole)} (local only).`
-        );
-        return;
-      }
       await reviewStaffMember(
         row.uid,
         { status: "approved", role: nextRole },
-        adminEmail || "admin"
-      );
-      setOkMsg(
-        `${row.displayName || row.email} is now ${staffRoleLabel(nextRole)}.`
+        adminEmail || "admin",
+        row.email
       );
     } catch {
-      setError("Could not change role.");
-    } finally {
-      setBusyId("");
+      setError("Could not change role. Refresh if the list looks wrong.");
     }
   }
 
   async function remove(row: StaffProfile) {
     if (!canRemoveStaffMember(adminEmail, row)) return;
-    setBusyId(row.uid);
     setError("");
     setOkMsg("");
+    setConfirmAction(null);
+    setBusyId("");
+
+    if (isOpsDemoId(row.uid)) {
+      patchDemoRow(row.uid, null);
+      setOkMsg(`DEMO — ${row.displayName || row.email} removed (local only).`);
+      return;
+    }
+
+    setRows((prev) => prev.filter((r) => r.uid !== row.uid));
+    setOkMsg(`${row.displayName || row.email} removed.`);
+
     try {
-      if (isOpsDemoId(row.uid)) {
-        patchDemoRow(row.uid, null);
-        setOkMsg(`DEMO — ${row.displayName || row.email} removed (local only).`);
-        return;
-      }
-      await removeStaffMember(row.uid, adminEmail);
-      setOkMsg(`${row.displayName || row.email} removed.`);
+      await removeStaffMember(row.uid, adminEmail, row);
     } catch {
-      setError("Could not remove staff member.");
-    } finally {
-      setBusyId("");
-      setConfirmAction(null);
+      setError("Could not remove staff member. Refresh if the list looks wrong.");
     }
   }
 
@@ -395,12 +443,10 @@ export function AdminStaffPanel({
     }
     if (confirmAction.kind === "approve") {
       await review(confirmAction.row, "approved");
-      setConfirmAction(null);
       return;
     }
     if (confirmAction.kind === "deny") {
       await review(confirmAction.row, "denied");
-      setConfirmAction(null);
       return;
     }
     if (confirmAction.kind === "ban") {

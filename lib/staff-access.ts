@@ -360,24 +360,30 @@ export async function reviewStaffMember(
     status: "approved" | "denied" | "revoked";
     role?: StaffRole;
   },
-  reviewedBy: string
+  reviewedBy: string,
+  knownEmail?: string
 ) {
   if (uid.startsWith("bootstrap:")) {
     throw new Error("Cannot change a company owner account.");
   }
   // Deny clears the request so they can apply again (no permanent denied lock).
   if (next.status === "denied") {
-    await denyStaffRequest(uid);
+    await denyStaffRequest(uid, knownEmail);
     return;
   }
-  const ref = doc(getFirebaseDb(), "staff", uid);
-  const snap = await getDoc(ref);
-  if (snap.exists()) {
-    const email = String(snap.data()?.email ?? "")
-      .trim()
-      .toLowerCase();
-    if (isAdminEmail(email)) {
-      throw new Error("Cannot change a company owner account.");
+  const email = (knownEmail ?? "").trim().toLowerCase();
+  if (email && isAdminEmail(email)) {
+    throw new Error("Cannot change a company owner account.");
+  }
+  if (!email) {
+    const snap = await getDoc(doc(getFirebaseDb(), "staff", uid));
+    if (snap.exists()) {
+      const docEmail = String(snap.data()?.email ?? "")
+        .trim()
+        .toLowerCase();
+      if (isAdminEmail(docEmail)) {
+        throw new Error("Cannot change a company owner account.");
+      }
     }
   }
   const payload: Record<string, unknown> = {
@@ -387,22 +393,28 @@ export async function reviewStaffMember(
     updatedAt: serverTimestamp(),
   };
   if (next.role) payload.role = next.role;
-  await updateDoc(ref, payload);
+  await updateDoc(doc(getFirebaseDb(), "staff", uid), payload);
 }
 
 /** Deny — deletes the staff request. Same Auth account can request again. */
-export async function denyStaffRequest(uid: string) {
+export async function denyStaffRequest(uid: string, knownEmail?: string) {
   if (uid.startsWith("bootstrap:")) {
     throw new Error("Cannot change a company owner account.");
   }
-  const ref = doc(getFirebaseDb(), "staff", uid);
-  const snap = await getDoc(ref);
-  if (!snap.exists()) return;
-  const email = String(snap.data()?.email ?? "")
-    .trim()
-    .toLowerCase();
-  if (isAdminEmail(email)) {
+  const email = (knownEmail ?? "").trim().toLowerCase();
+  if (email && isAdminEmail(email)) {
     throw new Error("Cannot change a company owner account.");
+  }
+  const ref = doc(getFirebaseDb(), "staff", uid);
+  if (!email) {
+    const snap = await getDoc(ref);
+    if (!snap.exists()) return;
+    const docEmail = String(snap.data()?.email ?? "")
+      .trim()
+      .toLowerCase();
+    if (isAdminEmail(docEmail)) {
+      throw new Error("Cannot change a company owner account.");
+    }
   }
   await deleteDoc(ref);
 }
@@ -420,29 +432,35 @@ export async function banStaffMember(
     throw new Error("Cannot ban a company owner account.");
   }
   await banStaffEmail(row.email, bannedBy, reason);
-  const ref = doc(getFirebaseDb(), "staff", row.uid);
-  const snap = await getDoc(ref);
-  if (snap.exists()) {
-    await deleteDoc(ref);
+  try {
+    await deleteDoc(doc(getFirebaseDb(), "staff", row.uid));
+  } catch {
+    // Already removed — ban row is what matters.
   }
 }
 
 /** Fire / remove — deletes staff doc so all portal access is gone. */
 export async function removeStaffMember(
   uid: string,
-  actorEmail?: string | null
+  actorEmail?: string | null,
+  knownRow?: StaffProfile
 ) {
   if (uid.startsWith("bootstrap:")) {
     throw new Error("Cannot remove a company owner account.");
   }
-  const ref = doc(getFirebaseDb(), "staff", uid);
-  const snap = await getDoc(ref);
-  if (!snap.exists()) return;
-  const target = mapStaffProfile(uid, snap.data() as Record<string, unknown>);
+  const target =
+    knownRow && knownRow.uid === uid
+      ? knownRow
+      : await (async () => {
+          const snap = await getDoc(doc(getFirebaseDb(), "staff", uid));
+          if (!snap.exists()) return null;
+          return mapStaffProfile(uid, snap.data() as Record<string, unknown>);
+        })();
+  if (!target) return;
   if (!canRemoveStaffMember(actorEmail, target)) {
     throw new Error("Not allowed to remove this staff member.");
   }
-  await deleteDoc(ref);
+  await deleteDoc(doc(getFirebaseDb(), "staff", uid));
 }
 
 /** Company owners — fixed allowlist; full Staff HR powers. */

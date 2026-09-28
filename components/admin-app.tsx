@@ -360,45 +360,57 @@ function AdminAppInner() {
   useEffect(() => {
     if (!allowed) return;
     const db = getFirebaseDb();
-    const unsubContacts = onSnapshot(collection(db, "contactMessages"), (snap) => {
-      const open = snap.docs.filter((d) => d.data().status !== "done").length;
-      setOpenInquiriesCount(open + OPS_DEMO_VOLUME);
-    });
-    const unsubOrders = onSnapshot(collection(db, "orders"), (snap) => {
-      let todayActive = 0;
-      let future = 0;
-      let history = 0;
-      let alertsTodo = 0;
-      for (const docSnap of snap.docs) {
-        const data = docSnap.data() as Record<string, unknown>;
-        const order = orderStubFromDoc(data);
-        const status = order.status;
-        if (isHistoryOrder(status)) {
-          history += 1;
-        }
-        if (status !== "cancelled" && status !== "delivered") {
-          const pickupDate = order.pickup.date;
-          const window = isInPickupReminderWindow(pickupDate);
-          const reminder = (data.opsReminder ?? {}) as { contacted?: boolean };
-          if (window.match && !reminder.contacted) alertsTodo += 1;
-        }
-        if (isFuturePickupOrder(order)) {
-          future += 1;
-          continue;
-        }
-        if (
-          isWaitingTodayOrder(order) ||
-          isWashingOrder(order.status) ||
-          isReadyForDelivery(order.status)
-        ) {
-          todayActive += 1;
-        }
+    const unsubContacts = onSnapshot(
+      collection(db, "contactMessages"),
+      (snap) => {
+        const open = snap.docs.filter((d) => d.data().status !== "done").length;
+        setOpenInquiriesCount(open + OPS_DEMO_VOLUME);
+      },
+      () => {
+        /* permission/network blip — keep last counts */
       }
-      setOrdersCount(todayActive + OPS_DEMO_VOLUME);
-      setFutureCount(future + OPS_DEMO_VOLUME);
-      setHistoryCount(history + OPS_DEMO_VOLUME);
-      setReminderTodoCount(alertsTodo + OPS_DEMO_VOLUME);
-    });
+    );
+    const unsubOrders = onSnapshot(
+      collection(db, "orders"),
+      (snap) => {
+        let todayActive = 0;
+        let future = 0;
+        let history = 0;
+        let alertsTodo = 0;
+        for (const docSnap of snap.docs) {
+          const data = docSnap.data() as Record<string, unknown>;
+          const order = orderStubFromDoc(data);
+          const status = order.status;
+          if (isHistoryOrder(status)) {
+            history += 1;
+          }
+          if (status !== "cancelled" && status !== "delivered") {
+            const pickupDate = order.pickup.date;
+            const window = isInPickupReminderWindow(pickupDate);
+            const reminder = (data.opsReminder ?? {}) as { contacted?: boolean };
+            if (window.match && !reminder.contacted) alertsTodo += 1;
+          }
+          if (isFuturePickupOrder(order)) {
+            future += 1;
+            continue;
+          }
+          if (
+            isWaitingTodayOrder(order) ||
+            isWashingOrder(order.status) ||
+            isReadyForDelivery(order.status)
+          ) {
+            todayActive += 1;
+          }
+        }
+        setOrdersCount(todayActive + OPS_DEMO_VOLUME);
+        setFutureCount(future + OPS_DEMO_VOLUME);
+        setHistoryCount(history + OPS_DEMO_VOLUME);
+        setReminderTodoCount(alertsTodo + OPS_DEMO_VOLUME);
+      },
+      () => {
+        /* permission/network blip — keep last counts */
+      }
+    );
     const unsubStaff = canManageStaff
       ? subscribePendingStaff((rows) => {
           setPendingStaffCount(rows.length + OPS_DEMO_STAFF_PENDING);
