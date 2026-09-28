@@ -17,6 +17,12 @@ import {
   type StaffProfile,
   type StaffRole,
 } from "@/lib/staff-access";
+import {
+  buildDemoStaffVolume,
+  isOpsDemoId,
+  mergeDemoStaff,
+  OPS_DEMO_STAFF_PENDING,
+} from "@/lib/ops-demo-volume";
 import { useQueryReplace } from "@/lib/use-query-replace";
 import { cn } from "@/lib/utils";
 
@@ -70,6 +76,9 @@ export function AdminStaffPanel({
 }) {
   const { searchParams, replaceQuery } = useQueryReplace();
   const [rows, setRows] = useState<StaffProfile[]>([]);
+  const [demoRows, setDemoRows] = useState<StaffProfile[]>(() =>
+    buildDemoStaffVolume() as StaffProfile[]
+  );
   const [ready, setReady] = useState(false);
   const [tab, setTab] = useState<StaffTab>(() =>
     searchParams.get("section") === "pending" ? "pending" : "employees"
@@ -100,6 +109,11 @@ export function AdminStaffPanel({
     });
   }, []);
 
+  const allRows = useMemo(
+    () => mergeDemoStaff(rows, demoRows),
+    [rows, demoRows]
+  );
+
   function selectStaffTab(next: StaffTab) {
     setTab(next);
     replaceQuery({
@@ -109,35 +123,35 @@ export function AdminStaffPanel({
 
   const pending = useMemo(
     () =>
-      rows
+      allRows
         .filter((row) => row.status === "pending")
         .filter((row) => matchesStaffQuery(row, queryText)),
-    [rows, queryText]
+    [allRows, queryText]
   );
   const active = useMemo(
     () =>
-      rows
+      allRows
         .filter((row) => row.status === "approved")
         .filter((row) => matchesStaffQuery(row, queryText)),
-    [rows, queryText]
+    [allRows, queryText]
   );
   const other = useMemo(
     () =>
-      rows
+      allRows
         .filter(
           (row) => row.status === "denied" || row.status === "revoked"
         )
         .filter((row) => matchesStaffQuery(row, queryText)),
-    [rows, queryText]
+    [allRows, queryText]
   );
 
   const pendingTotal = useMemo(
-    () => rows.filter((row) => row.status === "pending").length,
-    [rows]
+    () => allRows.filter((row) => row.status === "pending").length,
+    [allRows]
   );
   const activeTotal = useMemo(
-    () => rows.filter((row) => row.status === "approved").length,
-    [rows]
+    () => allRows.filter((row) => row.status === "approved").length,
+    [allRows]
   );
 
   function draftRole(row: StaffProfile): StaffRole {
@@ -148,6 +162,18 @@ export function AdminStaffPanel({
 
   function isProtectedOwner(row: StaffProfile) {
     return isAdminEmail(row.email) || row.uid.startsWith("bootstrap:");
+  }
+
+  function patchDemoRow(
+    uid: string,
+    patch: Partial<StaffProfile> | null
+  ) {
+    setDemoRows((prev) => {
+      if (patch === null) return prev.filter((row) => row.uid !== uid);
+      return prev.map((row) =>
+        row.uid === uid ? { ...row, ...patch } : row
+      );
+    });
   }
 
   async function review(
@@ -162,6 +188,24 @@ export function AdminStaffPanel({
       const role = status === "approved" ? draftRole(row) : undefined;
       if (status === "approved" && role && !allowedRoles.includes(role)) {
         throw new Error("Role not allowed");
+      }
+      if (isOpsDemoId(row.uid)) {
+        patchDemoRow(row.uid, {
+          status,
+          role: role ?? row.role,
+          reviewedBy: adminEmail || "demo",
+        });
+        setOkMsg(
+          status === "approved"
+            ? `DEMO — ${row.displayName || row.email} approved as ${staffRoleLabel(draftRole(row))} (local only).`
+            : status === "denied"
+              ? `DEMO — ${row.displayName || row.email} denied (local only).`
+              : `DEMO — ${row.displayName || row.email} revoked (local only).`
+        );
+        if (status === "approved" || status === "denied") {
+          setTab(status === "approved" ? "employees" : "pending");
+        }
+        return;
       }
       await reviewStaffMember(
         row.uid,
@@ -193,6 +237,13 @@ export function AdminStaffPanel({
     setError("");
     setOkMsg("");
     try {
+      if (isOpsDemoId(row.uid)) {
+        patchDemoRow(row.uid, { role: nextRole, status: "approved" });
+        setOkMsg(
+          `DEMO — ${row.displayName || row.email} is now ${staffRoleLabel(nextRole)} (local only).`
+        );
+        return;
+      }
       await reviewStaffMember(
         row.uid,
         { status: "approved", role: nextRole },
@@ -218,6 +269,11 @@ export function AdminStaffPanel({
     setError("");
     setOkMsg("");
     try {
+      if (isOpsDemoId(row.uid)) {
+        patchDemoRow(row.uid, null);
+        setOkMsg(`DEMO — ${row.displayName || row.email} removed (local only).`);
+        return;
+      }
       await removeStaffMember(row.uid, adminEmail);
       setOkMsg(`${row.displayName || row.email} removed.`);
     } catch {

@@ -55,7 +55,7 @@ import {
   normalizeOrderStatus,
   type FoamOrder,
 } from "@/lib/orders";
-import { OPS_DEMO_VOLUME } from "@/lib/ops-demo-volume";
+import { OPS_DEMO_VOLUME, OPS_DEMO_STAFF_PENDING } from "@/lib/ops-demo-volume";
 import { useQueryReplace } from "@/lib/use-query-replace";
 import { cn } from "@/lib/utils";
 import {
@@ -333,7 +333,7 @@ function AdminAppInner() {
     });
     const unsubStaff = canManageStaff
       ? subscribePendingStaff((rows) => {
-          setPendingStaffCount(rows.length);
+          setPendingStaffCount(rows.length + OPS_DEMO_STAFF_PENDING);
         })
       : () => {
           setPendingStaffCount(0);
