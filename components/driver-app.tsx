@@ -190,6 +190,26 @@ function DriverAppInner() {
         });
         if (!alive) return;
         if (!loaded) {
+          if (bootstrappingAccess.current) {
+            try {
+              const created = await ensureStaffProfile(user, "driver", {
+                createIfMissing: true,
+              });
+              if (!alive) return;
+              if (created) {
+                setProfile(created);
+                setBanned(false);
+                setProfileReady(true);
+              }
+            } catch (error) {
+              if (!alive) return;
+              if (isStaffBannedError(error)) {
+                setBanned(true);
+                setProfileReady(true);
+              }
+            }
+            return;
+          }
           kickToLogin();
           return;
         }

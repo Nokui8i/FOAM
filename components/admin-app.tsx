@@ -329,6 +329,28 @@ function AdminAppInner() {
         });
         if (!alive) return;
         if (!loaded) {
+          if (bootstrappingAccess.current) {
+            // Google popup may hang on COOP while Auth already signed in —
+            // create the Pending row from here so login can finish.
+            try {
+              const created = await ensureStaffProfile(user, "ops", {
+                createIfMissing: true,
+              });
+              if (!alive) return;
+              if (created) {
+                setStaffProfile(created);
+                setBannedAccess(false);
+                setStaffReady(true);
+              }
+            } catch (error) {
+              if (!alive) return;
+              if (isStaffBannedError(error)) {
+                setBannedAccess(true);
+                setStaffReady(true);
+              }
+            }
+            return;
+          }
           kickToLogin();
           return;
         }
