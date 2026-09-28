@@ -32,11 +32,18 @@ export function useOpsPageReadyWhen(ready: boolean) {
 
 export function OpsBootProvider({
   authReady,
+  gateReady = true,
   consoleReady,
   children,
 }: {
   authReady: boolean;
-  /** True when signed-in admin console is showing (not login / denied). */
+  /**
+   * True once we know which gate to show after sign-in
+   * (login form, pending, banned, or console). Keeps the splash up so
+   * refresh never flashes a blank white page while staff profile loads.
+   */
+  gateReady?: boolean;
+  /** True when signed-in admin/driver console is showing (not login / denied). */
   consoleReady: boolean;
   children: ReactNode;
 }) {
@@ -78,12 +85,17 @@ export function OpsBootProvider({
   useEffect(() => {
     if (bootDoneRef.current) return;
 
-    if (!authReady) {
+    if (!authReady || !gateReady) {
       document.documentElement.classList.add("ops-booting");
+      generationRef.current += 1;
+      startedAtRef.current = performance.now();
+      exitingRef.current = false;
+      setVisible(true);
+      setExiting(false);
       return;
     }
 
-    // Login / denied: hide splash for the form, but allow one more boot after sign-in.
+    // Login / pending / banned / denied: reveal the gate UI.
     if (!consoleReady) {
       beginExit(false);
       return;
@@ -106,7 +118,7 @@ export function OpsBootProvider({
     return () => {
       window.clearTimeout(maxTimer);
     };
-  }, [authReady, consoleReady, beginExit]);
+  }, [authReady, gateReady, consoleReady, beginExit]);
 
   useEffect(() => {
     return () => {

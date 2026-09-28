@@ -297,6 +297,25 @@ export function subscribeStaffProfile(
   );
 }
 
+/** Live ban status for the signed-in email (Staff → Banned). */
+export function subscribeStaffBan(
+  email: string,
+  onChange: (banned: boolean) => void
+) {
+  const id = staffBanDocId(email);
+  if (!id) {
+    onChange(false);
+    return () => {};
+  }
+  return onSnapshot(
+    doc(getFirebaseDb(), "staffBanned", id),
+    (snap) => onChange(snap.exists()),
+    () => {
+      /* keep last known */
+    }
+  );
+}
+
 export function subscribeAllStaff(onChange: (rows: StaffProfile[]) => void) {
   return onSnapshot(
     collection(getFirebaseDb(), "staff"),

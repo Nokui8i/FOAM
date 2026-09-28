@@ -67,6 +67,7 @@ import {
   ensureStaffProfile,
   isStaffBannedError,
   subscribePendingStaff,
+  subscribeStaffBan,
   subscribeStaffProfile,
   type StaffProfile,
 } from "@/lib/staff-access";
@@ -286,34 +287,63 @@ function AdminAppInner() {
     if (!user) {
       setStaffProfile(null);
       setStaffReady(false);
+      setBannedAccess(false);
       return;
     }
 
     let alive = true;
+    let syncing = false;
     setStaffReady(false);
     setBannedAccess(false);
-    void ensureStaffProfile(user, "ops")
-      .then((created) => {
+
+    async function syncProfile() {
+      if (!alive || !user || syncing) return;
+      syncing = true;
+      try {
+        const created = await ensureStaffProfile(user, "ops");
         if (!alive) return;
         setStaffProfile(created);
         setBannedAccess(false);
         setStaffReady(true);
-      })
-      .catch((error) => {
+      } catch (error) {
         if (!alive) return;
         setStaffProfile(null);
         setBannedAccess(isStaffBannedError(error));
         setStaffReady(true);
-      });
+      } finally {
+        syncing = false;
+      }
+    }
 
-    const unsub = subscribeStaffProfile(user.uid, (next) => {
+    void syncProfile();
+
+    const unsubProfile = subscribeStaffProfile(user.uid, (next) => {
       if (!alive) return;
-      if (next) setStaffProfile(next);
+      if (next) {
+        setStaffProfile(next);
+        setBannedAccess(false);
+        setStaffReady(true);
+        return;
+      }
+      void syncProfile();
+    });
+
+    const unsubBan = subscribeStaffBan(user.email ?? "", (isBanned) => {
+      if (!alive) return;
+      if (isBanned) {
+        setBannedAccess(true);
+        setStaffProfile(null);
+        setStaffReady(true);
+        return;
+      }
+      setBannedAccess(false);
+      void syncProfile();
     });
 
     return () => {
       alive = false;
-      unsub();
+      unsubProfile();
+      unsubBan();
     };
   }, [user]);
 
@@ -324,9 +354,11 @@ function AdminAppInner() {
       const created = await ensureStaffProfile(user, "ops");
       setStaffProfile(created);
       setBannedAccess(false);
+      setStaffReady(true);
     } catch (error) {
       setStaffProfile(null);
       setBannedAccess(isStaffBannedError(error));
+      setStaffReady(true);
     } finally {
       setRetryingStaff(false);
     }
@@ -515,9 +547,14 @@ function AdminAppInner() {
   );
 
   const consoleReady = Boolean(user && allowed && staffReady);
+  const gateReady = !user || staffReady;
 
   return (
-    <OpsBootProvider authReady={authReady} consoleReady={consoleReady}>
+    <OpsBootProvider
+      authReady={authReady}
+      gateReady={gateReady}
+      consoleReady={consoleReady}
+    >
       {!authReady ? null : !user ? (
       <main className="ops-login">
         <section className="ops-login-form-pane">

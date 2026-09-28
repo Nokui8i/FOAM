@@ -27,6 +27,7 @@ import {
   canAccessDriverPortal,
   ensureStaffProfile,
   isStaffBannedError,
+  subscribeStaffBan,
   subscribeStaffProfile,
   type StaffProfile,
 } from "@/lib/staff-access";
@@ -127,27 +128,34 @@ function DriverAppInner() {
     if (!user) {
       setProfile(null);
       setProfileReady(false);
+      setBanned(false);
       return;
     }
 
     if (isAdminEmail(user.email)) {
       setProfile(null);
       setProfileReady(true);
+      setBanned(false);
       return;
     }
 
     let alive = true;
+    let syncing = false;
     setProfileReady(false);
     setProfileError("");
     setBanned(false);
-    void ensureStaffProfile(user, "driver")
-      .then((created) => {
+
+    async function syncProfile() {
+      if (!alive || !user || syncing) return;
+      syncing = true;
+      try {
+        const created = await ensureStaffProfile(user, "driver");
         if (!alive) return;
         setProfile(created);
         setBanned(false);
+        setProfileError("");
         setProfileReady(true);
-      })
-      .catch((error) => {
+      } catch (error) {
         if (!alive) return;
         setProfile(null);
         setProfileReady(true);
@@ -160,19 +168,44 @@ function DriverAppInner() {
         setProfileError(
           "Could not create your access request. Tap Retry, or contact ops."
         );
-      });
+      } finally {
+        syncing = false;
+      }
+    }
 
-    const unsub = subscribeStaffProfile(user.uid, (next) => {
+    void syncProfile();
+
+    const unsubProfile = subscribeStaffProfile(user.uid, (next) => {
       if (!alive) return;
       if (next) {
         setProfile(next);
+        setBanned(false);
         setProfileError("");
+        setProfileReady(true);
+        return;
       }
+      // Staff doc cleared (deny/ban/remove) — recreate pending unless banned.
+      void syncProfile();
+    });
+
+    const unsubBan = subscribeStaffBan(user.email ?? "", (isBanned) => {
+      if (!alive) return;
+      if (isBanned) {
+        setBanned(true);
+        setProfile(null);
+        setProfileReady(true);
+        setProfileError("");
+        return;
+      }
+      // Unbanned — immediately open a fresh pending request.
+      setBanned(false);
+      void syncProfile();
     });
 
     return () => {
       alive = false;
-      unsub();
+      unsubProfile();
+      unsubBan();
     };
   }, [user]);
 
@@ -184,10 +217,12 @@ function DriverAppInner() {
       const created = await ensureStaffProfile(user, "driver");
       setProfile(created);
       setBanned(false);
+      setProfileReady(true);
     } catch (error) {
       if (isStaffBannedError(error)) {
         setBanned(true);
         setProfile(null);
+        setProfileReady(true);
       } else {
         setProfileError(
           "Could not create your access request. Tap Retry, or contact ops."
@@ -288,9 +323,14 @@ function DriverAppInner() {
   }
 
   const consoleReady = Boolean(user && approved && (isAdmin || profileReady));
+  const gateReady = !user || isAdmin || profileReady;
 
   return (
-    <OpsBootProvider authReady={authReady} consoleReady={consoleReady}>
+    <OpsBootProvider
+      authReady={authReady}
+      gateReady={gateReady}
+      consoleReady={consoleReady}
+    >
       {!authReady ? null : !user ? (
         <main className="ops-login">
           <section className="ops-login-form-pane">
