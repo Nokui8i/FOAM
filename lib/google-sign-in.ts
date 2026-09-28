@@ -1,9 +1,9 @@
 import {
   GoogleAuthProvider,
+  onAuthStateChanged,
   signInWithPopup,
   signInWithRedirect,
   type User,
-  type UserCredential,
 } from "firebase/auth";
 
 import { readyFirebaseAuth } from "@/lib/firebase";
@@ -15,42 +15,94 @@ function popupErrorCode(error: unknown): string {
   return "";
 }
 
+function sleep(ms: number) {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
+}
+
 /**
- * Prefer popup (works on modern mobile Safari/Chrome from a tap).
- * Fall back to redirect when the popup cannot finish — including COOP
- * browsers that break window.closed polling with auth/internal-error.
+ * Google sign-in that survives Cross-Origin-Opener-Policy popup glitches.
+ *
+ * Chrome logs "COOP would block window.closed/close" while Google auth often
+ * still succeeds. signInWithPopup can hang or throw even after Auth has the
+ * user — so we also resolve from onAuthStateChanged / currentUser.
  */
 export async function signInWithGoogle(): Promise<User> {
   const auth = await readyFirebaseAuth();
   const provider = new GoogleAuthProvider();
   provider.setCustomParameters({ prompt: "select_account" });
 
-  try {
-    const result: UserCredential = await signInWithPopup(auth, provider);
-    return result.user;
-  } catch (error) {
-    const code = popupErrorCode(error);
-    if (
-      code === "auth/popup-closed-by-user" ||
-      code === "auth/cancelled-popup-request"
-    ) {
-      throw error;
-    }
-    const popupUnavailable =
-      code === "auth/popup-blocked" ||
-      code === "auth/operation-not-supported-in-this-environment" ||
-      code === "auth/internal-error" ||
-      code === "auth/argument-error" ||
-      code === "";
-    if (!popupUnavailable) {
-      throw error;
-    }
-  }
+  if (auth.currentUser) return auth.currentUser;
 
-  // Last resort — handler is on *.firebaseapp.com; getRedirectResult on return.
-  await signInWithRedirect(auth, provider);
-  // Redirect navigates away; this promise won't resolve in-page.
-  return new Promise(() => {});
+  return new Promise<User>((resolve, reject) => {
+    let settled = false;
+
+    const finish = (user: User) => {
+      if (settled) return;
+      settled = true;
+      unsub();
+      resolve(user);
+    };
+
+    const fail = (error: unknown) => {
+      if (settled) return;
+      settled = true;
+      unsub();
+      reject(error);
+    };
+
+    const unsub = onAuthStateChanged(auth, (user) => {
+      if (user) finish(user);
+    });
+
+    void signInWithPopup(auth, provider)
+      .then((result) => {
+        finish(result.user);
+      })
+      .catch(async (error) => {
+        if (settled) return;
+
+        // Auth may already be applied even when COOP breaks the popup promise.
+        if (auth.currentUser) {
+          finish(auth.currentUser);
+          return;
+        }
+        await sleep(1200);
+        if (auth.currentUser) {
+          finish(auth.currentUser);
+          return;
+        }
+
+        const code = popupErrorCode(error);
+        if (
+          code === "auth/popup-closed-by-user" ||
+          code === "auth/cancelled-popup-request"
+        ) {
+          fail(error);
+          return;
+        }
+
+        const tryRedirect =
+          code === "auth/popup-blocked" ||
+          code === "auth/operation-not-supported-in-this-environment" ||
+          code === "auth/internal-error" ||
+          code === "auth/argument-error" ||
+          code === "";
+
+        if (!tryRedirect) {
+          fail(error);
+          return;
+        }
+
+        try {
+          settled = true;
+          unsub();
+          await signInWithRedirect(auth, provider);
+          // Redirect navigates away.
+        } catch (redirectError) {
+          fail(redirectError);
+        }
+      });
+  });
 }
 
 export function googleSignInErrorMessage(error: unknown, fallback: string) {
