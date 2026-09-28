@@ -32,17 +32,6 @@ import { getFirebaseDb } from "@/lib/firebase";
 import { deleteOrderCompletely } from "@/lib/data-retention";
 import { normalizeOrderStatus, orderDisplayId } from "@/lib/orders";
 import { BUSINESS_WHATSAPP } from "@/lib/site-config";
-import {
-  assignableStaffRoles,
-  canChangeStaffRoles,
-  isCompanyOwner,
-  reviewStaffMember,
-  staffRoleLabel,
-  subscribeAllStaff,
-  subscribePendingStaff,
-  type StaffProfile,
-  type StaffRole,
-} from "@/lib/staff-access";
 import { useQueryReplace } from "@/lib/use-query-replace";
 import { cn } from "@/lib/utils";
 import { cancelFutureWeeklyOrders } from "@/lib/weekly-automation";
@@ -134,33 +123,20 @@ export function AdminAlertsPanel({
   mobileView,
   onMobileViewChange,
   onTodoCountChange,
-  canManageStaff = false,
-  pendingStaffCount = 0,
 }: {
   adminEmail: string;
   mobileView: MobileView;
   onMobileViewChange: (view: MobileView) => void;
   onTodoCountChange?: (count: number) => void;
-  canManageStaff?: boolean;
-  pendingStaffCount?: number;
 }) {
   const { searchParams, replaceQuery } = useQueryReplace();
   const [rows, setRows] = useState<PickupReminderAlert[]>([]);
-  const [pendingStaff, setPendingStaff] = useState<StaffProfile[]>([]);
-  const [approvedStaff, setApprovedStaff] = useState<StaffProfile[]>([]);
   const [listReady, setListReady] = useState(false);
   useOpsPageReadyWhen(listReady);
   const [error, setError] = useState("");
   const [okMsg, setOkMsg] = useState("");
   const [queryText, setQueryText] = useState("");
-  const [busyStaffId, setBusyStaffId] = useState("");
-  const [roleDraft, setRoleDraft] = useState<Record<string, StaffRole>>({});
   const selectedId = searchParams.get("id");
-  const isOwner = isCompanyOwner(adminEmail);
-  const allowedRoles = useMemo(
-    () => assignableStaffRoles(adminEmail),
-    [adminEmail]
-  );
 
   useEffect(() => {
     const unsub = onSnapshot(
@@ -189,28 +165,6 @@ export function AdminAlertsPanel({
     };
   }, []);
 
-  useEffect(() => {
-    if (!canManageStaff) {
-      setPendingStaff([]);
-      setApprovedStaff([]);
-      return;
-    }
-    if (isOwner) {
-      return subscribeAllStaff((rows) => {
-        setPendingStaff(rows.filter((row) => row.status === "pending"));
-        setApprovedStaff(
-          rows.filter(
-            (row) =>
-              row.status === "approved" &&
-              !isCompanyOwner(row.email) &&
-              !row.uid.startsWith("bootstrap:")
-          )
-        );
-      });
-    }
-    return subscribePendingStaff(setPendingStaff);
-  }, [canManageStaff, isOwner]);
-
   const reminderTodoCount = useMemo(
     () => rows.filter((row) => !row.contacted).length,
     [rows]
@@ -219,105 +173,6 @@ export function AdminAlertsPanel({
   useEffect(() => {
     onTodoCountChange?.(reminderTodoCount);
   }, [reminderTodoCount, onTodoCountChange]);
-
-  function matchesStaffSearch(row: StaffProfile, q: string) {
-    if (!q) return true;
-    return (
-      row.displayName.toLowerCase().includes(q) ||
-      row.email.toLowerCase().includes(q) ||
-      row.requestedPortal.includes(q) ||
-      row.role.includes(q) ||
-      staffRoleLabel(row.role).toLowerCase().includes(q)
-    );
-  }
-
-  const staffAccessAlerts = useMemo(() => {
-    if (!canManageStaff) return [];
-    const q = queryText.trim().toLowerCase();
-    return pendingStaff.filter((row) => matchesStaffSearch(row, q));
-  }, [canManageStaff, pendingStaff, queryText]);
-
-  const promotableStaff = useMemo(() => {
-    if (!isOwner) return [];
-    const q = queryText.trim().toLowerCase();
-    return approvedStaff
-      .filter((row) => row.role === "driver" || row.role === "manager")
-      .filter((row) => matchesStaffSearch(row, q));
-  }, [isOwner, approvedStaff, queryText]);
-
-  function draftRole(row: StaffProfile): StaffRole {
-    const preferred = roleDraft[row.uid] ?? (isOwner ? row.role : "driver");
-    if (allowedRoles.includes(preferred)) return preferred;
-    return allowedRoles[0] ?? "driver";
-  }
-
-  async function reviewPending(
-    row: StaffProfile,
-    status: "approved" | "denied"
-  ) {
-    setError("");
-    setOkMsg("");
-    setBusyStaffId(row.uid);
-    try {
-      await reviewStaffMember(
-        row.uid,
-        {
-          status,
-          role: status === "approved" ? draftRole(row) : undefined,
-        },
-        adminEmail || "admin"
-      );
-      setOkMsg(
-        status === "approved"
-          ? `${row.displayName || row.email} approved as ${staffRoleLabel(draftRole(row))}.`
-          : `${row.displayName || row.email} denied.`
-      );
-    } catch {
-      setError("Could not update staff access request.");
-    } finally {
-      setBusyStaffId("");
-    }
-  }
-
-  async function promoteToManager(row: StaffProfile) {
-    if (!canChangeStaffRoles(adminEmail)) return;
-    setError("");
-    setOkMsg("");
-    setBusyStaffId(row.uid);
-    try {
-      await reviewStaffMember(
-        row.uid,
-        { status: "approved", role: "manager" },
-        adminEmail || "admin"
-      );
-      setOkMsg(`${row.displayName || row.email} is now Manager.`);
-    } catch {
-      setError("Could not promote to manager.");
-    } finally {
-      setBusyStaffId("");
-    }
-  }
-
-  async function setStaffRole(row: StaffProfile, role: StaffRole) {
-    if (!canChangeStaffRoles(adminEmail)) return;
-    setError("");
-    setOkMsg("");
-    setBusyStaffId(row.uid);
-    try {
-      await reviewStaffMember(
-        row.uid,
-        { status: "approved", role },
-        adminEmail || "admin"
-      );
-      setOkMsg(
-        `${row.displayName || row.email} is now ${staffRoleLabel(role)}.`
-      );
-    } catch {
-      setError("Could not change role.");
-    } finally {
-      setBusyStaffId("");
-    }
-  }
 
   // Only pickups still waiting for staff confirm — confirmed ones live in Future.
   const filtered = useMemo(() => {
@@ -351,28 +206,6 @@ export function AdminAlertsPanel({
 
   function selectAlert(id: string) {
     replaceQuery({ id, view: "detail", filter: null });
-  }
-
-  function openStaffPending() {
-    replaceQuery({
-      tab: "staff",
-      section: "pending",
-      view: null,
-      id: null,
-      filter: null,
-      day: null,
-    });
-  }
-
-  function openStaffEmployees() {
-    replaceQuery({
-      tab: "staff",
-      section: null,
-      view: null,
-      id: null,
-      filter: null,
-      day: null,
-    });
   }
 
   async function markContacted(orderId: string) {
@@ -497,139 +330,14 @@ export function AdminAlertsPanel({
             <input
               value={queryText}
               onChange={(e) => setQueryText(e.target.value)}
-              placeholder="Search name, phone, email, or staff"
+              placeholder="Search name, phone, or date"
             />
           </label>
         </div>
 
         {error ? <p className="ops-error ops-pad">{error}</p> : null}
-        {okMsg ? <p className="ops-flash is-ok ops-pad">{okMsg}</p> : null}
 
         <div className="ops-list-scroll">
-          {staffAccessAlerts.length > 0 ? (
-            <div className="ops-list-card ops-staff-access-alerts">
-              <p className="ops-staff-access-label">Waiting for approval</p>
-              {staffAccessAlerts.map((row) => (
-                <div key={row.uid} className="ops-row ops-staff-access-row">
-                  <div className="ops-row-main is-static">
-                    <span className="ops-row-top">
-                      <span className="ops-row-name">
-                        {row.displayName || "New staff"}
-                      </span>
-                      <span className="ops-status-pill is-open">
-                        Needs approval
-                      </span>
-                    </span>
-                    <span className="ops-row-when">{row.email}</span>
-                    <span className="ops-row-address">
-                      Requested{" "}
-                      {row.requestedPortal === "ops" ? "OPS" : "Driver"} access
-                    </span>
-                    {isOwner ? (
-                      <label className="ops-staff-role ops-staff-access-role">
-                        <span className="sr-only">Approve as</span>
-                        <select
-                          value={draftRole(row)}
-                          onChange={(e) =>
-                            setRoleDraft((prev) => ({
-                              ...prev,
-                              [row.uid]: e.target.value as StaffRole,
-                            }))
-                          }
-                        >
-                          <option value="admin">Admin</option>
-                          <option value="manager">Manager</option>
-                          <option value="driver">Driver</option>
-                        </select>
-                      </label>
-                    ) : (
-                      <span className="ops-row-ref">Approve as Driver</span>
-                    )}
-                  </div>
-                  <div className="ops-staff-access-actions">
-                    <button
-                      type="button"
-                      className="ops-catalog-editor-btn is-secondary"
-                      disabled={busyStaffId === row.uid}
-                      onClick={() => void reviewPending(row, "denied")}
-                    >
-                      Deny
-                    </button>
-                    <button
-                      type="button"
-                      className="ops-catalog-editor-btn"
-                      disabled={busyStaffId === row.uid}
-                      onClick={() => void reviewPending(row, "approved")}
-                    >
-                      {busyStaffId === row.uid ? "Saving…" : "Approve"}
-                    </button>
-                    <button
-                      type="button"
-                      className="ops-catalog-editor-btn is-secondary"
-                      onClick={openStaffPending}
-                    >
-                      Staff
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : null}
-
-          {promotableStaff.length > 0 ? (
-            <div className="ops-list-card ops-staff-access-alerts">
-              <p className="ops-staff-access-label">Approved team</p>
-              {promotableStaff.map((row) => (
-                <div key={row.uid} className="ops-row ops-staff-access-row">
-                  <div className="ops-row-main is-static">
-                    <span className="ops-row-top">
-                      <span className="ops-row-name">
-                        {row.displayName || "Staff"}
-                      </span>
-                      <span className="ops-status-pill is-ok">
-                        {staffRoleLabel(row.role)}
-                      </span>
-                    </span>
-                    <span className="ops-row-when">{row.email}</span>
-                    <span className="ops-row-address">
-                      Approved · change role anytime
-                    </span>
-                  </div>
-                  <div className="ops-staff-access-actions">
-                    {row.role !== "manager" ? (
-                      <button
-                        type="button"
-                        className="ops-catalog-editor-btn"
-                        disabled={busyStaffId === row.uid}
-                        onClick={() => void promoteToManager(row)}
-                      >
-                        {busyStaffId === row.uid
-                          ? "Saving…"
-                          : "Make manager"}
-                      </button>
-                    ) : (
-                      <button
-                        type="button"
-                        className="ops-catalog-editor-btn is-secondary"
-                        disabled={busyStaffId === row.uid}
-                        onClick={() => void setStaffRole(row, "driver")}
-                      >
-                        Make driver
-                      </button>
-                    )}
-                    <button
-                      type="button"
-                      className="ops-catalog-editor-btn is-secondary"
-                      onClick={openStaffEmployees}
-                    >
-                      Staff
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : null}
-
           <div className="ops-list-card">
             {!listReady ? (
               <div className="ops-list-skeleton" aria-busy="true" aria-label="Loading notifications">
@@ -643,11 +351,7 @@ export function AdminAlertsPanel({
               </div>
             ) : filtered.length === 0 ? (
               <p className="ops-empty">
-                {staffAccessAlerts.length > 0 ||
-                promotableStaff.length > 0 ||
-                pendingStaffCount > 0
-                  ? "No pickup reminders waiting."
-                  : "No automated pickups waiting for confirmation."}
+                No automated pickups waiting for confirmation.
               </p>
             ) : (
               filtered.map((row) => (

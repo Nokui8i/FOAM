@@ -346,10 +346,8 @@ function AdminAppInner() {
   }, [allowed, canManageStaff]);
 
   useEffect(() => {
-    setAlertsTodoCount(
-      reminderTodoCount + (canManageStaff ? pendingStaffCount : 0)
-    );
-  }, [reminderTodoCount, pendingStaffCount, canManageStaff]);
+    setAlertsTodoCount(reminderTodoCount);
+  }, [reminderTodoCount]);
 
   useEffect(() => {
     if (!allowed) return;
@@ -1206,8 +1204,6 @@ function OpsConsole({
                 mobileView={mobileView}
                 onMobileViewChange={setMobileView}
                 onTodoCountChange={setReminderTodoCount}
-                canManageStaff={canManageStaff}
-                pendingStaffCount={pendingStaffCount}
               />
             ) : tab === "staff" && canManageStaff ? (
               <AdminStaffPanel adminEmail={user.email ?? ""} />
