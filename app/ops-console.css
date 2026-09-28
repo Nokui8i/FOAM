@@ -66,6 +66,20 @@
   border-radius: 16px;
   background: #e8f5fb;
   color: var(--ops-navy);
+  overflow: hidden;
+}
+.admin-page .ops-driver-status-icon.is-waiting {
+  width: 88px;
+  height: 88px;
+  border-radius: 22px;
+  background: transparent;
+  padding: 0;
+}
+.admin-page .ops-driver-status-icon.is-waiting img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
 }
 .admin-page .ops-driver-status-icon.is-danger {
   background: #fbecea;

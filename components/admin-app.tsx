@@ -699,8 +699,14 @@ function AdminAppInner() {
         <section className="ops-login-form-pane">
           <div className="ops-login-card">
             <FoamMark />
-            <div className="ops-driver-status-icon" aria-hidden>
-              <Clock3 size={28} />
+            <div className="ops-driver-status-icon is-waiting" aria-hidden>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/ops-waiting-icon.png"
+                alt=""
+                width={88}
+                height={88}
+              />
             </div>
             <h1 className="ops-login-title">Waiting for approval</h1>
             <p className="ops-muted">
@@ -779,8 +785,14 @@ function AdminAppInner() {
         <section className="ops-login-form-pane">
           <div className="ops-login-card">
             <FoamMark />
-            <div className="ops-driver-status-icon" aria-hidden>
-              <Clock3 size={28} />
+            <div className="ops-driver-status-icon is-waiting" aria-hidden>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/ops-waiting-icon.png"
+                alt=""
+                width={88}
+                height={88}
+              />
             </div>
             <h1 className="ops-login-title">Finish access request</h1>
             <p className="ops-muted">
