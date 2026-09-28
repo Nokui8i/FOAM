@@ -256,11 +256,39 @@ function AdminAppInner() {
     let alive = true;
     let unsub = () => {};
 
-    void readyFirebaseAuth().then((auth) => {
+    void readyFirebaseAuth().then(async (auth) => {
       if (!alive) return;
-      void getRedirectResult(auth).catch(() => {
+      try {
+        const redirectResult = await getRedirectResult(auth);
+        if (redirectResult?.user) {
+          bootstrappingAccess.current = true;
+          try {
+            const created = await ensureStaffProfile(redirectResult.user, "ops", {
+              createIfMissing: true,
+            });
+            if (!alive) return;
+            if (created) {
+              setStaffProfile(created);
+              setBannedAccess(false);
+              setStaffReady(true);
+            }
+          } catch (error) {
+            if (!alive) return;
+            if (isStaffBannedError(error)) {
+              setBannedAccess(true);
+              setStaffProfile(null);
+              setStaffReady(true);
+            }
+          } finally {
+            window.setTimeout(() => {
+              bootstrappingAccess.current = false;
+            }, 4000);
+          }
+        }
+      } catch {
         /* ignore stray redirect errors */
-      });
+      }
+      if (!alive) return;
       unsub = onAuthStateChanged(auth, (next) => {
         if (!alive) return;
         setUser(next);
@@ -287,6 +315,11 @@ function AdminAppInner() {
     setStaffReady(false);
     setBannedAccess(false);
 
+    function kickToLogin() {
+      if (bootstrappingAccess.current) return;
+      void signOut(getFirebaseAuth());
+    }
+
     async function syncProfile() {
       if (!alive || !user || syncing) return;
       syncing = true;
@@ -296,10 +329,7 @@ function AdminAppInner() {
         });
         if (!alive) return;
         if (!loaded) {
-          // Remove/Deny cleared the row — back to login.
-          if (!bootstrappingAccess.current) {
-            void signOut(getFirebaseAuth());
-          }
+          kickToLogin();
           return;
         }
         setStaffProfile(loaded);
@@ -313,9 +343,7 @@ function AdminAppInner() {
           setStaffReady(true);
           return;
         }
-        if (!bootstrappingAccess.current) {
-          void signOut(getFirebaseAuth());
-        }
+        kickToLogin();
       } finally {
         syncing = false;
       }
@@ -331,11 +359,8 @@ function AdminAppInner() {
         setStaffReady(true);
         return;
       }
-      // Doc deleted (Remove/Deny) — drop session to the login screen.
       setStaffProfile(null);
-      if (!bootstrappingAccess.current) {
-        void signOut(getFirebaseAuth());
-      }
+      kickToLogin();
     });
 
     const unsubBan = subscribeStaffBan(user.email ?? "", (isBanned) => {
@@ -509,7 +534,9 @@ function AdminAppInner() {
       }
       }
     } finally {
-      bootstrappingAccess.current = false;
+      window.setTimeout(() => {
+        bootstrappingAccess.current = false;
+      }, 4000);
       setLoggingIn(false);
     }
   }
@@ -545,7 +572,9 @@ function AdminAppInner() {
         )
       );
     } finally {
-      bootstrappingAccess.current = false;
+      window.setTimeout(() => {
+        bootstrappingAccess.current = false;
+      }, 4000);
       setLoggingIn(false);
     }
   }

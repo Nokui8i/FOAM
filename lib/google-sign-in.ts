@@ -6,7 +6,7 @@ import {
   type UserCredential,
 } from "firebase/auth";
 
-import { getFirebaseAuth, readyFirebaseAuth } from "@/lib/firebase";
+import { readyFirebaseAuth } from "@/lib/firebase";
 
 function popupErrorCode(error: unknown): string {
   if (error && typeof error === "object" && "code" in error) {
@@ -17,9 +17,8 @@ function popupErrorCode(error: unknown): string {
 
 /**
  * Prefer popup (works on modern mobile Safari/Chrome from a tap).
- * Only fall back to redirect when the popup truly cannot open —
- * blind redirect to *.firebaseapp.com breaks on partitioned storage
- * when the app runs on *.web.app.
+ * Fall back to redirect when the popup cannot finish — including COOP
+ * browsers that break window.closed polling with auth/internal-error.
  */
 export async function signInWithGoogle(): Promise<User> {
   const auth = await readyFirebaseAuth();
@@ -31,18 +30,24 @@ export async function signInWithGoogle(): Promise<User> {
     return result.user;
   } catch (error) {
     const code = popupErrorCode(error);
-    if (code === "auth/popup-closed-by-user" || code === "auth/cancelled-popup-request") {
+    if (
+      code === "auth/popup-closed-by-user" ||
+      code === "auth/cancelled-popup-request"
+    ) {
       throw error;
     }
     const popupUnavailable =
       code === "auth/popup-blocked" ||
-      code === "auth/operation-not-supported-in-this-environment";
+      code === "auth/operation-not-supported-in-this-environment" ||
+      code === "auth/internal-error" ||
+      code === "auth/argument-error" ||
+      code === "";
     if (!popupUnavailable) {
       throw error;
     }
   }
 
-  // Last resort — requires authDomain to match the app host (*.web.app).
+  // Last resort — handler is on *.firebaseapp.com; getRedirectResult on return.
   await signInWithRedirect(auth, provider);
   // Redirect navigates away; this promise won't resolve in-page.
   return new Promise(() => {});
@@ -60,7 +65,10 @@ export function googleSignInErrorMessage(error: unknown, fallback: string) {
   ) {
     return "Google sign-in isn’t configured for this address yet. Try email, or try again in a moment.";
   }
-  if (code === "auth/popup-closed-by-user" || code === "auth/cancelled-popup-request") {
+  if (
+    code === "auth/popup-closed-by-user" ||
+    code === "auth/cancelled-popup-request"
+  ) {
     return "Sign-in was cancelled. Tap again to continue.";
   }
   if (code === "auth/popup-blocked") {

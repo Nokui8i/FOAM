@@ -106,11 +106,43 @@ function DriverAppInner() {
     let alive = true;
     let unsub = () => {};
 
-    void readyFirebaseAuth().then((auth) => {
+    void readyFirebaseAuth().then(async (auth) => {
       if (!alive) return;
-      void getRedirectResult(auth).catch(() => {
+      try {
+        const redirectResult = await getRedirectResult(auth);
+        if (redirectResult?.user) {
+          bootstrappingAccess.current = true;
+          try {
+            if (!isAdminEmail(redirectResult.user.email)) {
+              const created = await ensureStaffProfile(
+                redirectResult.user,
+                "driver",
+                { createIfMissing: true }
+              );
+              if (!alive) return;
+              if (created) {
+                setProfile(created);
+                setBanned(false);
+                setProfileReady(true);
+              }
+            }
+          } catch (error) {
+            if (!alive) return;
+            if (isStaffBannedError(error)) {
+              setBanned(true);
+              setProfile(null);
+              setProfileReady(true);
+            }
+          } finally {
+            window.setTimeout(() => {
+              bootstrappingAccess.current = false;
+            }, 4000);
+          }
+        }
+      } catch {
         /* ignore */
-      });
+      }
+      if (!alive) return;
       unsub = onAuthStateChanged(auth, (next) => {
         if (!alive) return;
         setUser(next);
@@ -144,6 +176,11 @@ function DriverAppInner() {
     setProfileReady(false);
     setBanned(false);
 
+    function kickToLogin() {
+      if (bootstrappingAccess.current) return;
+      void signOut(getFirebaseAuth());
+    }
+
     async function syncProfile() {
       if (!alive || !user || syncing) return;
       syncing = true;
@@ -153,9 +190,7 @@ function DriverAppInner() {
         });
         if (!alive) return;
         if (!loaded) {
-          if (!bootstrappingAccess.current) {
-            void signOut(getFirebaseAuth());
-          }
+          kickToLogin();
           return;
         }
         setProfile(loaded);
@@ -169,9 +204,7 @@ function DriverAppInner() {
           setProfileReady(true);
           return;
         }
-        if (!bootstrappingAccess.current) {
-          void signOut(getFirebaseAuth());
-        }
+        kickToLogin();
       } finally {
         syncing = false;
       }
@@ -188,9 +221,7 @@ function DriverAppInner() {
         return;
       }
       setProfile(null);
-      if (!bootstrappingAccess.current) {
-        void signOut(getFirebaseAuth());
-      }
+      kickToLogin();
     });
 
     const unsubBan = subscribeStaffBan(user.email ?? "", (isBanned) => {
@@ -281,7 +312,9 @@ function DriverAppInner() {
       }
       }
     } finally {
-      bootstrappingAccess.current = false;
+      window.setTimeout(() => {
+        bootstrappingAccess.current = false;
+      }, 4000);
       setLoggingIn(false);
     }
   }
@@ -317,7 +350,9 @@ function DriverAppInner() {
         )
       );
     } finally {
-      bootstrappingAccess.current = false;
+      window.setTimeout(() => {
+        bootstrappingAccess.current = false;
+      }, 4000);
       setLoggingIn(false);
     }
   }
