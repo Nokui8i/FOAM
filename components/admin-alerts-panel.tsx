@@ -32,6 +32,10 @@ import { getFirebaseDb } from "@/lib/firebase";
 import { deleteOrderCompletely } from "@/lib/data-retention";
 import { normalizeOrderStatus, orderDisplayId } from "@/lib/orders";
 import { BUSINESS_WHATSAPP } from "@/lib/site-config";
+import {
+  subscribePendingStaff,
+  type StaffProfile,
+} from "@/lib/staff-access";
 import { useQueryReplace } from "@/lib/use-query-replace";
 import { cn } from "@/lib/utils";
 import { cancelFutureWeeklyOrders } from "@/lib/weekly-automation";
@@ -123,14 +127,19 @@ export function AdminAlertsPanel({
   mobileView,
   onMobileViewChange,
   onTodoCountChange,
+  canManageStaff = false,
+  pendingStaffCount = 0,
 }: {
   adminEmail: string;
   mobileView: MobileView;
   onMobileViewChange: (view: MobileView) => void;
   onTodoCountChange?: (count: number) => void;
+  canManageStaff?: boolean;
+  pendingStaffCount?: number;
 }) {
   const { searchParams, replaceQuery } = useQueryReplace();
   const [rows, setRows] = useState<PickupReminderAlert[]>([]);
+  const [pendingStaff, setPendingStaff] = useState<StaffProfile[]>([]);
   const [listReady, setListReady] = useState(false);
   useOpsPageReadyWhen(listReady);
   const [error, setError] = useState("");
@@ -165,6 +174,14 @@ export function AdminAlertsPanel({
     };
   }, []);
 
+  useEffect(() => {
+    if (!canManageStaff) {
+      setPendingStaff([]);
+      return;
+    }
+    return subscribePendingStaff(setPendingStaff);
+  }, [canManageStaff]);
+
   const reminderTodoCount = useMemo(
     () => rows.filter((row) => !row.contacted).length,
     [rows]
@@ -173,6 +190,20 @@ export function AdminAlertsPanel({
   useEffect(() => {
     onTodoCountChange?.(reminderTodoCount);
   }, [reminderTodoCount, onTodoCountChange]);
+
+  const staffAccessAlerts = useMemo(() => {
+    if (!canManageStaff) return [];
+    const q = queryText.trim().toLowerCase();
+    return pendingStaff.filter((row) => {
+      if (!q) return true;
+      return (
+        row.displayName.toLowerCase().includes(q) ||
+        row.email.toLowerCase().includes(q) ||
+        row.requestedPortal.includes(q) ||
+        row.role.includes(q)
+      );
+    });
+  }, [canManageStaff, pendingStaff, queryText]);
 
   // Only pickups still waiting for staff confirm — confirmed ones live in Future.
   const filtered = useMemo(() => {
@@ -206,6 +237,17 @@ export function AdminAlertsPanel({
 
   function selectAlert(id: string) {
     replaceQuery({ id, view: "detail", filter: null });
+  }
+
+  function openStaffPending() {
+    replaceQuery({
+      tab: "staff",
+      section: "pending",
+      view: null,
+      id: null,
+      filter: null,
+      day: null,
+    });
   }
 
   async function markContacted(orderId: string) {
@@ -338,6 +380,44 @@ export function AdminAlertsPanel({
         {error ? <p className="ops-error ops-pad">{error}</p> : null}
 
         <div className="ops-list-scroll">
+          {staffAccessAlerts.length > 0 ? (
+            <div className="ops-list-card ops-staff-access-alerts">
+              <p className="ops-staff-access-label">Staff access requests</p>
+              {staffAccessAlerts.map((row) => (
+                <div key={row.uid} className="ops-row ops-staff-access-row">
+                  <button
+                    type="button"
+                    className="ops-row-main"
+                    onClick={openStaffPending}
+                  >
+                    <span className="ops-row-top">
+                      <span className="ops-row-name">
+                        {row.displayName || "New staff"}
+                      </span>
+                      <span className="ops-status-pill is-open">
+                        Needs approval
+                      </span>
+                    </span>
+                    <span className="ops-row-when">{row.email}</span>
+                    <span className="ops-row-address">
+                      Requested{" "}
+                      {row.requestedPortal === "ops" ? "OPS" : "Driver"} access
+                    </span>
+                  </button>
+                  <div className="ops-staff-access-actions">
+                    <button
+                      type="button"
+                      className="ops-catalog-editor-btn"
+                      onClick={openStaffPending}
+                    >
+                      Review on Staff
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : null}
+
           <div className="ops-list-card">
             {!listReady ? (
               <div className="ops-list-skeleton" aria-busy="true" aria-label="Loading notifications">
@@ -351,7 +431,9 @@ export function AdminAlertsPanel({
               </div>
             ) : filtered.length === 0 ? (
               <p className="ops-empty">
-                No automated pickups waiting for confirmation.
+                {staffAccessAlerts.length > 0 || pendingStaffCount > 0
+                  ? "No pickup reminders waiting."
+                  : "No automated pickups waiting for confirmation."}
               </p>
             ) : (
               filtered.map((row) => (

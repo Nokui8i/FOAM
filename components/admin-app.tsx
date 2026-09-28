@@ -186,6 +186,7 @@ function AdminAppInner() {
     searchParams.get("view") === "detail" ? "detail" : "list";
   const [openInquiriesCount, setOpenInquiriesCount] = useState(0);
   const [alertsTodoCount, setAlertsTodoCount] = useState(0);
+  const [reminderTodoCount, setReminderTodoCount] = useState(0);
   const [pendingStaffCount, setPendingStaffCount] = useState(0);
   const [ordersCount, setOrdersCount] = useState(0);
   const [futureCount, setFutureCount] = useState(0);
@@ -328,17 +329,27 @@ function AdminAppInner() {
       setOrdersCount(todayActive + OPS_DEMO_VOLUME);
       setFutureCount(future + OPS_DEMO_VOLUME);
       setHistoryCount(history + OPS_DEMO_VOLUME);
-      setAlertsTodoCount(alertsTodo + OPS_DEMO_VOLUME);
+      setReminderTodoCount(alertsTodo + OPS_DEMO_VOLUME);
     });
-    const unsubStaff = subscribePendingStaff((rows) => {
-      setPendingStaffCount(rows.length);
-    });
+    const unsubStaff = canManageStaff
+      ? subscribePendingStaff((rows) => {
+          setPendingStaffCount(rows.length);
+        })
+      : () => {
+          setPendingStaffCount(0);
+        };
     return () => {
       unsubContacts();
       unsubOrders();
       unsubStaff();
     };
-  }, [allowed]);
+  }, [allowed, canManageStaff]);
+
+  useEffect(() => {
+    setAlertsTodoCount(
+      reminderTodoCount + (canManageStaff ? pendingStaffCount : 0)
+    );
+  }, [reminderTodoCount, pendingStaffCount, canManageStaff]);
 
   useEffect(() => {
     if (!allowed) return;
@@ -718,7 +729,7 @@ function AdminAppInner() {
         alertsTodoCount={alertsTodoCount}
         pendingStaffCount={pendingStaffCount}
         canManageStaff={canManageStaff}
-        setAlertsTodoCount={setAlertsTodoCount}
+        setReminderTodoCount={setReminderTodoCount}
         ordersCount={ordersCount}
         futureCount={futureCount}
         historyCount={historyCount}
@@ -741,7 +752,7 @@ function OpsConsole({
   alertsTodoCount,
   pendingStaffCount,
   canManageStaff,
-  setAlertsTodoCount,
+  setReminderTodoCount,
   ordersCount,
   futureCount,
   historyCount,
@@ -758,7 +769,7 @@ function OpsConsole({
   alertsTodoCount: number;
   pendingStaffCount: number;
   canManageStaff: boolean;
-  setAlertsTodoCount: (count: number) => void;
+  setReminderTodoCount: (count: number) => void;
   ordersCount: number;
   futureCount: number;
   historyCount: number;
@@ -1194,7 +1205,9 @@ function OpsConsole({
                 adminEmail={user.email ?? ""}
                 mobileView={mobileView}
                 onMobileViewChange={setMobileView}
-                onTodoCountChange={setAlertsTodoCount}
+                onTodoCountChange={setReminderTodoCount}
+                canManageStaff={canManageStaff}
+                pendingStaffCount={pendingStaffCount}
               />
             ) : tab === "staff" && canManageStaff ? (
               <AdminStaffPanel adminEmail={user.email ?? ""} />

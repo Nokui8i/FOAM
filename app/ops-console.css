@@ -1784,10 +1784,25 @@
   gap: 8px;
   justify-content: flex-end;
 }
-.admin-page .ops-staff-locked {
-  font-size: 12px;
-  font-weight: 600;
+.admin-page .ops-staff-access-alerts {
+  margin-bottom: 12px;
+}
+.admin-page .ops-staff-access-label {
+  margin: 0;
+  padding: 12px 14px 6px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
   color: #64748b;
+}
+.admin-page .ops-staff-access-row {
+  align-items: stretch;
+}
+.admin-page .ops-staff-access-actions {
+  display: flex;
+  align-items: center;
+  padding: 0 12px 12px;
 }
 .admin-page .ops-staff-toolbar {
   display: flex;

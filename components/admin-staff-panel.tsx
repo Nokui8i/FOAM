@@ -14,6 +14,7 @@ import {
   type StaffProfile,
   type StaffRole,
 } from "@/lib/staff-access";
+import { useQueryReplace } from "@/lib/use-query-replace";
 import { cn } from "@/lib/utils";
 
 type StaffTab = "employees" | "pending";
@@ -52,9 +53,12 @@ export function AdminStaffPanel({
 }: {
   adminEmail: string;
 }) {
+  const { searchParams, replaceQuery } = useQueryReplace();
   const [rows, setRows] = useState<StaffProfile[]>([]);
   const [ready, setReady] = useState(false);
-  const [tab, setTab] = useState<StaffTab>("employees");
+  const [tab, setTab] = useState<StaffTab>(() =>
+    searchParams.get("section") === "pending" ? "pending" : "employees"
+  );
   const [queryText, setQueryText] = useState("");
   const [error, setError] = useState("");
   const [okMsg, setOkMsg] = useState("");
@@ -63,11 +67,24 @@ export function AdminStaffPanel({
   useOpsPageReadyWhen(ready);
 
   useEffect(() => {
+    const section = searchParams.get("section");
+    if (section === "pending") setTab("pending");
+    if (section === "employees") setTab("employees");
+  }, [searchParams]);
+
+  useEffect(() => {
     return subscribeAllStaff((next) => {
       setRows(mergeStaffWithBootstrap(next));
       setReady(true);
     });
   }, []);
+
+  function selectStaffTab(next: StaffTab) {
+    setTab(next);
+    replaceQuery({
+      section: next === "pending" ? "pending" : null,
+    });
+  }
 
   const pending = useMemo(
     () =>
@@ -206,7 +223,7 @@ export function AdminStaffPanel({
                 "ops-filter-chip",
                 tab === "employees" && "is-active"
               )}
-              onClick={() => setTab("employees")}
+              onClick={() => selectStaffTab("employees")}
             >
               Employees
               <span className="ops-radio-count">{activeTotal}</span>
@@ -216,7 +233,7 @@ export function AdminStaffPanel({
               role="tab"
               aria-selected={tab === "pending"}
               className={cn("ops-filter-chip", tab === "pending" && "is-active")}
-              onClick={() => setTab("pending")}
+              onClick={() => selectStaffTab("pending")}
             >
               Pending
               <span className="ops-radio-count">{pendingTotal}</span>
