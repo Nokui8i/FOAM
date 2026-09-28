@@ -4,6 +4,7 @@ import {
   Suspense,
   useCallback,
   useEffect,
+  useRef,
   useState,
   type FormEvent,
 } from "react";
@@ -76,8 +77,7 @@ function DriverAppInner() {
   const [authReady, setAuthReady] = useState(false);
   const [profile, setProfile] = useState<StaffProfile | null>(null);
   const [profileReady, setProfileReady] = useState(false);
-  const [profileError, setProfileError] = useState("");
-  const [retryingProfile, setRetryingProfile] = useState(false);
+  const bootstrappingAccess = useRef(false);
   const [banned, setBanned] = useState(false);
   const [loginError, setLoginError] = useState("");
   const [loggingIn, setLoggingIn] = useState(false);
@@ -142,7 +142,6 @@ function DriverAppInner() {
     let alive = true;
     let syncing = false;
     setProfileReady(false);
-    setProfileError("");
     setBanned(false);
 
     async function syncProfile() {
@@ -153,23 +152,26 @@ function DriverAppInner() {
           createIfMissing: false,
         });
         if (!alive) return;
+        if (!loaded) {
+          if (!bootstrappingAccess.current) {
+            void signOut(getFirebaseAuth());
+          }
+          return;
+        }
         setProfile(loaded);
         setBanned(false);
-        setProfileError("");
         setProfileReady(true);
       } catch (error) {
         if (!alive) return;
         setProfile(null);
-        setProfileReady(true);
         if (isStaffBannedError(error)) {
           setBanned(true);
-          setProfileError("");
+          setProfileReady(true);
           return;
         }
-        setBanned(false);
-        setProfileError(
-          "Could not load your access status. Tap Request access, or contact ops."
-        );
+        if (!bootstrappingAccess.current) {
+          void signOut(getFirebaseAuth());
+        }
       } finally {
         syncing = false;
       }
@@ -182,14 +184,13 @@ function DriverAppInner() {
       if (next) {
         setProfile(next);
         setBanned(false);
-        setProfileError("");
         setProfileReady(true);
         return;
       }
-      // Doc deleted (Remove/Deny) — Access closed; do not invent Pending.
       setProfile(null);
-      setProfileError("");
-      setProfileReady(true);
+      if (!bootstrappingAccess.current) {
+        void signOut(getFirebaseAuth());
+      }
     });
 
     const unsubBan = subscribeStaffBan(user.email ?? "", (isBanned) => {
@@ -198,7 +199,6 @@ function DriverAppInner() {
         setBanned(true);
         setProfile(null);
         setProfileReady(true);
-        setProfileError("");
         return;
       }
       setBanned(false);
@@ -211,32 +211,6 @@ function DriverAppInner() {
       unsubBan();
     };
   }, [user]);
-
-  async function requestStaffAccess() {
-    if (!user) return;
-    setRetryingProfile(true);
-    setProfileError("");
-    try {
-      const created = await ensureStaffProfile(user, "driver", {
-        createIfMissing: true,
-      });
-      setProfile(created);
-      setBanned(false);
-      setProfileReady(true);
-    } catch (error) {
-      if (isStaffBannedError(error)) {
-        setBanned(true);
-        setProfile(null);
-        setProfileReady(true);
-      } else {
-        setProfileError(
-          "Could not create your access request. Tap again, or contact ops."
-        );
-      }
-    } finally {
-      setRetryingProfile(false);
-    }
-  }
 
   const setMobileView = useCallback(
     (view: MobileView) => {
@@ -259,6 +233,7 @@ function DriverAppInner() {
 
     try {
       const auth = await readyFirebaseAuth();
+      bootstrappingAccess.current = true;
       if (authMode === "signup") {
         const result = await createUserWithEmailAndPassword(
           auth,
@@ -268,14 +243,20 @@ function DriverAppInner() {
         if (name) {
           await updateProfile(result.user, { displayName: name });
         }
-        await ensureStaffProfile(result.user, "driver", {
+        const created = await ensureStaffProfile(result.user, "driver", {
           createIfMissing: true,
         });
+        setProfile(created);
+        setBanned(false);
+        setProfileReady(true);
       } else {
         const result = await signInWithEmailAndPassword(auth, email, password);
-        await ensureStaffProfile(result.user, "driver", {
+        const created = await ensureStaffProfile(result.user, "driver", {
           createIfMissing: true,
         });
+        setProfile(created);
+        setBanned(false);
+        setProfileReady(true);
       }
     } catch (err) {
       if (isStaffBannedError(err)) {
@@ -300,6 +281,7 @@ function DriverAppInner() {
       }
       }
     } finally {
+      bootstrappingAccess.current = false;
       setLoggingIn(false);
     }
   }
@@ -308,11 +290,15 @@ function DriverAppInner() {
     setLoggingIn(true);
     setLoginError("");
     try {
+      bootstrappingAccess.current = true;
       const googleUser = await signInWithGoogle();
       try {
-        await ensureStaffProfile(googleUser, "driver", {
+        const created = await ensureStaffProfile(googleUser, "driver", {
           createIfMissing: true,
         });
+        setProfile(created);
+        setBanned(false);
+        setProfileReady(true);
       } catch (error) {
         if (isStaffBannedError(error)) {
           setLoginError("This email is banned from Driver and OPS access.");
@@ -320,6 +306,7 @@ function DriverAppInner() {
           setLoginError(
             "Signed in, but could not create your access request. Try again."
           );
+          void signOut(getFirebaseAuth());
         }
       }
     } catch (error) {
@@ -330,6 +317,7 @@ function DriverAppInner() {
         )
       );
     } finally {
+      bootstrappingAccess.current = false;
       setLoggingIn(false);
     }
   }
@@ -589,39 +577,7 @@ function DriverAppInner() {
           </section>
         </main>
       ) : !approved ? (
-        <main className="ops-login">
-          <section className="ops-login-form-pane">
-            <div className="ops-login-card">
-              <FoamMark />
-              <div className="ops-driver-status-icon is-danger" aria-hidden>
-                <ShieldAlert size={28} />
-              </div>
-              <h1 className="ops-login-title">Access closed</h1>
-              <p className="ops-muted">
-                Signed in as <strong>{user.email}</strong>. Your staff access
-                was removed. Request again to appear under Staff → Pending.
-              </p>
-              {profileError ? (
-                <p className="ops-flash is-error">{profileError}</p>
-              ) : null}
-              <Button
-                type="button"
-                size="lg"
-                disabled={retryingProfile}
-                onClick={() => void requestStaffAccess()}
-              >
-                {retryingProfile ? "Sending…" : "Request access"}
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => void signOut(getFirebaseAuth())}
-              >
-                Sign out
-              </Button>
-            </div>
-          </section>
-        </main>
+        null
       ) : (
         <div className="ops-shell is-driver">
           <header className="ops-driver-bar">
