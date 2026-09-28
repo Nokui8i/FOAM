@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { Search } from "lucide-react";
 
 import { useOpsPageReadyWhen } from "@/components/ops-boot";
@@ -30,6 +31,10 @@ import { useQueryReplace } from "@/lib/use-query-replace";
 import { cn } from "@/lib/utils";
 
 type StaffTab = "employees" | "pending" | "banned";
+
+type StaffConfirm =
+  | { kind: "approve" | "deny" | "ban" | "remove"; row: StaffProfile }
+  | { kind: "unban"; email: string };
 
 function statusLabel(row: StaffProfile) {
   if (isAdminEmail(row.email)) {
@@ -96,7 +101,17 @@ export function AdminStaffPanel({
   const [okMsg, setOkMsg] = useState("");
   const [busyId, setBusyId] = useState("");
   const [roleDraft, setRoleDraft] = useState<Record<string, StaffRole>>({});
+  const [confirmAction, setConfirmAction] = useState<StaffConfirm | null>(null);
   useOpsPageReadyWhen(ready);
+
+  useEffect(() => {
+    if (!confirmAction) return;
+    function onKey(event: KeyboardEvent) {
+      if (event.key === "Escape" && !busyId) setConfirmAction(null);
+    }
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [confirmAction, busyId]);
 
   const mayChangeRoles = canChangeStaffRoles(adminEmail);
   const allowedRoles = useMemo(
@@ -264,15 +279,12 @@ export function AdminStaffPanel({
       setError("Could not update staff member.");
     } finally {
       setBusyId("");
+      setConfirmAction(null);
     }
   }
 
   async function ban(row: StaffProfile) {
     if (isProtectedOwner(row)) return;
-    const ok = window.confirm(
-      `Ban ${row.email}?\n\nThey cannot request OPS or Driver access again until you Unban them.`
-    );
-    if (!ok) return;
     setBusyId(row.uid);
     setError("");
     setOkMsg("");
@@ -298,6 +310,7 @@ export function AdminStaffPanel({
       setError("Could not ban this email.");
     } finally {
       setBusyId("");
+      setConfirmAction(null);
     }
   }
 
@@ -319,6 +332,7 @@ export function AdminStaffPanel({
       setError("Could not unban this email.");
     } finally {
       setBusyId("");
+      setConfirmAction(null);
     }
   }
 
@@ -354,10 +368,6 @@ export function AdminStaffPanel({
 
   async function remove(row: StaffProfile) {
     if (!canRemoveStaffMember(adminEmail, row)) return;
-    const ok = window.confirm(
-      `Remove ${row.displayName || row.email}?\n\nThey will lose access to OPS and Driver immediately. They can request access again later (unless Banned).`
-    );
-    if (!ok) return;
     setBusyId(row.uid);
     setError("");
     setOkMsg("");
@@ -373,10 +383,132 @@ export function AdminStaffPanel({
       setError("Could not remove staff member.");
     } finally {
       setBusyId("");
+      setConfirmAction(null);
     }
   }
 
+  async function confirmStaffAction() {
+    if (!confirmAction) return;
+    if (confirmAction.kind === "unban") {
+      await unban(confirmAction.email);
+      return;
+    }
+    if (confirmAction.kind === "approve") {
+      await review(confirmAction.row, "approved");
+      setConfirmAction(null);
+      return;
+    }
+    if (confirmAction.kind === "deny") {
+      await review(confirmAction.row, "denied");
+      setConfirmAction(null);
+      return;
+    }
+    if (confirmAction.kind === "ban") {
+      await ban(confirmAction.row);
+      return;
+    }
+    if (confirmAction.kind === "remove") {
+      await remove(confirmAction.row);
+    }
+  }
+
+  function confirmCopy(action: StaffConfirm) {
+    if (action.kind === "unban") {
+      return {
+        title: "Unban this email?",
+        body: (
+          <>
+            <p>
+              Unban <strong>{action.email}</strong>?
+            </p>
+            <p className="ops-confirm-note">
+              They will be able to request OPS or Driver access again.
+            </p>
+          </>
+        ),
+        confirmLabel: "Unban",
+        danger: false,
+      };
+    }
+    const name = action.row.displayName || action.row.email;
+    if (action.kind === "approve") {
+      const role = staffRoleLabel(draftRole(action.row));
+      return {
+        title: "Approve access?",
+        body: (
+          <>
+            <p>
+              Approve <strong>{name}</strong> as <strong>{role}</strong>?
+            </p>
+            <p className="ops-confirm-meta">{action.row.email}</p>
+            <p className="ops-confirm-note">
+              {draftRole(action.row) === "driver"
+                ? "They will get Driver access only."
+                : "They will get OPS and Driver access."}
+            </p>
+          </>
+        ),
+        confirmLabel: "Approve",
+        danger: false,
+      };
+    }
+    if (action.kind === "deny") {
+      return {
+        title: "Deny this request?",
+        body: (
+          <>
+            <p>
+              Deny <strong>{name}</strong>?
+            </p>
+            <p className="ops-confirm-meta">{action.row.email}</p>
+            <p className="ops-confirm-note">
+              Their request is cleared. They can sign in and ask again later.
+            </p>
+          </>
+        ),
+        confirmLabel: "Deny",
+        danger: true,
+      };
+    }
+    if (action.kind === "ban") {
+      return {
+        title: "Ban this email?",
+        body: (
+          <>
+            <p>
+              Ban <strong>{action.row.email}</strong>?
+            </p>
+            <p className="ops-confirm-note">
+              They cannot request OPS or Driver access again until you Unban
+              them.
+            </p>
+          </>
+        ),
+        confirmLabel: "Ban",
+        danger: true,
+      };
+    }
+    return {
+      title: "Remove staff access?",
+      body: (
+        <>
+          <p>
+            Remove <strong>{name}</strong>?
+          </p>
+          <p className="ops-confirm-meta">{action.row.email}</p>
+          <p className="ops-confirm-note">
+            They lose OPS and Driver access immediately. They can request again
+            later unless Banned.
+          </p>
+        </>
+      ),
+      confirmLabel: "Remove",
+      danger: true,
+    };
+  }
+
   return (
+    <>
     <section className="ops-catalog-plane ops-staff-plane">
       <header className="ops-catalog-plane-head">
         <div className="ops-catalog-plane-title-row">
@@ -485,7 +617,9 @@ export function AdminStaffPanel({
                         type="button"
                         className="ops-catalog-editor-btn is-secondary"
                         disabled={busyId === row.uid}
-                        onClick={() => void review(row, "denied")}
+                        onClick={() =>
+                          setConfirmAction({ kind: "deny", row })
+                        }
                       >
                         Deny
                       </button>
@@ -493,7 +627,7 @@ export function AdminStaffPanel({
                         type="button"
                         className="ops-catalog-editor-btn is-secondary"
                         disabled={busyId === row.uid}
-                        onClick={() => void ban(row)}
+                        onClick={() => setConfirmAction({ kind: "ban", row })}
                       >
                         Ban
                       </button>
@@ -501,7 +635,9 @@ export function AdminStaffPanel({
                         type="button"
                         className="ops-catalog-editor-btn"
                         disabled={busyId === row.uid}
-                        onClick={() => void review(row, "approved")}
+                        onClick={() =>
+                          setConfirmAction({ kind: "approve", row })
+                        }
                       >
                         {busyId === row.uid ? "Saving…" : "Approve"}
                       </button>
@@ -537,7 +673,9 @@ export function AdminStaffPanel({
                         type="button"
                         className="ops-catalog-editor-btn"
                         disabled={busyId === row.email}
-                        onClick={() => void unban(row.email)}
+                        onClick={() =>
+                          setConfirmAction({ kind: "unban", email: row.email })
+                        }
                       >
                         {busyId === row.email ? "Working…" : "Unban"}
                       </button>
@@ -623,7 +761,9 @@ export function AdminStaffPanel({
                                 type="button"
                                 className="ops-catalog-editor-btn is-secondary"
                                 disabled={busyId === row.uid}
-                                onClick={() => void remove(row)}
+                                onClick={() =>
+                                  setConfirmAction({ kind: "remove", row })
+                                }
                               >
                                 {busyId === row.uid ? "Removing…" : "Remove"}
                               </button>
@@ -632,7 +772,9 @@ export function AdminStaffPanel({
                               type="button"
                               className="ops-catalog-editor-btn is-secondary"
                               disabled={busyId === row.uid}
-                              onClick={() => void ban(row)}
+                              onClick={() =>
+                                setConfirmAction({ kind: "ban", row })
+                              }
                             >
                               Ban
                             </button>
@@ -673,7 +815,9 @@ export function AdminStaffPanel({
                             type="button"
                             className="ops-catalog-editor-btn is-secondary"
                             disabled={busyId === row.uid}
-                            onClick={() => void review(row, "denied")}
+                            onClick={() =>
+                              setConfirmAction({ kind: "deny", row })
+                            }
                           >
                             Clear
                           </button>
@@ -681,7 +825,9 @@ export function AdminStaffPanel({
                             type="button"
                             className="ops-catalog-editor-btn is-secondary"
                             disabled={busyId === row.uid}
-                            onClick={() => void ban(row)}
+                            onClick={() =>
+                              setConfirmAction({ kind: "ban", row })
+                            }
                           >
                             Ban
                           </button>
@@ -690,7 +836,9 @@ export function AdminStaffPanel({
                               type="button"
                               className="ops-catalog-editor-btn is-secondary"
                               disabled={busyId === row.uid}
-                              onClick={() => void remove(row)}
+                              onClick={() =>
+                                setConfirmAction({ kind: "remove", row })
+                              }
                             >
                               Remove
                             </button>
@@ -706,6 +854,66 @@ export function AdminStaffPanel({
         )}
       </div>
     </section>
+    {confirmAction && typeof document !== "undefined"
+      ? createPortal(
+          <div className="admin-page ops-confirm-root">
+            <div
+              className="ops-confirm-overlay"
+              role="presentation"
+              onClick={() => {
+                if (!busyId) setConfirmAction(null);
+              }}
+            >
+              <div
+                className="ops-confirm-modal"
+                role="alertdialog"
+                aria-modal="true"
+                aria-labelledby="ops-staff-confirm-title"
+                aria-describedby="ops-staff-confirm-desc"
+                onClick={(event) => event.stopPropagation()}
+              >
+                {(() => {
+                  const copy = confirmCopy(confirmAction);
+                  return (
+                    <>
+                      <h4 id="ops-staff-confirm-title">{copy.title}</h4>
+                      <div
+                        id="ops-staff-confirm-desc"
+                        className="ops-confirm-body"
+                      >
+                        {copy.body}
+                      </div>
+                      <div className="ops-confirm-actions">
+                        <button
+                          type="button"
+                          className="ops-confirm-btn is-cancel"
+                          disabled={Boolean(busyId)}
+                          onClick={() => setConfirmAction(null)}
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="button"
+                          className={cn(
+                            "ops-confirm-btn",
+                            copy.danger ? "is-danger" : "is-confirm"
+                          )}
+                          disabled={Boolean(busyId)}
+                          onClick={() => void confirmStaffAction()}
+                        >
+                          {busyId ? "Working…" : copy.confirmLabel}
+                        </button>
+                      </div>
+                    </>
+                  );
+                })()}
+              </div>
+            </div>
+          </div>,
+          document.body
+        )
+      : null}
+    </>
   );
 }
 
