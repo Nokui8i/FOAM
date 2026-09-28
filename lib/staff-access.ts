@@ -3,6 +3,7 @@ import {
   deleteDoc,
   doc,
   getDoc,
+  getDocFromServer,
   onSnapshot,
   serverTimestamp,
   setDoc,
@@ -165,19 +166,19 @@ export async function unbanStaffEmail(email: string) {
 }
 
 /**
- * After Auth sign-in on /ops or /driver:
- * - banned emails are blocked
- * - bootstrap allowlist admins become approved admins
- * - denied/revoked rows are cleared so the person can request again
- * - everyone else gets a pending staff row (once)
+ * Load or create the signed-in user's staff/{uid} row.
  *
- * One staff/{uid} doc covers both portals. Deny deletes that doc (re-apply OK).
- * Ban blocks new requests until removed from Staff → Banned.
+ * - createIfMissing: false (default on page load) — never invent a Pending
+ *   request after Remove/Deny; returns null when no staff doc exists.
+ * - createIfMissing: true — used by Sign in / Request access / Sign up so a
+ *   new Pending row is written and shows up under Staff → Pending.
  */
 export async function ensureStaffProfile(
   user: User,
-  portal: StaffPortal
-): Promise<StaffProfile> {
+  portal: StaffPortal,
+  options?: { createIfMissing?: boolean }
+): Promise<StaffProfile | null> {
+  const createIfMissing = options?.createIfMissing === true;
   const db = getFirebaseDb();
   const ref = doc(db, "staff", user.uid);
   const email = (user.email ?? "").trim().toLowerCase();
@@ -189,7 +190,12 @@ export async function ensureStaffProfile(
     throw new StaffBannedError(email);
   }
 
-  let snap = await getDoc(ref);
+  let snap;
+  try {
+    snap = await getDocFromServer(ref);
+  } catch {
+    snap = await getDoc(ref);
+  }
 
   if (snap.exists()) {
     const existing = mapStaffProfile(
@@ -202,7 +208,7 @@ export async function ensureStaffProfile(
       (existing.status === "denied" || existing.status === "revoked")
     ) {
       await deleteDoc(ref);
-      snap = await getDoc(ref);
+      // Fall through — treat as missing so createIfMissing can open a fresh Pending.
     } else if (bootstrapAdmin && existing.status !== "approved") {
       await updateDoc(ref, {
         email,
@@ -241,42 +247,37 @@ export async function ensureStaffProfile(
     }
   }
 
-  if (!snap.exists()) {
-    const status: StaffStatus = bootstrapAdmin ? "approved" : "pending";
-    const role: StaffRole = bootstrapAdmin
-      ? "admin"
-      : defaultRoleForPortal(portal);
-    await setDoc(ref, {
-      uid: user.uid,
-      email,
-      displayName,
-      role,
-      status,
-      requestedPortal: portal,
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
-      reviewedAt: bootstrapAdmin ? serverTimestamp() : null,
-      reviewedBy: bootstrapAdmin ? "bootstrap" : null,
-    });
-    return {
-      uid: user.uid,
-      email,
-      displayName,
-      role,
-      status,
-      requestedPortal: portal,
-      reviewedBy: bootstrapAdmin ? "bootstrap" : null,
-    };
+  if (!createIfMissing && !bootstrapAdmin) {
+    return null;
   }
 
-  const existing = mapStaffProfile(
-    user.uid,
-    snap.data() as Record<string, unknown>
-  );
-  return {
-    ...existing,
+  const status: StaffStatus = bootstrapAdmin ? "approved" : "pending";
+  const role: StaffRole = bootstrapAdmin
+    ? "admin"
+    : defaultRoleForPortal(portal);
+  const payload: Record<string, unknown> = {
+    uid: user.uid,
     email,
     displayName,
+    role,
+    status,
+    requestedPortal: portal,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  };
+  if (bootstrapAdmin) {
+    payload.reviewedAt = serverTimestamp();
+    payload.reviewedBy = "bootstrap";
+  }
+  await setDoc(ref, payload);
+  return {
+    uid: user.uid,
+    email,
+    displayName,
+    role,
+    status,
+    requestedPortal: portal,
+    reviewedBy: bootstrapAdmin ? "bootstrap" : null,
   };
 }
 

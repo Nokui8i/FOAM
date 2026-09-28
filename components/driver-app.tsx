@@ -149,9 +149,11 @@ function DriverAppInner() {
       if (!alive || !user || syncing) return;
       syncing = true;
       try {
-        const created = await ensureStaffProfile(user, "driver");
+        const loaded = await ensureStaffProfile(user, "driver", {
+          createIfMissing: false,
+        });
         if (!alive) return;
-        setProfile(created);
+        setProfile(loaded);
         setBanned(false);
         setProfileError("");
         setProfileReady(true);
@@ -166,7 +168,7 @@ function DriverAppInner() {
         }
         setBanned(false);
         setProfileError(
-          "Could not create your access request. Tap Retry, or contact ops."
+          "Could not load your access status. Tap Request access, or contact ops."
         );
       } finally {
         syncing = false;
@@ -184,8 +186,10 @@ function DriverAppInner() {
         setProfileReady(true);
         return;
       }
-      // Staff doc cleared (deny/ban/remove) — recreate pending unless banned.
-      void syncProfile();
+      // Doc deleted (Remove/Deny) — Access closed; do not invent Pending.
+      setProfile(null);
+      setProfileError("");
+      setProfileReady(true);
     });
 
     const unsubBan = subscribeStaffBan(user.email ?? "", (isBanned) => {
@@ -197,7 +201,6 @@ function DriverAppInner() {
         setProfileError("");
         return;
       }
-      // Unbanned — immediately open a fresh pending request.
       setBanned(false);
       void syncProfile();
     });
@@ -209,12 +212,14 @@ function DriverAppInner() {
     };
   }, [user]);
 
-  async function retryStaffProfile() {
+  async function requestStaffAccess() {
     if (!user) return;
     setRetryingProfile(true);
     setProfileError("");
     try {
-      const created = await ensureStaffProfile(user, "driver");
+      const created = await ensureStaffProfile(user, "driver", {
+        createIfMissing: true,
+      });
       setProfile(created);
       setBanned(false);
       setProfileReady(true);
@@ -225,7 +230,7 @@ function DriverAppInner() {
         setProfileReady(true);
       } else {
         setProfileError(
-          "Could not create your access request. Tap Retry, or contact ops."
+          "Could not create your access request. Tap again, or contact ops."
         );
       }
     } finally {
@@ -263,9 +268,14 @@ function DriverAppInner() {
         if (name) {
           await updateProfile(result.user, { displayName: name });
         }
-        await ensureStaffProfile(result.user, "driver");
+        await ensureStaffProfile(result.user, "driver", {
+          createIfMissing: true,
+        });
       } else {
-        await signInWithEmailAndPassword(auth, email, password);
+        const result = await signInWithEmailAndPassword(auth, email, password);
+        await ensureStaffProfile(result.user, "driver", {
+          createIfMissing: true,
+        });
       }
     } catch (err) {
       if (isStaffBannedError(err)) {
@@ -300,7 +310,9 @@ function DriverAppInner() {
     try {
       const googleUser = await signInWithGoogle();
       try {
-        await ensureStaffProfile(googleUser, "driver");
+        await ensureStaffProfile(googleUser, "driver", {
+          createIfMissing: true,
+        });
       } catch (error) {
         if (isStaffBannedError(error)) {
           setLoginError("This email is banned from Driver and OPS access.");
@@ -581,20 +593,13 @@ function DriverAppInner() {
           <section className="ops-login-form-pane">
             <div className="ops-login-card">
               <FoamMark />
-              <div className="ops-driver-status-icon is-waiting" aria-hidden>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src="/ops-waiting-icon.png"
-                  alt=""
-                  width={88}
-                  height={88}
-                />
+              <div className="ops-driver-status-icon is-danger" aria-hidden>
+                <ShieldAlert size={28} />
               </div>
-              <h1 className="ops-login-title">Waiting for approval</h1>
+              <h1 className="ops-login-title">Access closed</h1>
               <p className="ops-muted">
-                Signed in as <strong>{user.email}</strong>. OPS and Driver share
-                one staff account — an admin must approve you on the Staff page
-                before either portal opens.
+                Signed in as <strong>{user.email}</strong>. Your staff access
+                was removed. Request again to appear under Staff → Pending.
               </p>
               {profileError ? (
                 <p className="ops-flash is-error">{profileError}</p>
@@ -603,9 +608,9 @@ function DriverAppInner() {
                 type="button"
                 size="lg"
                 disabled={retryingProfile}
-                onClick={() => void retryStaffProfile()}
+                onClick={() => void requestStaffAccess()}
               >
-                {retryingProfile ? "Retrying…" : "Retry access request"}
+                {retryingProfile ? "Sending…" : "Request access"}
               </Button>
               <Button
                 type="button"

@@ -22,6 +22,7 @@ import {
   LogOut,
   Menu,
   Shirt,
+  ShieldAlert,
   Ticket,
   Truck,
   Users,
@@ -300,9 +301,12 @@ function AdminAppInner() {
       if (!alive || !user || syncing) return;
       syncing = true;
       try {
-        const created = await ensureStaffProfile(user, "ops");
+        // Load only — never auto-create Pending after Remove/Deny.
+        const loaded = await ensureStaffProfile(user, "ops", {
+          createIfMissing: false,
+        });
         if (!alive) return;
-        setStaffProfile(created);
+        setStaffProfile(loaded);
         setBannedAccess(false);
         setStaffReady(true);
       } catch (error) {
@@ -325,7 +329,9 @@ function AdminAppInner() {
         setStaffReady(true);
         return;
       }
-      void syncProfile();
+      // Doc deleted (Remove/Deny) — show Access closed; do not invent Pending.
+      setStaffProfile(null);
+      setStaffReady(true);
     });
 
     const unsubBan = subscribeStaffBan(user.email ?? "", (isBanned) => {
@@ -347,11 +353,13 @@ function AdminAppInner() {
     };
   }, [user]);
 
-  async function retryStaffProfile() {
+  async function requestStaffAccess() {
     if (!user) return;
     setRetryingStaff(true);
     try {
-      const created = await ensureStaffProfile(user, "ops");
+      const created = await ensureStaffProfile(user, "ops", {
+        createIfMissing: true,
+      });
       setStaffProfile(created);
       setBannedAccess(false);
       setStaffReady(true);
@@ -462,9 +470,14 @@ function AdminAppInner() {
         if (name) {
           await updateProfile(result.user, { displayName: name });
         }
-        await ensureStaffProfile(result.user, "ops");
+        await ensureStaffProfile(result.user, "ops", {
+          createIfMissing: true,
+        });
       } else {
-        await signInWithEmailAndPassword(auth, email, password);
+        const result = await signInWithEmailAndPassword(auth, email, password);
+        await ensureStaffProfile(result.user, "ops", {
+          createIfMissing: true,
+        });
       }
     } catch (err) {
       if (isStaffBannedError(err)) {
@@ -502,7 +515,9 @@ function AdminAppInner() {
     try {
       const googleUser = await signInWithGoogle();
       try {
-        await ensureStaffProfile(googleUser, "ops");
+        await ensureStaffProfile(googleUser, "ops", {
+          createIfMissing: true,
+        });
       } catch (error) {
         if (isStaffBannedError(error)) {
           setLoginError("This email is banned from OPS and Driver access.");
@@ -831,28 +846,21 @@ function AdminAppInner() {
         <section className="ops-login-form-pane">
           <div className="ops-login-card">
             <FoamMark />
-            <div className="ops-driver-status-icon is-waiting" aria-hidden>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src="/ops-waiting-icon.png"
-                alt=""
-                width={88}
-                height={88}
-              />
+            <div className="ops-driver-status-icon is-danger" aria-hidden>
+              <ShieldAlert size={28} />
             </div>
-            <h1 className="ops-login-title">Finish access request</h1>
+            <h1 className="ops-login-title">Access closed</h1>
             <p className="ops-muted">
-              Signed in as <strong>{user.email}</strong>. Tap below to send your
-              request to Staff (Pending). OPS and Driver share one staff
-              account — an admin picks Manager or Driver when approving.
+              Signed in as <strong>{user.email}</strong>. Your staff access was
+              removed. Request again to appear under Staff → Pending.
             </p>
             <Button
               type="button"
               size="lg"
               disabled={retryingStaff}
-              onClick={() => void retryStaffProfile()}
+              onClick={() => void requestStaffAccess()}
             >
-              {retryingStaff ? "Sending…" : "Request OPS access"}
+              {retryingStaff ? "Sending…" : "Request access"}
             </Button>
             <Button
               type="button"
