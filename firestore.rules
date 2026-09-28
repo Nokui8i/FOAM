@@ -83,6 +83,19 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
+    function isApprovedManagerOnly() {
+      return isSignedIn()
+        && !isCompanyOwnerEmail(request.auth.token.email)
+        && exists(/databases/$(database)/documents/staff/$(request.auth.uid))
+        && get(/databases/$(database)/documents/staff/$(request.auth.uid)).data.status == 'approved'
+        && get(/databases/$(database)/documents/staff/$(request.auth.uid)).data.role == 'manager';
+    }
+
+    function isStaffTargetOwner() {
+      return resource.data.email is string
+        && isCompanyOwnerEmail(resource.data.email);
+    }
+
     match /staff/{uid} {
       allow read: if isAdmin() || isOwner(uid);
 
@@ -113,15 +126,28 @@ service cloud.firestore {
           isOwner(uid)
           && isCompanyOwnerEmail(request.auth.token.email)
         )
-        // Admins may manage staff — but never change company owner rows
+        // Company owners may manage any non-owner staff (roles, approve, revoke)
         || (
-          isAdmin()
-          && !(
-            resource.data.email is string
-            && isCompanyOwnerEmail(resource.data.email)
+          isCompanyOwnerEmail(request.auth.token.email)
+          && !isStaffTargetOwner()
+        )
+        // Managers may approve/deny pending only as driver, or update drivers only
+        || (
+          isApprovedManagerOnly()
+          && !isStaffTargetOwner()
+          && request.resource.data.role == 'driver'
+          && (
+            (
+              resource.data.status == 'pending'
+              && request.resource.data.status in ['approved', 'denied', 'revoked']
+            )
+            || (
+              resource.data.role == 'driver'
+              && request.resource.data.role == 'driver'
+            )
           )
         )
-        // Regular staff may only refresh their own name/email while pending/approved
+        // Regular staff may only refresh their own name/email
         || (
           isOwner(uid)
           && request.resource.data.uid == resource.data.uid
@@ -132,10 +158,14 @@ service cloud.firestore {
         )
       );
 
-      allow delete: if isAdmin()
-        && !(
-          resource.data.email is string
-          && isCompanyOwnerEmail(resource.data.email)
+      // Owners may delete any non-owner. Managers may delete drivers only.
+      allow delete: if !isStaffTargetOwner()
+        && (
+          isCompanyOwnerEmail(request.auth.token.email)
+          || (
+            isApprovedManagerOnly()
+            && resource.data.role == 'driver'
+          )
         );
     }
 

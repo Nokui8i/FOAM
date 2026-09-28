@@ -6,6 +6,9 @@ import { Search } from "lucide-react";
 import { useOpsPageReadyWhen } from "@/components/ops-boot";
 import { isAdminEmail } from "@/lib/site-config";
 import {
+  assignableStaffRoles,
+  canChangeStaffRoles,
+  canRemoveStaffMember,
   mergeStaffWithBootstrap,
   removeStaffMember,
   reviewStaffMember,
@@ -48,6 +51,18 @@ function matchesStaffQuery(row: StaffProfile, query: string) {
   );
 }
 
+function RoleOptions({ roles }: { roles: StaffRole[] }) {
+  return (
+    <>
+      {roles.includes("admin") ? <option value="admin">Admin</option> : null}
+      {roles.includes("manager") ? (
+        <option value="manager">Manager</option>
+      ) : null}
+      {roles.includes("driver") ? <option value="driver">Driver</option> : null}
+    </>
+  );
+}
+
 export function AdminStaffPanel({
   adminEmail,
 }: {
@@ -65,6 +80,12 @@ export function AdminStaffPanel({
   const [busyId, setBusyId] = useState("");
   const [roleDraft, setRoleDraft] = useState<Record<string, StaffRole>>({});
   useOpsPageReadyWhen(ready);
+
+  const mayChangeRoles = canChangeStaffRoles(adminEmail);
+  const allowedRoles = useMemo(
+    () => assignableStaffRoles(adminEmail),
+    [adminEmail]
+  );
 
   useEffect(() => {
     const section = searchParams.get("section");
@@ -120,7 +141,9 @@ export function AdminStaffPanel({
   );
 
   function draftRole(row: StaffProfile): StaffRole {
-    return roleDraft[row.uid] ?? row.role;
+    const preferred = roleDraft[row.uid] ?? row.role;
+    if (allowedRoles.includes(preferred)) return preferred;
+    return allowedRoles[0] ?? "driver";
   }
 
   function isProtectedOwner(row: StaffProfile) {
@@ -136,12 +159,13 @@ export function AdminStaffPanel({
     setOkMsg("");
     setBusyId(row.uid);
     try {
+      const role = status === "approved" ? draftRole(row) : undefined;
+      if (status === "approved" && role && !allowedRoles.includes(role)) {
+        throw new Error("Role not allowed");
+      }
       await reviewStaffMember(
         row.uid,
-        {
-          status,
-          role: status === "approved" ? draftRole(row) : undefined,
-        },
+        { status, role },
         adminEmail || "admin"
       );
       setOkMsg(
@@ -162,7 +186,7 @@ export function AdminStaffPanel({
   }
 
   async function saveRole(row: StaffProfile) {
-    if (isProtectedOwner(row)) return;
+    if (isProtectedOwner(row) || !mayChangeRoles) return;
     const nextRole = draftRole(row);
     if (nextRole === row.role) return;
     setBusyId(row.uid);
@@ -185,7 +209,7 @@ export function AdminStaffPanel({
   }
 
   async function remove(row: StaffProfile) {
-    if (isProtectedOwner(row)) return;
+    if (!canRemoveStaffMember(adminEmail, row)) return;
     const ok = window.confirm(
       `Remove ${row.displayName || row.email}?\n\nThey will lose access to OPS and Driver immediately. They can request access again later.`
     );
@@ -194,7 +218,7 @@ export function AdminStaffPanel({
     setError("");
     setOkMsg("");
     try {
-      await removeStaffMember(row.uid);
+      await removeStaffMember(row.uid, adminEmail);
       setOkMsg(`${row.displayName || row.email} removed.`);
     } catch {
       setError("Could not remove staff member.");
@@ -286,6 +310,7 @@ export function AdminStaffPanel({
                       <span className="sr-only">Role</span>
                       <select
                         value={draftRole(row)}
+                        disabled={allowedRoles.length <= 1}
                         onChange={(e) =>
                           setRoleDraft((prev) => ({
                             ...prev,
@@ -293,9 +318,7 @@ export function AdminStaffPanel({
                           }))
                         }
                       >
-                        <option value="admin">Admin</option>
-                        <option value="manager">Manager</option>
-                        <option value="driver">Driver</option>
+                        <RoleOptions roles={allowedRoles} />
                       </select>
                     </label>
                     <div className="ops-staff-actions">
@@ -340,6 +363,8 @@ export function AdminStaffPanel({
                 </div>
                 {active.map((row) => {
                   const locked = isProtectedOwner(row);
+                  const canEditRole = mayChangeRoles && !locked;
+                  const canRemove = canRemoveStaffMember(adminEmail, row);
                   return (
                     <div
                       key={row.uid}
@@ -349,11 +374,7 @@ export function AdminStaffPanel({
                         {row.displayName || "—"}
                       </strong>
                       <span className="ops-staff-email">{row.email}</span>
-                      {locked ? (
-                        <span className="ops-staff-role-cell">
-                          {staffRoleLabel(row.role)}
-                        </span>
-                      ) : (
+                      {canEditRole ? (
                         <label className="ops-staff-role ops-staff-role-cell">
                           <span className="sr-only">Role</span>
                           <select
@@ -365,11 +386,13 @@ export function AdminStaffPanel({
                               }))
                             }
                           >
-                            <option value="admin">Admin</option>
-                            <option value="manager">Manager</option>
-                            <option value="driver">Driver</option>
+                            <RoleOptions roles={allowedRoles} />
                           </select>
                         </label>
+                      ) : (
+                        <span className="ops-staff-role-cell">
+                          {staffRoleLabel(row.role)}
+                        </span>
                       )}
                       <span className="ops-status-pill is-ok ops-staff-status">
                         {statusLabel(row)}
@@ -379,25 +402,33 @@ export function AdminStaffPanel({
                           <span className="ops-staff-locked">Owner · locked</span>
                         ) : (
                           <>
-                            <button
-                              type="button"
-                              className="ops-catalog-editor-btn is-secondary"
-                              disabled={
-                                busyId === row.uid ||
-                                draftRole(row) === row.role
-                              }
-                              onClick={() => void saveRole(row)}
-                            >
-                              Save role
-                            </button>
-                            <button
-                              type="button"
-                              className="ops-catalog-editor-btn is-secondary"
-                              disabled={busyId === row.uid}
-                              onClick={() => void remove(row)}
-                            >
-                              {busyId === row.uid ? "Removing…" : "Remove"}
-                            </button>
+                            {canEditRole ? (
+                              <button
+                                type="button"
+                                className="ops-catalog-editor-btn is-secondary"
+                                disabled={
+                                  busyId === row.uid ||
+                                  draftRole(row) === row.role
+                                }
+                                onClick={() => void saveRole(row)}
+                              >
+                                Save role
+                              </button>
+                            ) : null}
+                            {canRemove ? (
+                              <button
+                                type="button"
+                                className="ops-catalog-editor-btn is-secondary"
+                                disabled={busyId === row.uid}
+                                onClick={() => void remove(row)}
+                              >
+                                {busyId === row.uid ? "Removing…" : "Remove"}
+                              </button>
+                            ) : (
+                              <span className="ops-staff-locked">
+                                Owner only
+                              </span>
+                            )}
                           </>
                         )}
                       </div>
@@ -418,36 +449,45 @@ export function AdminStaffPanel({
                     <span>Status</span>
                     <span>Actions</span>
                   </div>
-                  {other.map((row) => (
-                    <div key={row.uid} className="ops-staff-table-row">
-                      <strong>{row.displayName || "—"}</strong>
-                      <span>{row.email}</span>
-                      <span className="ops-staff-portal">
-                        {row.requestedPortal === "ops" ? "OPS" : "Driver"}
-                      </span>
-                      <span className="ops-status-pill">
-                        {statusLabel(row)}
-                      </span>
-                      <div className="ops-staff-actions">
-                        <button
-                          type="button"
-                          className="ops-catalog-editor-btn"
-                          disabled={busyId === row.uid}
-                          onClick={() => void review(row, "approved")}
-                        >
-                          Re-approve
-                        </button>
-                        <button
-                          type="button"
-                          className="ops-catalog-editor-btn is-secondary"
-                          disabled={busyId === row.uid}
-                          onClick={() => void remove(row)}
-                        >
-                          Remove
-                        </button>
+                  {other.map((row) => {
+                    const canRemove = canRemoveStaffMember(adminEmail, row);
+                    const canReapprove =
+                      mayChangeRoles || row.role === "driver";
+                    return (
+                      <div key={row.uid} className="ops-staff-table-row">
+                        <strong>{row.displayName || "—"}</strong>
+                        <span>{row.email}</span>
+                        <span className="ops-staff-portal">
+                          {row.requestedPortal === "ops" ? "OPS" : "Driver"}
+                        </span>
+                        <span className="ops-status-pill">
+                          {statusLabel(row)}
+                        </span>
+                        <div className="ops-staff-actions">
+                          {canReapprove ? (
+                            <button
+                              type="button"
+                              className="ops-catalog-editor-btn"
+                              disabled={busyId === row.uid}
+                              onClick={() => void review(row, "approved")}
+                            >
+                              Re-approve
+                            </button>
+                          ) : null}
+                          {canRemove ? (
+                            <button
+                              type="button"
+                              className="ops-catalog-editor-btn is-secondary"
+                              disabled={busyId === row.uid}
+                              onClick={() => void remove(row)}
+                            >
+                              Remove
+                            </button>
+                          ) : null}
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             ) : null}

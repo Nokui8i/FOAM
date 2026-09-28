@@ -63,8 +63,8 @@ import {
 } from "@/lib/admin-alerts";
 import {
   canAccessOps,
+  canManageStaffPage,
   ensureStaffProfile,
-  isStaffAdmin,
   subscribePendingStaff,
   subscribeStaffProfile,
   type StaffProfile,
@@ -196,7 +196,7 @@ function AdminAppInner() {
   const [showLoginBrand, setShowLoginBrand] = useState(false);
 
   const allowed = canAccessOps(staffProfile, user?.email);
-  const canManageStaff = isStaffAdmin(staffProfile, user?.email);
+  const canManageStaff = canManageStaffPage(staffProfile, user?.email);
   const pendingAccess =
     Boolean(user) &&
     staffReady &&

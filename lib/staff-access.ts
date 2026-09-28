@@ -239,33 +239,77 @@ export async function reviewStaffMember(
 }
 
 /** Fire / remove — deletes staff doc so all portal access is gone. */
-export async function removeStaffMember(uid: string) {
+export async function removeStaffMember(
+  uid: string,
+  actorEmail?: string | null
+) {
   if (uid.startsWith("bootstrap:")) {
     throw new Error("Cannot remove a company owner account.");
   }
   const ref = doc(getFirebaseDb(), "staff", uid);
   const snap = await getDoc(ref);
-  if (snap.exists()) {
-    const email = String(snap.data()?.email ?? "")
-      .trim()
-      .toLowerCase();
-    if (isAdminEmail(email)) {
-      throw new Error("Cannot remove a company owner account.");
-    }
+  if (!snap.exists()) return;
+  const target = mapStaffProfile(uid, snap.data() as Record<string, unknown>);
+  if (!canRemoveStaffMember(actorEmail, target)) {
+    throw new Error("Not allowed to remove this staff member.");
   }
   await deleteDoc(ref);
 }
 
+/** Company owners — fixed allowlist; full Staff HR powers. */
+export function isCompanyOwner(email?: string | null) {
+  return isAdminEmail(email);
+}
+
+/** Can open Staff page: owners, approved admins, approved managers. */
+export function canManageStaffPage(
+  profile: StaffProfile | null,
+  email?: string | null
+) {
+  if (isCompanyOwner(email)) return true;
+  if (!profile || profile.status !== "approved") return false;
+  return profile.role === "admin" || profile.role === "manager";
+}
+
+/** Only company owners may change roles (driver ↔ manager ↔ admin). */
+export function canChangeStaffRoles(email?: string | null) {
+  return isCompanyOwner(email);
+}
+
+/** Roles the actor may assign when approving / editing. */
+export function assignableStaffRoles(email?: string | null): StaffRole[] {
+  if (isCompanyOwner(email)) return ["admin", "manager", "driver"];
+  // Managers may only approve people as drivers.
+  return ["driver"];
+}
+
+/**
+ * Who can remove (fire) a staff row:
+ * - Never owners
+ * - Owners can remove anyone else
+ * - Managers can only remove drivers
+ */
+export function canRemoveStaffMember(
+  actorEmail: string | null | undefined,
+  target: StaffProfile
+) {
+  if (isCompanyOwner(target.email) || target.uid.startsWith("bootstrap:")) {
+    return false;
+  }
+  if (isCompanyOwner(actorEmail)) return true;
+  return target.role === "driver";
+}
+
+/** @deprecated Use canManageStaffPage */
 export function isStaffAdmin(
   profile: StaffProfile | null,
   email?: string | null
 ) {
-  if (isAdminEmail(email)) return true;
-  return Boolean(profile && profile.status === "approved" && profile.role === "admin");
+  return canManageStaffPage(profile, email);
 }
 
 export function canAccessOps(profile: StaffProfile | null, email?: string | null) {
-  if (isAdminEmail(email)) return true;
+  if (isCompanyOwner(email)) return true;
   if (!profile || profile.status !== "approved") return false;
   return profile.role === "admin" || profile.role === "manager";
 }
@@ -274,7 +318,7 @@ export function canAccessDriverPortal(
   profile: StaffProfile | null,
   email?: string | null
 ) {
-  if (isAdminEmail(email)) return true;
+  if (isCompanyOwner(email)) return true;
   if (!profile || profile.status !== "approved") return false;
   return (
     profile.role === "driver" ||
