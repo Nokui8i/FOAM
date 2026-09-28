@@ -119,6 +119,7 @@ export async function isStaffEmailBanned(email: string): Promise<boolean> {
 }
 
 export function subscribeStaffBans(onChange: (rows: StaffBan[]) => void) {
+  let lastRows: StaffBan[] = [];
   return onSnapshot(
     collection(getFirebaseDb(), "staffBanned"),
     (snap) => {
@@ -132,9 +133,10 @@ export function subscribeStaffBans(onChange: (rows: StaffBan[]) => void) {
         } satisfies StaffBan;
       });
       rows.sort((a, b) => a.email.localeCompare(b.email));
+      lastRows = rows;
       onChange(rows);
     },
-    () => onChange([])
+    () => onChange(lastRows)
   );
 }
 
@@ -317,6 +319,7 @@ export function subscribeStaffBan(
 }
 
 export function subscribeAllStaff(onChange: (rows: StaffProfile[]) => void) {
+  let lastRows: StaffProfile[] = [];
   return onSnapshot(
     collection(getFirebaseDb(), "staff"),
     (snap) => {
@@ -334,9 +337,13 @@ export function subscribeAllStaff(onChange: (rows: StaffProfile[]) => void) {
         if (byRole !== 0) return byRole;
         return a.email.localeCompare(b.email);
       });
+      lastRows = rows;
       onChange(rows);
     },
-    () => onChange([])
+    () => {
+      // Permission/network blip — keep last good roster (never wipe to bootstrap-only).
+      onChange(lastRows);
+    }
   );
 }
 

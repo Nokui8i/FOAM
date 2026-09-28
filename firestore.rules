@@ -96,8 +96,22 @@ service cloud.firestore {
         && isCompanyOwnerEmail(resource.data.email);
     }
 
+    function isStaffDirectoryReader() {
+      return isSignedIn()
+        && (
+          isCompanyOwnerEmail(request.auth.token.email)
+          || (
+            exists(/databases/$(database)/documents/staff/$(request.auth.uid))
+            && get(/databases/$(database)/documents/staff/$(request.auth.uid)).data.status == 'approved'
+            && get(/databases/$(database)/documents/staff/$(request.auth.uid)).data.role in ['admin', 'manager']
+          )
+        );
+    }
+
     match /staff/{uid} {
-      allow read: if isAdmin() || isOwner(uid);
+      // Owners/managers can list the full directory; anyone can read their own row.
+      allow get: if isOwner(uid) || isStaffDirectoryReader();
+      allow list: if isStaffDirectoryReader();
 
       // New applicants create their own pending row from /ops or /driver.
       allow create: if isOwner(uid)
@@ -172,18 +186,19 @@ service cloud.firestore {
 
     // Emails blocked from OPS/Driver access requests (spam).
     match /staffBanned/{emailId} {
-      allow read: if isAdmin()
+      allow get: if isStaffDirectoryReader()
         || (
           isSignedIn()
           && request.auth.token.email is string
           && request.auth.token.email.lower() == emailId
         );
-      allow create, update: if isAdmin()
+      allow list: if isStaffDirectoryReader();
+      allow create, update: if isStaffDirectoryReader()
         && request.resource.data.email is string
         && request.resource.data.email == emailId
         && request.resource.data.bannedBy is string
         && request.resource.data.reason is string;
-      allow delete: if isAdmin();
+      allow delete: if isStaffDirectoryReader();
     }
 
     // Legacy driver docs — admin cleanup only
