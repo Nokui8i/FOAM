@@ -26,6 +26,7 @@ import { Button } from "@/components/ui/button";
 import {
   canAccessDriverPortal,
   ensureStaffProfile,
+  isStaffBannedError,
   subscribeStaffProfile,
   type StaffProfile,
 } from "@/lib/staff-access";
@@ -76,6 +77,7 @@ function DriverAppInner() {
   const [profileReady, setProfileReady] = useState(false);
   const [profileError, setProfileError] = useState("");
   const [retryingProfile, setRetryingProfile] = useState(false);
+  const [banned, setBanned] = useState(false);
   const [loginError, setLoginError] = useState("");
   const [loggingIn, setLoggingIn] = useState(false);
   const [authMode, setAuthMode] = useState<AuthMode>("signin");
@@ -85,9 +87,10 @@ function DriverAppInner() {
 
   const isAdmin = isAdminEmail(user?.email);
   const approved = canAccessDriverPortal(profile, user?.email);
-  const pending = !isAdmin && profile?.status === "pending";
+  const pending = !isAdmin && !banned && profile?.status === "pending";
   const denied =
     !isAdmin &&
+    !banned &&
     (profile?.status === "denied" || profile?.status === "revoked");
 
   useEffect(() => {
@@ -126,16 +129,24 @@ function DriverAppInner() {
     let alive = true;
     setProfileReady(false);
     setProfileError("");
+    setBanned(false);
     void ensureStaffProfile(user, "driver")
       .then((created) => {
         if (!alive) return;
         setProfile(created);
+        setBanned(false);
         setProfileReady(true);
       })
-      .catch(() => {
+      .catch((error) => {
         if (!alive) return;
         setProfile(null);
         setProfileReady(true);
+        if (isStaffBannedError(error)) {
+          setBanned(true);
+          setProfileError("");
+          return;
+        }
+        setBanned(false);
         setProfileError(
           "Could not create your access request. Tap Retry, or contact ops."
         );
@@ -162,10 +173,16 @@ function DriverAppInner() {
     try {
       const created = await ensureStaffProfile(user, "driver");
       setProfile(created);
-    } catch {
-      setProfileError(
-        "Could not create your access request. Tap Retry, or contact ops."
-      );
+      setBanned(false);
+    } catch (error) {
+      if (isStaffBannedError(error)) {
+        setBanned(true);
+        setProfile(null);
+      } else {
+        setProfileError(
+          "Could not create your access request. Tap Retry, or contact ops."
+        );
+      }
     } finally {
       setRetryingProfile(false);
     }
@@ -206,6 +223,9 @@ function DriverAppInner() {
         await signInWithEmailAndPassword(auth, email, password);
       }
     } catch (err) {
+      if (isStaffBannedError(err)) {
+        setLoginError("This email is banned from Driver and OPS access.");
+      } else {
       const code =
         err && typeof err === "object" && "code" in err
           ? String((err as { code: string }).code)
@@ -223,6 +243,7 @@ function DriverAppInner() {
             : "Login failed. Check email and password."
         );
       }
+      }
     } finally {
       setLoggingIn(false);
     }
@@ -235,12 +256,16 @@ function DriverAppInner() {
       const googleUser = await signInWithGoogle();
       await ensureStaffProfile(googleUser, "driver");
     } catch (error) {
-      setLoginError(
-        googleSignInErrorMessage(
-          error,
-          "Google sign-in failed. Try again, or use email + password."
-        )
-      );
+      if (isStaffBannedError(error)) {
+        setLoginError("This email is banned from Driver and OPS access.");
+      } else {
+        setLoginError(
+          googleSignInErrorMessage(
+            error,
+            "Google sign-in failed. Try again, or use email + password."
+          )
+        );
+      }
     } finally {
       setLoggingIn(false);
     }
@@ -408,6 +433,29 @@ function DriverAppInner() {
         </main>
       ) : !profileReady && !isAdmin ? (
         null
+      ) : banned ? (
+        <main className="ops-login">
+          <section className="ops-login-form-pane">
+            <div className="ops-login-card">
+              <FoamMark />
+              <div className="ops-driver-status-icon is-danger" aria-hidden>
+                <ShieldAlert size={28} />
+              </div>
+              <h1 className="ops-login-title">Access banned</h1>
+              <p className="ops-muted">
+                <strong>{user.email}</strong> is blocked from Driver and OPS.
+                Contact FOAM ops if this is a mistake.
+              </p>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => void signOut(getFirebaseAuth())}
+              >
+                Sign out
+              </Button>
+            </div>
+          </section>
+        </main>
       ) : pending ? (
         <main className="ops-login">
           <section className="ops-login-form-pane">

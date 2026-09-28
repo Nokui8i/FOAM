@@ -65,6 +65,7 @@ import {
   canAccessOps,
   canManageStaffPage,
   ensureStaffProfile,
+  isStaffBannedError,
   subscribePendingStaff,
   subscribeStaffProfile,
   type StaffProfile,
@@ -195,6 +196,7 @@ function AdminAppInner() {
   const accountMenuRef = useRef<HTMLDivElement>(null);
   const [showLoginBrand, setShowLoginBrand] = useState(false);
   const [retryingStaff, setRetryingStaff] = useState(false);
+  const [bannedAccess, setBannedAccess] = useState(false);
 
   const allowed = canAccessOps(staffProfile, user?.email);
   const canManageStaff = canManageStaffPage(staffProfile, user?.email);
@@ -202,22 +204,26 @@ function AdminAppInner() {
     Boolean(user) &&
     staffReady &&
     !allowed &&
+    !bannedAccess &&
     staffProfile?.status === "pending";
   const deniedAccess =
     Boolean(user) &&
     staffReady &&
     !allowed &&
+    !bannedAccess &&
     (staffProfile?.status === "denied" || staffProfile?.status === "revoked");
   const driverOnlyAccess =
     Boolean(user) &&
     staffReady &&
     !allowed &&
+    !bannedAccess &&
     staffProfile?.status === "approved" &&
     staffProfile.role === "driver";
   const missingStaffProfile =
     Boolean(user) &&
     staffReady &&
     !allowed &&
+    !bannedAccess &&
     !pendingAccess &&
     !deniedAccess &&
     !driverOnlyAccess &&
@@ -275,15 +281,18 @@ function AdminAppInner() {
 
     let alive = true;
     setStaffReady(false);
+    setBannedAccess(false);
     void ensureStaffProfile(user, "ops")
       .then((created) => {
         if (!alive) return;
         setStaffProfile(created);
+        setBannedAccess(false);
         setStaffReady(true);
       })
-      .catch(() => {
+      .catch((error) => {
         if (!alive) return;
         setStaffProfile(null);
+        setBannedAccess(isStaffBannedError(error));
         setStaffReady(true);
       });
 
@@ -304,8 +313,10 @@ function AdminAppInner() {
     try {
       const created = await ensureStaffProfile(user, "ops");
       setStaffProfile(created);
-    } catch {
+      setBannedAccess(false);
+    } catch (error) {
       setStaffProfile(null);
+      setBannedAccess(isStaffBannedError(error));
     } finally {
       setRetryingStaff(false);
     }
@@ -414,6 +425,9 @@ function AdminAppInner() {
         await signInWithEmailAndPassword(auth, email, password);
       }
     } catch (err) {
+      if (isStaffBannedError(err)) {
+        setLoginError("This email is banned from OPS and Driver access.");
+      } else {
       const code =
         err && typeof err === "object" && "code" in err
           ? String((err as { code: string }).code)
@@ -434,6 +448,7 @@ function AdminAppInner() {
             : "Login failed. Check email and password."
         );
       }
+      }
     } finally {
       setLoggingIn(false);
     }
@@ -446,12 +461,16 @@ function AdminAppInner() {
       const googleUser = await signInWithGoogle();
       await ensureStaffProfile(googleUser, "ops");
     } catch (error) {
-      setLoginError(
-        googleSignInErrorMessage(
-          error,
-          "Google sign-in failed. Try again, or use email + password."
-        )
-      );
+      if (isStaffBannedError(error)) {
+        setLoginError("This email is banned from OPS and Driver access.");
+      } else {
+        setLoginError(
+          googleSignInErrorMessage(
+            error,
+            "Google sign-in failed. Try again, or use email + password."
+          )
+        );
+      }
     } finally {
       setLoggingIn(false);
     }
@@ -637,7 +656,29 @@ function AdminAppInner() {
           </section>
         ) : null}
       </main>
-      ) : !staffReady ? null : pendingAccess ? (
+      ) : !staffReady ? null : bannedAccess ? (
+      <main className="ops-login">
+        <section className="ops-login-form-pane">
+          <div className="ops-login-card">
+            <FoamMark />
+            <h1 className="ops-login-title">Access banned</h1>
+            <p className="ops-muted">
+              <strong>{user.email}</strong> is blocked from OPS and Driver.
+              Contact a FOAM admin if this is a mistake.
+            </p>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                void signOut(getFirebaseAuth());
+              }}
+            >
+              Sign out
+            </Button>
+          </div>
+        </section>
+      </main>
+      ) : pendingAccess ? (
       <main className="ops-login">
         <section className="ops-login-form-pane">
           <div className="ops-login-card">

@@ -156,15 +156,34 @@ service cloud.firestore {
         )
       );
 
-      // Owners may delete any non-owner. Managers may delete drivers only.
+      // Owners may delete any non-owner. Managers may delete drivers or any pending request (Deny).
       allow delete: if !isStaffTargetOwner()
         && (
           isCompanyOwnerEmail(request.auth.token.email)
           || (
             isApprovedManagerOnly()
-            && resource.data.role == 'driver'
+            && (
+              resource.data.role == 'driver'
+              || resource.data.status == 'pending'
+            )
           )
         );
+    }
+
+    // Emails blocked from OPS/Driver access requests (spam).
+    match /staffBanned/{emailId} {
+      allow read: if isAdmin()
+        || (
+          isSignedIn()
+          && request.auth.token.email is string
+          && request.auth.token.email.lower() == emailId
+        );
+      allow create, update: if isAdmin()
+        && request.resource.data.email is string
+        && request.resource.data.email == emailId
+        && request.resource.data.bannedBy is string
+        && request.resource.data.reason is string;
+      allow delete: if isAdmin();
     }
 
     // Legacy driver docs — admin cleanup only

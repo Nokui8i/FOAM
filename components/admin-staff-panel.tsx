@@ -7,6 +7,7 @@ import { useOpsPageReadyWhen } from "@/components/ops-boot";
 import { isAdminEmail } from "@/lib/site-config";
 import {
   assignableStaffRoles,
+  banStaffMember,
   canChangeStaffRoles,
   canRemoveStaffMember,
   mergeStaffWithBootstrap,
@@ -14,6 +15,9 @@ import {
   reviewStaffMember,
   staffRoleLabel,
   subscribeAllStaff,
+  subscribeStaffBans,
+  unbanStaffEmail,
+  type StaffBan,
   type StaffProfile,
   type StaffRole,
 } from "@/lib/staff-access";
@@ -25,7 +29,7 @@ import {
 import { useQueryReplace } from "@/lib/use-query-replace";
 import { cn } from "@/lib/utils";
 
-type StaffTab = "employees" | "pending";
+type StaffTab = "employees" | "pending" | "banned";
 
 function statusLabel(row: StaffProfile) {
   if (isAdminEmail(row.email)) {
@@ -75,13 +79,18 @@ export function AdminStaffPanel({
 }) {
   const { searchParams, replaceQuery } = useQueryReplace();
   const [rows, setRows] = useState<StaffProfile[]>([]);
+  const [bans, setBans] = useState<StaffBan[]>([]);
   const [demoRows, setDemoRows] = useState<StaffProfile[]>(() =>
     buildDemoStaffVolume() as StaffProfile[]
   );
+  const [demoBans, setDemoBans] = useState<StaffBan[]>([]);
   const [ready, setReady] = useState(false);
-  const [tab, setTab] = useState<StaffTab>(() =>
-    searchParams.get("section") === "pending" ? "pending" : "employees"
-  );
+  const [tab, setTab] = useState<StaffTab>(() => {
+    const section = searchParams.get("section");
+    if (section === "pending") return "pending";
+    if (section === "banned") return "banned";
+    return "employees";
+  });
   const [queryText, setQueryText] = useState("");
   const [error, setError] = useState("");
   const [okMsg, setOkMsg] = useState("");
@@ -98,14 +107,20 @@ export function AdminStaffPanel({
   useEffect(() => {
     const section = searchParams.get("section");
     if (section === "pending") setTab("pending");
-    if (section === "employees") setTab("employees");
+    else if (section === "banned") setTab("banned");
+    else if (section === "employees") setTab("employees");
   }, [searchParams]);
 
   useEffect(() => {
-    return subscribeAllStaff((next) => {
+    const unsubStaff = subscribeAllStaff((next) => {
       setRows(mergeStaffWithBootstrap(next));
       setReady(true);
     });
+    const unsubBans = subscribeStaffBans(setBans);
+    return () => {
+      unsubStaff();
+      unsubBans();
+    };
   }, []);
 
   const allRows = useMemo(
@@ -113,10 +128,22 @@ export function AdminStaffPanel({
     [rows, demoRows]
   );
 
+  const allBans = useMemo(() => {
+    const map = new Map<string, StaffBan>();
+    for (const row of bans) map.set(row.email, row);
+    for (const row of demoBans) {
+      if (!map.has(row.email)) map.set(row.email, row);
+    }
+    return Array.from(map.values()).sort((a, b) =>
+      a.email.localeCompare(b.email)
+    );
+  }, [bans, demoBans]);
+
   function selectStaffTab(next: StaffTab) {
     setTab(next);
     replaceQuery({
-      section: next === "pending" ? "pending" : null,
+      section:
+        next === "pending" ? "pending" : next === "banned" ? "banned" : null,
     });
   }
 
@@ -143,6 +170,16 @@ export function AdminStaffPanel({
         .filter((row) => matchesStaffQuery(row, queryText)),
     [allRows, queryText]
   );
+  const bannedFiltered = useMemo(() => {
+    const q = queryText.trim().toLowerCase();
+    if (!q) return allBans;
+    return allBans.filter(
+      (row) =>
+        row.email.includes(q) ||
+        row.bannedBy.toLowerCase().includes(q) ||
+        row.reason.toLowerCase().includes(q)
+    );
+  }, [allBans, queryText]);
 
   const pendingTotal = useMemo(
     () => allRows.filter((row) => row.status === "pending").length,
@@ -152,6 +189,7 @@ export function AdminStaffPanel({
     () => allRows.filter((row) => row.status === "approved").length,
     [allRows]
   );
+  const bannedTotal = allBans.length;
 
   function draftRole(row: StaffProfile): StaffRole {
     const preferred = roleDraft[row.uid] ?? row.role;
@@ -189,21 +227,24 @@ export function AdminStaffPanel({
         throw new Error("Role not allowed");
       }
       if (isOpsDemoId(row.uid)) {
-        patchDemoRow(row.uid, {
-          status,
-          role: role ?? row.role,
-          reviewedBy: adminEmail || "demo",
-        });
-        setOkMsg(
-          status === "approved"
-            ? `DEMO — ${row.displayName || row.email} approved as ${staffRoleLabel(draftRole(row))} (local only).`
-            : status === "denied"
-              ? `DEMO — ${row.displayName || row.email} denied (local only).`
+        if (status === "denied") {
+          patchDemoRow(row.uid, null);
+          setOkMsg(
+            `DEMO — ${row.displayName || row.email} denied. They can request again (local only).`
+          );
+        } else {
+          patchDemoRow(row.uid, {
+            status,
+            role: role ?? row.role,
+            reviewedBy: adminEmail || "demo",
+          });
+          setOkMsg(
+            status === "approved"
+              ? `DEMO — ${row.displayName || row.email} approved as ${staffRoleLabel(draftRole(row))} (local only).`
               : `DEMO — ${row.displayName || row.email} revoked (local only).`
-        );
-        if (status === "approved" || status === "denied") {
-          setTab(status === "approved" ? "employees" : "pending");
+          );
         }
+        if (status === "approved") setTab("employees");
         return;
       }
       await reviewStaffMember(
@@ -215,14 +256,67 @@ export function AdminStaffPanel({
         status === "approved"
           ? `${row.displayName || row.email} approved as ${staffRoleLabel(draftRole(row))}.`
           : status === "denied"
-            ? `${row.displayName || row.email} denied.`
+            ? `${row.displayName || row.email} denied. They can sign in and request again.`
             : `${row.displayName || row.email} access revoked.`
       );
-      if (status === "approved" || status === "denied") {
-        setTab(status === "approved" ? "employees" : "pending");
-      }
+      if (status === "approved") setTab("employees");
     } catch {
       setError("Could not update staff member.");
+    } finally {
+      setBusyId("");
+    }
+  }
+
+  async function ban(row: StaffProfile) {
+    if (isProtectedOwner(row)) return;
+    const ok = window.confirm(
+      `Ban ${row.email}?\n\nThey cannot request OPS or Driver access again until you Unban them.`
+    );
+    if (!ok) return;
+    setBusyId(row.uid);
+    setError("");
+    setOkMsg("");
+    try {
+      if (isOpsDemoId(row.uid)) {
+        patchDemoRow(row.uid, null);
+        setDemoBans((prev) => [
+          ...prev.filter((b) => b.email !== row.email),
+          {
+            email: row.email,
+            bannedBy: adminEmail || "demo",
+            reason: "DEMO ban",
+          },
+        ]);
+        setOkMsg(`DEMO — ${row.email} banned (local only).`);
+        setTab("banned");
+        return;
+      }
+      await banStaffMember(row, adminEmail || "admin");
+      setOkMsg(`${row.email} banned. They cannot request access until Unban.`);
+      setTab("banned");
+    } catch {
+      setError("Could not ban this email.");
+    } finally {
+      setBusyId("");
+    }
+  }
+
+  async function unban(email: string) {
+    setBusyId(email);
+    setError("");
+    setOkMsg("");
+    try {
+      if (email.startsWith("demo.") || demoBans.some((b) => b.email === email)) {
+        setDemoBans((prev) => prev.filter((b) => b.email !== email));
+        if (!bans.some((b) => b.email === email)) {
+          setOkMsg(`DEMO — ${email} unbanned (local only).`);
+          return;
+        }
+      }
+      await unbanStaffEmail(email);
+      setOkMsg(`${email} unbanned. They can request access again.`);
+    } catch {
+      setError("Could not unban this email.");
     } finally {
       setBusyId("");
     }
@@ -261,7 +355,7 @@ export function AdminStaffPanel({
   async function remove(row: StaffProfile) {
     if (!canRemoveStaffMember(adminEmail, row)) return;
     const ok = window.confirm(
-      `Remove ${row.displayName || row.email}?\n\nThey will lose access to OPS and Driver immediately. They can request access again later.`
+      `Remove ${row.displayName || row.email}?\n\nThey will lose access to OPS and Driver immediately. They can request access again later (unless Banned).`
     );
     if (!ok) return;
     setBusyId(row.uid);
@@ -316,6 +410,16 @@ export function AdminStaffPanel({
             >
               Pending
               <span className="ops-radio-count">{pendingTotal}</span>
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={tab === "banned"}
+              className={cn("ops-filter-chip", tab === "banned" && "is-active")}
+              onClick={() => selectStaffTab("banned")}
+            >
+              Banned
+              <span className="ops-radio-count">{bannedTotal}</span>
             </button>
           </div>
           <label className="ops-search ops-staff-search">
@@ -387,11 +491,55 @@ export function AdminStaffPanel({
                       </button>
                       <button
                         type="button"
+                        className="ops-catalog-editor-btn is-secondary"
+                        disabled={busyId === row.uid}
+                        onClick={() => void ban(row)}
+                      >
+                        Ban
+                      </button>
+                      <button
+                        type="button"
                         className="ops-catalog-editor-btn"
                         disabled={busyId === row.uid}
                         onClick={() => void review(row, "approved")}
                       >
                         {busyId === row.uid ? "Saving…" : "Approve"}
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+        ) : tab === "banned" ? (
+          <section className="ops-staff-section" role="tabpanel">
+            {bannedFiltered.length === 0 ? (
+              <p className="ops-staff-empty">
+                {queryText.trim() ? "No banned matches." : "No banned emails."}
+              </p>
+            ) : (
+              <div className="ops-staff-table">
+                <div className="ops-staff-table-head">
+                  <span>Email</span>
+                  <span>Banned by</span>
+                  <span>Reason</span>
+                  <span>Status</span>
+                  <span>Actions</span>
+                </div>
+                {bannedFiltered.map((row) => (
+                  <div key={row.email} className="ops-staff-table-row">
+                    <strong>{row.email}</strong>
+                    <span>{row.bannedBy || "—"}</span>
+                    <span>{row.reason || "—"}</span>
+                    <span className="ops-status-pill">Banned</span>
+                    <div className="ops-staff-actions">
+                      <button
+                        type="button"
+                        className="ops-catalog-editor-btn"
+                        disabled={busyId === row.email}
+                        onClick={() => void unban(row.email)}
+                      >
+                        {busyId === row.email ? "Working…" : "Unban"}
                       </button>
                     </div>
                   </div>
@@ -479,11 +627,15 @@ export function AdminStaffPanel({
                               >
                                 {busyId === row.uid ? "Removing…" : "Remove"}
                               </button>
-                            ) : (
-                              <span className="ops-staff-locked">
-                                Owner only
-                              </span>
-                            )}
+                            ) : null}
+                            <button
+                              type="button"
+                              className="ops-catalog-editor-btn is-secondary"
+                              disabled={busyId === row.uid}
+                              onClick={() => void ban(row)}
+                            >
+                              Ban
+                            </button>
                           </>
                         )}
                       </div>
@@ -506,8 +658,6 @@ export function AdminStaffPanel({
                   </div>
                   {other.map((row) => {
                     const canRemove = canRemoveStaffMember(adminEmail, row);
-                    const canReapprove =
-                      mayChangeRoles || row.role === "driver";
                     return (
                       <div key={row.uid} className="ops-staff-table-row">
                         <strong>{row.displayName || "—"}</strong>
@@ -519,16 +669,22 @@ export function AdminStaffPanel({
                           {statusLabel(row)}
                         </span>
                         <div className="ops-staff-actions">
-                          {canReapprove ? (
-                            <button
-                              type="button"
-                              className="ops-catalog-editor-btn"
-                              disabled={busyId === row.uid}
-                              onClick={() => void review(row, "approved")}
-                            >
-                              Re-approve
-                            </button>
-                          ) : null}
+                          <button
+                            type="button"
+                            className="ops-catalog-editor-btn is-secondary"
+                            disabled={busyId === row.uid}
+                            onClick={() => void review(row, "denied")}
+                          >
+                            Clear
+                          </button>
+                          <button
+                            type="button"
+                            className="ops-catalog-editor-btn is-secondary"
+                            disabled={busyId === row.uid}
+                            onClick={() => void ban(row)}
+                          >
+                            Ban
+                          </button>
                           {canRemove ? (
                             <button
                               type="button"

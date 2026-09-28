@@ -30,6 +30,32 @@ export type StaffProfile = {
   reviewedBy?: string | null;
 };
 
+export type StaffBan = {
+  email: string;
+  bannedAt?: unknown;
+  bannedBy: string;
+  reason: string;
+};
+
+export class StaffBannedError extends Error {
+  email: string;
+  constructor(email: string) {
+    super("This email is banned from OPS and Driver access.");
+    this.name = "StaffBannedError";
+    this.email = email;
+  }
+}
+
+export function isStaffBannedError(error: unknown): error is StaffBannedError {
+  if (!error || typeof error !== "object") return false;
+  if (error instanceof StaffBannedError) return true;
+  return "name" in error && (error as { name: string }).name === "StaffBannedError";
+}
+
+export function staffBanDocId(email: string) {
+  return email.trim().toLowerCase();
+}
+
 export function normalizeStaffRole(raw: unknown): StaffRole {
   const value = String(raw ?? "").toLowerCase();
   if (value === "manager") return "manager";
@@ -85,14 +111,66 @@ function defaultRoleForPortal(portal: StaffPortal): StaffRole {
   return portal === "ops" ? "manager" : "driver";
 }
 
+export async function isStaffEmailBanned(email: string): Promise<boolean> {
+  const id = staffBanDocId(email);
+  if (!id) return false;
+  const snap = await getDoc(doc(getFirebaseDb(), "staffBanned", id));
+  return snap.exists();
+}
+
+export function subscribeStaffBans(onChange: (rows: StaffBan[]) => void) {
+  return onSnapshot(
+    collection(getFirebaseDb(), "staffBanned"),
+    (snap) => {
+      const rows = snap.docs.map((d) => {
+        const data = d.data() as Record<string, unknown>;
+        return {
+          email: String(data.email ?? d.id).trim().toLowerCase(),
+          bannedAt: data.bannedAt,
+          bannedBy: String(data.bannedBy ?? ""),
+          reason: String(data.reason ?? ""),
+        } satisfies StaffBan;
+      });
+      rows.sort((a, b) => a.email.localeCompare(b.email));
+      onChange(rows);
+    },
+    () => onChange([])
+  );
+}
+
+export async function banStaffEmail(
+  email: string,
+  bannedBy: string,
+  reason = "Spam / blocked by ops"
+) {
+  const id = staffBanDocId(email);
+  if (!id) throw new Error("Email required");
+  if (isAdminEmail(id)) {
+    throw new Error("Cannot ban a company owner account.");
+  }
+  await setDoc(doc(getFirebaseDb(), "staffBanned", id), {
+    email: id,
+    bannedBy: bannedBy || "admin",
+    reason,
+    bannedAt: serverTimestamp(),
+  });
+}
+
+export async function unbanStaffEmail(email: string) {
+  const id = staffBanDocId(email);
+  if (!id) return;
+  await deleteDoc(doc(getFirebaseDb(), "staffBanned", id));
+}
+
 /**
  * After Auth sign-in on /ops or /driver:
+ * - banned emails are blocked
  * - bootstrap allowlist admins become approved admins
+ * - denied/revoked rows are cleared so the person can request again
  * - everyone else gets a pending staff row (once)
  *
- * One staff/{uid} doc covers both portals. requestedPortal is only the
- * first place they asked from; the approved role decides real access:
- * manager/admin → OPS + Driver, driver → Driver only.
+ * One staff/{uid} doc covers both portals. Deny deletes that doc (re-apply OK).
+ * Ban blocks new requests until removed from Staff → Banned.
  */
 export async function ensureStaffProfile(
   user: User,
@@ -105,14 +183,68 @@ export async function ensureStaffProfile(
     (user.displayName ?? "").trim() || email.split("@")[0] || "Staff";
   const bootstrapAdmin = isAdminEmail(email);
 
-  const snap = await getDoc(ref);
+  if (!bootstrapAdmin && email && (await isStaffEmailBanned(email))) {
+    throw new StaffBannedError(email);
+  }
+
+  let snap = await getDoc(ref);
+
+  if (snap.exists()) {
+    const existing = mapStaffProfile(
+      user.uid,
+      snap.data() as Record<string, unknown>
+    );
+
+    if (
+      !bootstrapAdmin &&
+      (existing.status === "denied" || existing.status === "revoked")
+    ) {
+      await deleteDoc(ref);
+      snap = await getDoc(ref);
+    } else if (bootstrapAdmin && existing.status !== "approved") {
+      await updateDoc(ref, {
+        email,
+        displayName,
+        status: "approved",
+        role: "admin",
+        reviewedAt: serverTimestamp(),
+        reviewedBy: "bootstrap",
+        updatedAt: serverTimestamp(),
+      });
+      return {
+        ...existing,
+        email,
+        displayName,
+        status: "approved",
+        role: "admin",
+        reviewedBy: "bootstrap",
+      };
+    } else {
+      if (existing.email !== email || existing.displayName !== displayName) {
+        try {
+          await updateDoc(ref, {
+            email,
+            displayName,
+            updatedAt: serverTimestamp(),
+          });
+        } catch {
+          // Profile still usable even if the soft refresh is denied.
+        }
+      }
+      return {
+        ...existing,
+        email,
+        displayName,
+      };
+    }
+  }
 
   if (!snap.exists()) {
     const status: StaffStatus = bootstrapAdmin ? "approved" : "pending";
     const role: StaffRole = bootstrapAdmin
       ? "admin"
       : defaultRoleForPortal(portal);
-    const payload = {
+    await setDoc(ref, {
       uid: user.uid,
       email,
       displayName,
@@ -123,8 +255,7 @@ export async function ensureStaffProfile(
       updatedAt: serverTimestamp(),
       reviewedAt: bootstrapAdmin ? serverTimestamp() : null,
       reviewedBy: bootstrapAdmin ? "bootstrap" : null,
-    };
-    await setDoc(ref, payload);
+    });
     return {
       uid: user.uid,
       email,
@@ -140,40 +271,6 @@ export async function ensureStaffProfile(
     user.uid,
     snap.data() as Record<string, unknown>
   );
-
-  if (bootstrapAdmin && existing.status !== "approved") {
-    await updateDoc(ref, {
-      email,
-      displayName,
-      status: "approved",
-      role: "admin",
-      reviewedAt: serverTimestamp(),
-      reviewedBy: "bootstrap",
-      updatedAt: serverTimestamp(),
-    });
-    return {
-      ...existing,
-      email,
-      displayName,
-      status: "approved",
-      role: "admin",
-      reviewedBy: "bootstrap",
-    };
-  }
-
-  // Soft refresh only — never touch role/status/portal from the client.
-  if (existing.email !== email || existing.displayName !== displayName) {
-    try {
-      await updateDoc(ref, {
-        email,
-        displayName,
-        updatedAt: serverTimestamp(),
-      });
-    } catch {
-      // Profile still usable even if the soft refresh is denied.
-    }
-  }
-
   return {
     ...existing,
     email,
@@ -241,6 +338,11 @@ export async function reviewStaffMember(
   if (uid.startsWith("bootstrap:")) {
     throw new Error("Cannot change a company owner account.");
   }
+  // Deny clears the request so they can apply again (no permanent denied lock).
+  if (next.status === "denied") {
+    await denyStaffRequest(uid);
+    return;
+  }
   const ref = doc(getFirebaseDb(), "staff", uid);
   const snap = await getDoc(ref);
   if (snap.exists()) {
@@ -259,6 +361,43 @@ export async function reviewStaffMember(
   };
   if (next.role) payload.role = next.role;
   await updateDoc(ref, payload);
+}
+
+/** Deny — deletes the staff request. Same Auth account can request again. */
+export async function denyStaffRequest(uid: string) {
+  if (uid.startsWith("bootstrap:")) {
+    throw new Error("Cannot change a company owner account.");
+  }
+  const ref = doc(getFirebaseDb(), "staff", uid);
+  const snap = await getDoc(ref);
+  if (!snap.exists()) return;
+  const email = String(snap.data()?.email ?? "")
+    .trim()
+    .toLowerCase();
+  if (isAdminEmail(email)) {
+    throw new Error("Cannot change a company owner account.");
+  }
+  await deleteDoc(ref);
+}
+
+/**
+ * Ban — blocks the email from new OPS/Driver requests and clears any staff row.
+ * Auth account may still exist; Ban is what stops spam re-applications.
+ */
+export async function banStaffMember(
+  row: StaffProfile,
+  bannedBy: string,
+  reason?: string
+) {
+  if (row.uid.startsWith("bootstrap:") || isAdminEmail(row.email)) {
+    throw new Error("Cannot ban a company owner account.");
+  }
+  await banStaffEmail(row.email, bannedBy, reason);
+  const ref = doc(getFirebaseDb(), "staff", row.uid);
+  const snap = await getDoc(ref);
+  if (snap.exists()) {
+    await deleteDoc(ref);
+  }
 }
 
 /** Fire / remove — deletes staff doc so all portal access is gone. */
