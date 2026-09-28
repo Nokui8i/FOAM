@@ -75,11 +75,19 @@
   background: transparent;
   padding: 0;
 }
-.admin-page .ops-driver-status-icon.is-waiting img {
+.admin-page .ops-driver-status-icon.is-waiting img,
+.admin-page .ops-driver-status-icon.is-banned img {
   width: 100%;
   height: 100%;
   object-fit: contain;
   display: block;
+}
+.admin-page .ops-driver-status-icon.is-banned {
+  width: 88px;
+  height: 88px;
+  border-radius: 22px;
+  background: transparent;
+  padding: 0;
 }
 .admin-page .ops-driver-status-icon.is-danger {
   background: #fbecea;

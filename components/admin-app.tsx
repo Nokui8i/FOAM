@@ -677,6 +677,15 @@ function AdminAppInner() {
         <section className="ops-login-form-pane">
           <div className="ops-login-card">
             <FoamMark />
+            <div className="ops-driver-status-icon is-banned" aria-hidden>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/ops-banned-icon.png"
+                alt=""
+                width={88}
+                height={88}
+              />
+            </div>
             <h1 className="ops-login-title">Access banned</h1>
             <p className="ops-muted">
               <strong>{user.email}</strong> is blocked from OPS and Driver.
