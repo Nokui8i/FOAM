@@ -1801,8 +1801,19 @@
 }
 .admin-page .ops-staff-access-actions {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
+  gap: 8px;
   padding: 0 12px 12px;
+}
+.admin-page .ops-staff-access-role {
+  display: block;
+  margin-top: 8px;
+  max-width: 180px;
+}
+.admin-page .ops-row-main.is-static {
+  cursor: default;
+  text-align: start;
 }
 .admin-page .ops-staff-toolbar {
   display: flex;
