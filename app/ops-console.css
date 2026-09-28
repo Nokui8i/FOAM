@@ -3926,8 +3926,44 @@
   grid-template-columns: 1fr 1fr;
   background: var(--ops-wash);
 }
+/* Status screens (banned / waiting / denied) have no brand panel — center the card. */
+.admin-page .ops-login:not(:has(.ops-login-brand)) {
+  grid-template-columns: 1fr;
+  place-items: center;
+}
 .admin-page .ops-login-form-pane { display: grid; place-items: center; padding: 40px; order: 2; }
+.admin-page .ops-login:not(:has(.ops-login-brand)) .ops-login-form-pane {
+  order: 1;
+  width: 100%;
+  min-height: 100dvh;
+  height: 100%;
+  place-items: center;
+  justify-items: center;
+}
 .admin-page .ops-login-card { width: min(410px,100%); padding: 0; border: 0; background: transparent; box-shadow: none; overflow: visible; }
+.admin-page .ops-login:not(:has(.ops-login-brand)) .ops-login-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 12px;
+  margin-inline: auto;
+}
+.admin-page .ops-login:not(:has(.ops-login-brand)) .ops-login-card > .ops-foam-mark {
+  margin-inline: auto;
+}
+.admin-page .ops-login:not(:has(.ops-login-brand)) .ops-login-title {
+  margin-inline: auto;
+}
+.admin-page .ops-login:not(:has(.ops-login-brand)) .ops-muted {
+  text-align: center;
+  max-width: 34ch;
+  margin-inline: auto;
+}
+.admin-page .ops-login:not(:has(.ops-login-brand)) .ops-login-card .ops-catalog-editor-btn,
+.admin-page .ops-login:not(:has(.ops-login-brand)) .ops-login-card button {
+  margin-inline: auto;
+}
 .admin-page .ops-login-title { margin: 5px 0 8px; font: 800 30px/1.05 var(--ops-display); letter-spacing: -.04em; }
 .admin-page .ops-login-intro { margin: 25px 0; }
 .admin-page .ops-login-google,
