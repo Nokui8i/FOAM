@@ -264,18 +264,24 @@ function DriverAppInner() {
     setLoginError("");
     try {
       const googleUser = await signInWithGoogle();
-      await ensureStaffProfile(googleUser, "driver");
-    } catch (error) {
-      if (isStaffBannedError(error)) {
-        setLoginError("This email is banned from Driver and OPS access.");
-      } else {
-        setLoginError(
-          googleSignInErrorMessage(
-            error,
-            "Google sign-in failed. Try again, or use email + password."
-          )
-        );
+      try {
+        await ensureStaffProfile(googleUser, "driver");
+      } catch (error) {
+        if (isStaffBannedError(error)) {
+          setLoginError("This email is banned from Driver and OPS access.");
+        } else {
+          setLoginError(
+            "Signed in, but could not create your access request. Try again."
+          );
+        }
       }
+    } catch (error) {
+      setLoginError(
+        googleSignInErrorMessage(
+          error,
+          "Google sign-in failed. Try again, or use email + password."
+        )
+      );
     } finally {
       setLoggingIn(false);
     }

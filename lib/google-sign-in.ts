@@ -72,5 +72,8 @@ export function googleSignInErrorMessage(error: unknown, fallback: string) {
   if (code === "auth/unauthorized-domain") {
     return "This address isn’t authorized for Google sign-in yet.";
   }
+  if (code === "auth/internal-error" || code === "auth/argument-error") {
+    return "Google sign-in hit a browser glitch. Refresh the page and try again.";
+  }
   return fallback;
 }

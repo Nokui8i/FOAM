@@ -1,5 +1,6 @@
 import { initializeApp, getApps, getApp } from "firebase/app";
 import {
+  browserPopupRedirectResolver,
   browserSessionPersistence,
   getAuth,
   initializeAuth,
@@ -66,8 +67,11 @@ export function getFirebaseAuth() {
   if (authInstance) return authInstance;
   const app = getFirebaseApp();
   try {
+    // Must pass popupRedirectResolver — initializeAuth does not include it
+    // by default, and signInWithPopup fails without it.
     authInstance = initializeAuth(app, {
       persistence: browserSessionPersistence,
+      popupRedirectResolver: browserPopupRedirectResolver,
     });
   } catch {
     // Already initialized in this runtime (HMR / duplicate import).
