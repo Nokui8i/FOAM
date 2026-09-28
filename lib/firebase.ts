@@ -11,14 +11,22 @@ import { getStorage } from "firebase/storage";
 
 const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
 
-/** Prefer *.web.app so Google redirect shares origin with Hosting (Safari/Chrome ITP). */
+/**
+ * Use the Firebase Auth domain Google already authorizes
+ * (`*.firebaseapp.com/__/auth/handler`). Forcing `*.web.app` as authDomain
+ * without adding that URI in Google Cloud Console causes
+ * `redirect_uri_mismatch` on every Google popup.
+ *
+ * Popup auth (preferred) talks to firebaseapp.com via postMessage and works
+ * while the app itself runs on foam-laundry-app.web.app.
+ */
 function resolveAuthDomain() {
   const raw = process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN?.trim();
-  if (raw?.endsWith(".firebaseapp.com") && projectId) {
-    return `${projectId}.web.app`;
+  if (raw?.endsWith(".web.app") && projectId) {
+    return `${projectId}.firebaseapp.com`;
   }
   if (raw) return raw;
-  return projectId ? `${projectId}.web.app` : undefined;
+  return projectId ? `${projectId}.firebaseapp.com` : undefined;
 }
 
 const firebaseConfig = {

@@ -50,6 +50,16 @@ export async function signInWithGoogle(): Promise<User> {
 
 export function googleSignInErrorMessage(error: unknown, fallback: string) {
   const code = popupErrorCode(error);
+  const message =
+    error && typeof error === "object" && "message" in error
+      ? String((error as { message: string }).message)
+      : "";
+  if (
+    /redirect_uri_mismatch/i.test(message) ||
+    /invalid.?request/i.test(message)
+  ) {
+    return "Google sign-in isn’t configured for this address yet. Try email, or try again in a moment.";
+  }
   if (code === "auth/popup-closed-by-user" || code === "auth/cancelled-popup-request") {
     return "Sign-in was cancelled. Tap again to continue.";
   }
