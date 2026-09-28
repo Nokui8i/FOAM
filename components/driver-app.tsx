@@ -74,6 +74,8 @@ function DriverAppInner() {
   const [authReady, setAuthReady] = useState(false);
   const [profile, setProfile] = useState<StaffProfile | null>(null);
   const [profileReady, setProfileReady] = useState(false);
+  const [profileError, setProfileError] = useState("");
+  const [retryingProfile, setRetryingProfile] = useState(false);
   const [loginError, setLoginError] = useState("");
   const [loggingIn, setLoggingIn] = useState(false);
   const [authMode, setAuthMode] = useState<AuthMode>("signin");
@@ -123,6 +125,7 @@ function DriverAppInner() {
 
     let alive = true;
     setProfileReady(false);
+    setProfileError("");
     void ensureStaffProfile(user, "driver")
       .then((created) => {
         if (!alive) return;
@@ -133,11 +136,17 @@ function DriverAppInner() {
         if (!alive) return;
         setProfile(null);
         setProfileReady(true);
+        setProfileError(
+          "Could not create your access request. Tap Retry, or contact ops."
+        );
       });
 
     const unsub = subscribeStaffProfile(user.uid, (next) => {
       if (!alive) return;
-      if (next) setProfile(next);
+      if (next) {
+        setProfile(next);
+        setProfileError("");
+      }
     });
 
     return () => {
@@ -145,6 +154,22 @@ function DriverAppInner() {
       unsub();
     };
   }, [user]);
+
+  async function retryStaffProfile() {
+    if (!user) return;
+    setRetryingProfile(true);
+    setProfileError("");
+    try {
+      const created = await ensureStaffProfile(user, "driver");
+      setProfile(created);
+    } catch {
+      setProfileError(
+        "Could not create your access request. Tap Retry, or contact ops."
+      );
+    } finally {
+      setRetryingProfile(false);
+    }
+  }
 
   const setMobileView = useCallback(
     (view: MobileView) => {
@@ -440,10 +465,26 @@ function DriverAppInner() {
           <section className="ops-login-form-pane">
             <div className="ops-login-card">
               <FoamMark />
-              <h1 className="ops-login-title">Couldn’t load access</h1>
+              <div className="ops-driver-status-icon" aria-hidden>
+                <Clock3 size={28} />
+              </div>
+              <h1 className="ops-login-title">Waiting for approval</h1>
               <p className="ops-muted">
-                Try signing out and back in. If it keeps happening, contact ops.
+                Signed in as <strong>{user.email}</strong>. OPS and Driver share
+                one staff account — an admin must approve you on the Staff page
+                before either portal opens.
               </p>
+              {profileError ? (
+                <p className="ops-flash is-error">{profileError}</p>
+              ) : null}
+              <Button
+                type="button"
+                size="lg"
+                disabled={retryingProfile}
+                onClick={() => void retryStaffProfile()}
+              >
+                {retryingProfile ? "Retrying…" : "Retry access request"}
+              </Button>
               <Button
                 type="button"
                 variant="outline"

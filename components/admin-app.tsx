@@ -194,6 +194,7 @@ function AdminAppInner() {
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const accountMenuRef = useRef<HTMLDivElement>(null);
   const [showLoginBrand, setShowLoginBrand] = useState(false);
+  const [retryingStaff, setRetryingStaff] = useState(false);
 
   const allowed = canAccessOps(staffProfile, user?.email);
   const canManageStaff = canManageStaffPage(staffProfile, user?.email);
@@ -213,6 +214,14 @@ function AdminAppInner() {
     !allowed &&
     staffProfile?.status === "approved" &&
     staffProfile.role === "driver";
+  const missingStaffProfile =
+    Boolean(user) &&
+    staffReady &&
+    !allowed &&
+    !pendingAccess &&
+    !deniedAccess &&
+    !driverOnlyAccess &&
+    !staffProfile;
 
   useEffect(() => {
     const mq = window.matchMedia("(min-width: 821px)");
@@ -288,6 +297,19 @@ function AdminAppInner() {
       unsub();
     };
   }, [user]);
+
+  async function retryStaffProfile() {
+    if (!user) return;
+    setRetryingStaff(true);
+    try {
+      const created = await ensureStaffProfile(user, "ops");
+      setStaffProfile(created);
+    } catch {
+      setStaffProfile(null);
+    } finally {
+      setRetryingStaff(false);
+    }
+  }
 
   useEffect(() => {
     if (!allowed) return;
@@ -626,7 +648,8 @@ function AdminAppInner() {
             <h1 className="ops-login-title">Waiting for approval</h1>
             <p className="ops-muted">
               Signed in as <strong>{user.email}</strong>. An admin must approve
-              you on the Staff page before you can use OPS.
+              you on the Staff page. Same account covers OPS and Driver — the
+              role they assign (Manager vs Driver) decides which portal opens.
             </p>
             <Button
               type="button"
@@ -686,6 +709,41 @@ function AdminAppInner() {
               type="button"
               variant="outline"
               onClick={() => {
+                void signOut(getFirebaseAuth());
+              }}
+            >
+              Sign out
+            </Button>
+          </div>
+        </section>
+      </main>
+      ) : missingStaffProfile ? (
+      <main className="ops-login">
+        <section className="ops-login-form-pane">
+          <div className="ops-login-card">
+            <FoamMark />
+            <div className="ops-driver-status-icon" aria-hidden>
+              <Clock3 size={28} />
+            </div>
+            <h1 className="ops-login-title">Finish access request</h1>
+            <p className="ops-muted">
+              Signed in as <strong>{user.email}</strong>. Tap below to send your
+              request to Staff (Pending). OPS and Driver share one staff
+              account — an admin picks Manager or Driver when approving.
+            </p>
+            <Button
+              type="button"
+              size="lg"
+              disabled={retryingStaff}
+              onClick={() => void retryStaffProfile()}
+            >
+              {retryingStaff ? "Sending…" : "Request OPS access"}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                if (!window.confirm("Are you sure you want to sign out?")) return;
                 void signOut(getFirebaseAuth());
               }}
             >

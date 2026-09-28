@@ -99,19 +99,16 @@ service cloud.firestore {
     match /staff/{uid} {
       allow read: if isAdmin() || isOwner(uid);
 
+      // New applicants create their own pending row from /ops or /driver.
       allow create: if isOwner(uid)
         && request.resource.data.uid == uid
-        && request.resource.data.role in ['admin', 'manager', 'driver']
         && request.resource.data.email is string
         && request.resource.data.email.size() > 3
         && request.resource.data.email.size() <= 200
         && request.resource.data.displayName is string
         && request.resource.data.displayName.size() <= 120
+        && request.resource.data.role in ['admin', 'manager', 'driver']
         && request.resource.data.requestedPortal in ['ops', 'driver']
-        && request.resource.data.keys().hasAll([
-          'uid', 'email', 'displayName', 'role', 'status',
-          'requestedPortal', 'createdAt', 'updatedAt'
-        ])
         && (
           request.resource.data.status == 'pending'
           || (
@@ -147,12 +144,13 @@ service cloud.firestore {
             )
           )
         )
-        // Regular staff may only refresh their own name/email
+        // Regular staff may only refresh their own name/email (keep role/status locked)
         || (
           isOwner(uid)
           && request.resource.data.uid == resource.data.uid
           && request.resource.data.status == resource.data.status
           && request.resource.data.role == resource.data.role
+          && request.resource.data.requestedPortal == resource.data.requestedPortal
           && request.resource.data.diff(resource.data).affectedKeys()
             .hasOnly(['email', 'displayName', 'updatedAt'])
         )

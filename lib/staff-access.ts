@@ -89,6 +89,10 @@ function defaultRoleForPortal(portal: StaffPortal): StaffRole {
  * After Auth sign-in on /ops or /driver:
  * - bootstrap allowlist admins become approved admins
  * - everyone else gets a pending staff row (once)
+ *
+ * One staff/{uid} doc covers both portals. requestedPortal is only the
+ * first place they asked from; the approved role decides real access:
+ * manager/admin → OPS + Driver, driver → Driver only.
  */
 export async function ensureStaffProfile(
   user: User,
@@ -96,18 +100,19 @@ export async function ensureStaffProfile(
 ): Promise<StaffProfile> {
   const db = getFirebaseDb();
   const ref = doc(db, "staff", user.uid);
-  const snap = await getDoc(ref);
   const email = (user.email ?? "").trim().toLowerCase();
   const displayName =
     (user.displayName ?? "").trim() || email.split("@")[0] || "Staff";
   const bootstrapAdmin = isAdminEmail(email);
+
+  const snap = await getDoc(ref);
 
   if (!snap.exists()) {
     const status: StaffStatus = bootstrapAdmin ? "approved" : "pending";
     const role: StaffRole = bootstrapAdmin
       ? "admin"
       : defaultRoleForPortal(portal);
-    await setDoc(ref, {
+    const payload = {
       uid: user.uid,
       email,
       displayName,
@@ -118,7 +123,8 @@ export async function ensureStaffProfile(
       updatedAt: serverTimestamp(),
       reviewedAt: bootstrapAdmin ? serverTimestamp() : null,
       reviewedBy: bootstrapAdmin ? "bootstrap" : null,
-    });
+    };
+    await setDoc(ref, payload);
     return {
       uid: user.uid,
       email,
@@ -135,28 +141,43 @@ export async function ensureStaffProfile(
     snap.data() as Record<string, unknown>
   );
 
-  const patch: Record<string, unknown> = {
-    email,
-    displayName,
-    updatedAt: serverTimestamp(),
-  };
-
-  // Keep bootstrap admins approved even if an older pending row exists.
   if (bootstrapAdmin && existing.status !== "approved") {
-    patch.status = "approved";
-    patch.role = "admin";
-    patch.reviewedAt = serverTimestamp();
-    patch.reviewedBy = "bootstrap";
+    await updateDoc(ref, {
+      email,
+      displayName,
+      status: "approved",
+      role: "admin",
+      reviewedAt: serverTimestamp(),
+      reviewedBy: "bootstrap",
+      updatedAt: serverTimestamp(),
+    });
+    return {
+      ...existing,
+      email,
+      displayName,
+      status: "approved",
+      role: "admin",
+      reviewedBy: "bootstrap",
+    };
   }
 
-  await updateDoc(ref, patch);
+  // Soft refresh only — never touch role/status/portal from the client.
+  if (existing.email !== email || existing.displayName !== displayName) {
+    try {
+      await updateDoc(ref, {
+        email,
+        displayName,
+        updatedAt: serverTimestamp(),
+      });
+    } catch {
+      // Profile still usable even if the soft refresh is denied.
+    }
+  }
 
   return {
     ...existing,
     email,
     displayName,
-    status: bootstrapAdmin ? "approved" : existing.status,
-    role: bootstrapAdmin ? "admin" : existing.role,
   };
 }
 
@@ -173,7 +194,9 @@ export function subscribeStaffProfile(
       }
       onChange(mapStaffProfile(uid, snap.data() as Record<string, unknown>));
     },
-    () => onChange(null)
+    () => {
+      // Keep last known profile on transient listener errors; do not wipe to null.
+    }
   );
 }
 
