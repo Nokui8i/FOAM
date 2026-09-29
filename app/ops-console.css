@@ -4314,12 +4314,20 @@
 }
 
 @media (max-width: 820px) {
+  /* Stop iOS from scrolling the whole document (rail + Staff title). */
+  html:has(.admin-page .ops-shell),
+  body:has(.admin-page .ops-shell) {
+    height: 100%;
+    overflow: hidden;
+    overscroll-behavior: none;
+  }
   .admin-page:has(.ops-shell) { height: 100dvh; overflow: hidden; }
   .admin-page .ops-shell {
     height: 100dvh;
     max-height: 100dvh;
     padding: 0;
     overflow: hidden;
+    overscroll-behavior: none;
   }
   .admin-page .ops-shell.is-driver {
     padding: 0;
@@ -4346,11 +4354,14 @@
   }
   .admin-page .ops-frame {
     height: 100dvh;
+    max-height: 100dvh;
     min-height: 0;
     display: flex;
     flex-direction: column;
     gap: 0;
     max-width: none;
+    overflow: hidden;
+    overscroll-behavior: none;
   }
   .admin-page .ops-panel {
     display: contents;
@@ -4585,9 +4596,9 @@
   .admin-page .queue-plane,
   .admin-page .task-plane {
     width: 100%;
-    flex: 1 1 auto;
+    flex: 1 1 0;
     min-height: 0;
-    height: auto;
+    height: 0; /* force flex child to viewport remainder — enables inner scroll */
     border: 0;
     border-radius: 0;
     box-shadow: none;
@@ -4596,6 +4607,7 @@
   }
   .admin-page .queue-plane {
     overflow: hidden;
+    overscroll-behavior: none;
   }
   .admin-page .task-plane {
     overflow-x: hidden;
@@ -4607,6 +4619,18 @@
     border-radius: 0;
     box-shadow: none;
     background: #fff;
+  }
+  .admin-page .ops-list-head {
+    flex: 0 0 auto;
+  }
+  .admin-page .ops-list-scroll {
+    flex: 1 1 0;
+    min-height: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-y;
   }
   .admin-page .task-plane {
     padding: 16px 16px 28px;
@@ -4623,9 +4647,9 @@
   .admin-page .ops-catalog-plane {
     grid-column: auto;
     width: 100%;
-    flex: 1 1 auto;
+    flex: 1 1 0;
     min-height: 0;
-    height: auto;
+    height: 0;
     border: 0;
     border-radius: 0;
     box-shadow: none;
@@ -4633,15 +4657,16 @@
     overflow-x: hidden;
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
-    overscroll-behavior: auto;
+    overscroll-behavior: contain;
     touch-action: pan-y;
   }
   .admin-page .ops-staff-plane {
     grid-column: auto;
     width: 100%;
-    flex: 1 1 auto;
+    flex: 1 1 0;
     min-height: 0;
-    height: auto;
+    height: 0;
+    overflow: hidden;
     container-type: normal;
   }
   .admin-page .ops-staff-sections {
