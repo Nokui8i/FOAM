@@ -355,12 +355,21 @@ function DriverAppInner() {
       } catch (error) {
         if (isStaffBannedError(error)) {
           setLoginError("This email is banned from Driver and OPS access.");
-        } else {
-          setLoginError(
-            "Signed in, but could not create your access request. Try again."
-          );
           void signOut(getFirebaseAuth());
+          return;
         }
+        const recovered = await ensureStaffProfile(googleUser, "driver", {
+          createIfMissing: false,
+        }).catch(() => null);
+        if (recovered) {
+          setProfile(recovered);
+          setBanned(false);
+          setProfileReady(true);
+          return;
+        }
+        setLoginError(
+          "Signed in, but could not create your access request. Try again."
+        );
       }
     } catch (error) {
       setLoginError(
