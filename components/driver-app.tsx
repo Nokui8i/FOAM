@@ -93,6 +93,7 @@ function DriverAppInner() {
   const [profile, setProfile] = useState<StaffProfile | null>(null);
   const [profileReady, setProfileReady] = useState(false);
   const bootstrappingAccess = useRef(false);
+  const announceGateRef = useRef(false);
   const lastStatusRef = useRef<StaffStatus | null>(null);
   const [banned, setBanned] = useState(false);
   const [loginError, setLoginError] = useState("");
@@ -112,8 +113,12 @@ function DriverAppInner() {
   const approved = canAccessDriverPortal(profile, user?.email);
 
   useEffect(() => {
+    // Only surface approved/denied notices that outlive a live sign-out.
+    // Pending notices stay in React state only (never after a bare refresh).
     const notice = takeStaffLoginNotice();
-    if (notice) setLoginNotice(notice);
+    if (notice && !notice.startsWith("Request sent.")) {
+      setLoginNotice(notice);
+    }
   }, []);
 
   useEffect(() => {
@@ -124,9 +129,16 @@ function DriverAppInner() {
     return () => mq.removeEventListener("change", sync);
   }, []);
 
-  async function releaseToLogin(message: string) {
-    setStaffLoginNotice(message);
-    setLoginNotice(message);
+  async function releaseToLogin(message: string, announce: boolean) {
+    if (announce) {
+      // Pending stays in memory only so a refresh does not fake a new request.
+      if (message.startsWith("Request sent.")) {
+        setLoginNotice(message);
+      } else {
+        setStaffLoginNotice(message);
+        setLoginNotice(message);
+      }
+    }
     setProfile(null);
     setProfileReady(false);
     setBanned(false);
@@ -143,15 +155,16 @@ function DriverAppInner() {
 
   async function gateLoadedProfile(
     loaded: StaffProfile | null,
-    email?: string | null
+    email?: string | null,
+    announce = false
   ): Promise<boolean> {
     const gate = staffAccessGateKind(loaded, email);
     if (gate === "pending") {
-      await releaseToLogin(staffPendingLoginMessage("driver"));
+      await releaseToLogin(staffPendingLoginMessage("driver"), announce);
       return false;
     }
     if (gate === "denied") {
-      await releaseToLogin(staffDeniedLoginMessage("driver"));
+      await releaseToLogin(staffDeniedLoginMessage("driver"), announce);
       return false;
     }
     return true;
@@ -178,7 +191,8 @@ function DriverAppInner() {
               if (created) {
                 const allowed = await gateLoadedProfile(
                   created,
-                  redirectResult.user.email
+                  redirectResult.user.email,
+                  true
                 );
                 if (!alive || !allowed) return;
                 setProfile(created);
@@ -250,10 +264,12 @@ function DriverAppInner() {
       const prev = lastStatusRef.current;
       lastStatusRef.current = loaded.status;
       if (prev === "pending" && loaded.status === "approved") {
-        await releaseToLogin(staffApprovedLoginMessage("driver"));
+        await releaseToLogin(staffApprovedLoginMessage("driver"), true);
         return;
       }
-      const allowed = await gateLoadedProfile(loaded, userEmail);
+      const announce = announceGateRef.current;
+      announceGateRef.current = false;
+      const allowed = await gateLoadedProfile(loaded, userEmail, announce);
       if (!alive || !allowed) return;
       sawStaffDoc = true;
       setProfile(loaded);
@@ -363,6 +379,7 @@ function DriverAppInner() {
     try {
       const auth = await readyFirebaseAuth();
       bootstrappingAccess.current = true;
+      announceGateRef.current = true;
       if (authMode === "signup") {
         const result = await createUserWithEmailAndPassword(
           auth,
@@ -374,8 +391,13 @@ function DriverAppInner() {
         }
         const created = await ensureStaffProfile(result.user, "driver", {
           createIfMissing: true,
+          refreshPending: true,
         });
-        const allowed = await gateLoadedProfile(created, result.user.email);
+        const allowed = await gateLoadedProfile(
+          created,
+          result.user.email,
+          true
+        );
         if (!allowed) return;
         setProfile(created);
         setBanned(false);
@@ -384,14 +406,20 @@ function DriverAppInner() {
         const result = await signInWithEmailAndPassword(auth, email, password);
         const created = await ensureStaffProfile(result.user, "driver", {
           createIfMissing: true,
+          refreshPending: true,
         });
-        const allowed = await gateLoadedProfile(created, result.user.email);
+        const allowed = await gateLoadedProfile(
+          created,
+          result.user.email,
+          true
+        );
         if (!allowed) return;
         setProfile(created);
         setBanned(false);
         setProfileReady(true);
       }
     } catch (err) {
+      announceGateRef.current = false;
       if (isStaffBannedError(err)) {
         setLoginError("This email is banned from Driver and OPS access.");
       } else {
@@ -427,17 +455,24 @@ function DriverAppInner() {
     setLoginNotice("");
     try {
       bootstrappingAccess.current = true;
+      announceGateRef.current = true;
       const googleUser = await signInWithGoogle();
       try {
         const created = await ensureStaffProfile(googleUser, "driver", {
           createIfMissing: true,
+          refreshPending: true,
         });
-        const allowed = await gateLoadedProfile(created, googleUser.email);
+        const allowed = await gateLoadedProfile(
+          created,
+          googleUser.email,
+          true
+        );
         if (!allowed) return;
         setProfile(created);
         setBanned(false);
         setProfileReady(true);
       } catch (error) {
+        announceGateRef.current = false;
         if (isStaffBannedError(error)) {
           setLoginError("This email is banned from Driver and OPS access.");
           void signOut(getFirebaseAuth());
@@ -447,7 +482,11 @@ function DriverAppInner() {
           createIfMissing: false,
         }).catch(() => null);
         if (recovered) {
-          const allowed = await gateLoadedProfile(recovered, googleUser.email);
+          const allowed = await gateLoadedProfile(
+            recovered,
+            googleUser.email,
+            true
+          );
           if (!allowed) return;
           setProfile(recovered);
           setBanned(false);
@@ -459,6 +498,7 @@ function DriverAppInner() {
         );
       }
     } catch (error) {
+      announceGateRef.current = false;
       setLoginError(
         googleSignInErrorMessage(
           error,

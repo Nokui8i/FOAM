@@ -225,6 +225,7 @@ function AdminAppInner() {
     return () => unbindStaffFirebaseBackend();
   }, []);
   const bootstrappingAccess = useRef(false);
+  const announceGateRef = useRef(false);
   const lastStatusRef = useRef<StaffStatus | null>(null);
   const [showLoginBrand, setShowLoginBrand] = useState(false);
   const [bannedAccess, setBannedAccess] = useState(false);
@@ -241,12 +242,20 @@ function AdminAppInner() {
 
   useEffect(() => {
     const notice = takeStaffLoginNotice();
-    if (notice) setLoginNotice(notice);
+    if (notice && !notice.startsWith("Request sent.")) {
+      setLoginNotice(notice);
+    }
   }, []);
 
-  async function releaseToLogin(message: string) {
-    setStaffLoginNotice(message);
-    setLoginNotice(message);
+  async function releaseToLogin(message: string, announce: boolean) {
+    if (announce) {
+      if (message.startsWith("Request sent.")) {
+        setLoginNotice(message);
+      } else {
+        setStaffLoginNotice(message);
+        setLoginNotice(message);
+      }
+    }
     setStaffProfile(null);
     setStaffReady(false);
     setBannedAccess(false);
@@ -263,16 +272,17 @@ function AdminAppInner() {
 
   async function gateLoadedProfile(
     loaded: StaffProfile | null,
-    email?: string | null
+    email?: string | null,
+    announce = false
   ): Promise<boolean> {
     if (isCompanyOwner(email)) return true;
     const gate = staffAccessGateKind(loaded, email);
     if (gate === "pending") {
-      await releaseToLogin(staffPendingLoginMessage("ops"));
+      await releaseToLogin(staffPendingLoginMessage("ops"), announce);
       return false;
     }
     if (gate === "denied") {
-      await releaseToLogin(staffDeniedLoginMessage("ops"));
+      await releaseToLogin(staffDeniedLoginMessage("ops"), announce);
       return false;
     }
     return true;
@@ -327,7 +337,8 @@ function AdminAppInner() {
             if (created) {
               const allowedIn = await gateLoadedProfile(
                 created,
-                redirectResult.user.email
+                redirectResult.user.email,
+                true
               );
               if (!alive || !allowedIn) return;
               setStaffProfile(created);
@@ -402,10 +413,12 @@ function AdminAppInner() {
       const prev = lastStatusRef.current;
       lastStatusRef.current = loaded.status;
       if (prev === "pending" && loaded.status === "approved") {
-        await releaseToLogin(staffApprovedLoginMessage("ops"));
+        await releaseToLogin(staffApprovedLoginMessage("ops"), true);
         return;
       }
-      const allowedIn = await gateLoadedProfile(loaded, userEmail);
+      const announce = announceGateRef.current;
+      announceGateRef.current = false;
+      const allowedIn = await gateLoadedProfile(loaded, userEmail, announce);
       if (!alive || !allowedIn) return;
       // Approved drivers stay signed in only long enough for the driver-only screen.
       sawStaffDoc = true;
@@ -612,6 +625,7 @@ function AdminAppInner() {
     try {
       const auth = await readyFirebaseAuth();
       bootstrappingAccess.current = true;
+      announceGateRef.current = true;
       if (authMode === "signup") {
         const result = await createUserWithEmailAndPassword(
           auth,
@@ -623,8 +637,13 @@ function AdminAppInner() {
         }
         const created = await ensureStaffProfile(result.user, "ops", {
           createIfMissing: true,
+          refreshPending: true,
         });
-        const allowedIn = await gateLoadedProfile(created, result.user.email);
+        const allowedIn = await gateLoadedProfile(
+          created,
+          result.user.email,
+          true
+        );
         if (!allowedIn) return;
         setStaffProfile(created);
         setBannedAccess(false);
@@ -633,14 +652,20 @@ function AdminAppInner() {
         const result = await signInWithEmailAndPassword(auth, email, password);
         const created = await ensureStaffProfile(result.user, "ops", {
           createIfMissing: true,
+          refreshPending: true,
         });
-        const allowedIn = await gateLoadedProfile(created, result.user.email);
+        const allowedIn = await gateLoadedProfile(
+          created,
+          result.user.email,
+          true
+        );
         if (!allowedIn) return;
         setStaffProfile(created);
         setBannedAccess(false);
         setStaffReady(true);
       }
     } catch (err) {
+      announceGateRef.current = false;
       if (isStaffBannedError(err)) {
         setLoginError("This email is banned from OPS and Driver access.");
       } else {
@@ -679,17 +704,24 @@ function AdminAppInner() {
     setLoginNotice("");
     try {
       bootstrappingAccess.current = true;
+      announceGateRef.current = true;
       const googleUser = await signInWithGoogle();
       try {
         const created = await ensureStaffProfile(googleUser, "ops", {
           createIfMissing: true,
+          refreshPending: true,
         });
-        const allowedIn = await gateLoadedProfile(created, googleUser.email);
+        const allowedIn = await gateLoadedProfile(
+          created,
+          googleUser.email,
+          true
+        );
         if (!allowedIn) return;
         setStaffProfile(created);
         setBannedAccess(false);
         setStaffReady(true);
       } catch (error) {
+        announceGateRef.current = false;
         if (isStaffBannedError(error)) {
           setLoginError("This email is banned from OPS and Driver access.");
           void signOut(getFirebaseAuth());
@@ -700,7 +732,11 @@ function AdminAppInner() {
           createIfMissing: false,
         }).catch(() => null);
         if (recovered) {
-          const allowedIn = await gateLoadedProfile(recovered, googleUser.email);
+          const allowedIn = await gateLoadedProfile(
+            recovered,
+            googleUser.email,
+            true
+          );
           if (!allowedIn) return;
           setStaffProfile(recovered);
           setBannedAccess(false);
@@ -712,6 +748,7 @@ function AdminAppInner() {
         );
       }
     } catch (error) {
+      announceGateRef.current = false;
       setLoginError(
         googleSignInErrorMessage(
           error,

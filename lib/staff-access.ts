@@ -106,7 +106,7 @@ export function staffRoleLabel(role: StaffRole) {
   }
 }
 
-/** sessionStorage key — survives signOut so the login form can show why. */
+/** One-shot notice after intentional sign-in (approved / denied). Not for pending. */
 export const STAFF_LOGIN_NOTICE_KEY = "foam-staff-login-notice";
 
 export function setStaffLoginNotice(message: string) {
@@ -124,6 +124,14 @@ export function takeStaffLoginNotice(): string {
     return value;
   } catch {
     return "";
+  }
+}
+
+export function clearStaffLoginNotice() {
+  try {
+    sessionStorage.removeItem(STAFF_LOGIN_NOTICE_KEY);
+  } catch {
+    /* private mode / blocked storage */
   }
 }
 
@@ -248,18 +256,22 @@ const staffEnsureInflight = new Map<string, Promise<StaffProfile | null>>();
 export async function ensureStaffProfile(
   user: User,
   portal: StaffPortal,
-  options?: { createIfMissing?: boolean }
+  options?: { createIfMissing?: boolean; refreshPending?: boolean }
 ): Promise<StaffProfile | null> {
   const createIfMissing = options?.createIfMissing === true;
-  const key = `${user.uid}:${createIfMissing ? "write" : "read"}`;
+  const refreshPending = options?.refreshPending === true;
+  const key = `${user.uid}:${createIfMissing ? "write" : "read"}:${refreshPending ? "touch" : "plain"}`;
   const existing = staffEnsureInflight.get(key);
   if (existing) return existing;
 
-  const run = ensureStaffProfileOnce(user, portal, createIfMissing).finally(
-    () => {
-      staffEnsureInflight.delete(key);
-    }
-  );
+  const run = ensureStaffProfileOnce(
+    user,
+    portal,
+    createIfMissing,
+    refreshPending
+  ).finally(() => {
+    staffEnsureInflight.delete(key);
+  });
   staffEnsureInflight.set(key, run);
   return run;
 }
@@ -267,7 +279,8 @@ export async function ensureStaffProfile(
 async function ensureStaffProfileOnce(
   user: User,
   portal: StaffPortal,
-  createIfMissing: boolean
+  createIfMissing: boolean,
+  refreshPending: boolean
 ): Promise<StaffProfile | null> {
   const db = getFirebaseDb();
   const ref = doc(db, "staff", user.uid);
@@ -328,13 +341,22 @@ async function ensureStaffProfileOnce(
         reviewedBy: "bootstrap",
       };
     } else {
-      if (existing.email !== email || existing.displayName !== displayName) {
+      const softUpdate: Record<string, unknown> = {};
+      if (existing.email !== email) softUpdate.email = email;
+      if (existing.displayName !== displayName) softUpdate.displayName = displayName;
+      if (
+        refreshPending &&
+        existing.status === "pending" &&
+        !bootstrapAdmin
+      ) {
+        softUpdate.requestedPortal = portal;
+        softUpdate.updatedAt = serverTimestamp();
+      } else if (Object.keys(softUpdate).length > 0) {
+        softUpdate.updatedAt = serverTimestamp();
+      }
+      if (Object.keys(softUpdate).length > 0) {
         try {
-          await updateDoc(ref, {
-            email,
-            displayName,
-            updatedAt: serverTimestamp(),
-          });
+          await updateDoc(ref, softUpdate);
         } catch {
           // Profile still usable even if the soft refresh is denied.
         }
@@ -343,6 +365,10 @@ async function ensureStaffProfileOnce(
         ...existing,
         email,
         displayName,
+        requestedPortal:
+          refreshPending && existing.status === "pending"
+            ? portal
+            : existing.requestedPortal,
       };
     }
   }

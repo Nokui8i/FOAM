@@ -3,6 +3,7 @@ import {
   onAuthStateChanged,
   signInWithPopup,
   signInWithRedirect,
+  signOut,
   type Auth,
   type User,
 } from "firebase/auth";
@@ -49,7 +50,15 @@ export async function signInWithGoogle(): Promise<User> {
   const provider = new GoogleAuthProvider();
   provider.setCustomParameters({ prompt: "select_account" });
 
-  if (auth.currentUser) return auth.currentUser;
+  // Always start from a clean staff session so a leftover pending Auth user
+  // does not short-circuit the popup / request flow.
+  if (auth.currentUser) {
+    try {
+      await signOut(auth);
+    } catch {
+      /* continue into popup */
+    }
+  }
 
   return new Promise<User>((resolve, reject) => {
     let settled = false;
