@@ -54,7 +54,6 @@ import {
 import { purgeExpiredOpsDataOncePerSession } from "@/lib/data-retention";
 import {
   isFuturePickupOrder,
-  isHistoryOrder,
   isReadyForDelivery,
   isWaitingTodayOrder,
   isWashingOrder,
@@ -84,6 +83,14 @@ import {
   type StaffProfile,
   type StaffStatus,
 } from "@/lib/staff-access";
+import {
+  countUnreadOrders,
+  countUnreadStaffPending,
+  markStaffPendingSeen,
+  seedKnownOrders,
+  seedKnownStaffPending,
+  subscribeOpsUnread,
+} from "@/lib/ops-unread";
 import { reconcileWeeklyQueues } from "@/lib/weekly-automation";
 
 // Isolate OPS Auth from the public site — staff signOut must not clear /account.
@@ -206,10 +213,10 @@ function AdminAppInner() {
   const [openInquiriesCount, setOpenInquiriesCount] = useState(0);
   const [alertsTodoCount, setAlertsTodoCount] = useState(0);
   const [reminderTodoCount, setReminderTodoCount] = useState(0);
-  const [pendingStaffCount, setPendingStaffCount] = useState(0);
-  const [ordersCount, setOrdersCount] = useState(0);
-  const [futureCount, setFutureCount] = useState(0);
-  const [historyCount, setHistoryCount] = useState(0);
+  const [pendingStaffIds, setPendingStaffIds] = useState<string[]>([]);
+  const [activeOrderIds, setActiveOrderIds] = useState<string[]>([]);
+  const [unreadTick, setUnreadTick] = useState(0);
+  const [, setPendingStaffCount] = useState(0);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const accountMenuRef = useRef<HTMLDivElement>(null);
 
@@ -489,11 +496,15 @@ function AdminAppInner() {
   useEffect(() => {
     if (!allowed) return;
     const db = getFirebaseDb();
+    const staffEmail = user?.email ?? "";
     const unsubContacts = onSnapshot(
       collection(db, "contactMessages"),
       (snap) => {
-        const open = snap.docs.filter((d) => d.data().status !== "done").length;
-        setOpenInquiriesCount(open);
+        const unread = snap.docs.filter((d) => {
+          const data = d.data() as { read?: boolean; status?: string };
+          return data.read !== true && data.status !== "done";
+        }).length;
+        setOpenInquiriesCount(unread);
       },
       () => {
         /* permission/network blip — keep last counts */
@@ -502,17 +513,12 @@ function AdminAppInner() {
     const unsubOrders = onSnapshot(
       collection(db, "orders"),
       (snap) => {
-        let todayActive = 0;
-        let future = 0;
-        let history = 0;
         let alertsTodo = 0;
+        const liveOrderIds: string[] = [];
         for (const docSnap of snap.docs) {
           const data = docSnap.data() as Record<string, unknown>;
           const order = orderStubFromDoc(data);
           const status = order.status;
-          if (isHistoryOrder(status)) {
-            history += 1;
-          }
           if (status !== "cancelled" && status !== "delivered") {
             const pickupDate = order.pickup.date;
             const window = isInPickupReminderWindow(pickupDate);
@@ -520,7 +526,7 @@ function AdminAppInner() {
             if (window.match && !reminder.contacted) alertsTodo += 1;
           }
           if (isFuturePickupOrder(order)) {
-            future += 1;
+            liveOrderIds.push(docSnap.id);
             continue;
           }
           if (
@@ -528,13 +534,13 @@ function AdminAppInner() {
             isWashingOrder(order.status) ||
             isReadyForDelivery(order.status)
           ) {
-            todayActive += 1;
+            liveOrderIds.push(docSnap.id);
           }
         }
-        setOrdersCount(todayActive);
-        setFutureCount(future);
-        setHistoryCount(history);
+        seedKnownOrders(staffEmail, liveOrderIds);
+        setActiveOrderIds(liveOrderIds);
         setReminderTodoCount(alertsTodo);
+        setAlertsTodoCount(alertsTodo);
       },
       () => {
         /* permission/network blip — keep last counts */
@@ -542,9 +548,13 @@ function AdminAppInner() {
     );
     const unsubStaff = canManageStaff
       ? subscribePendingStaff((rows) => {
+          const ids = rows.map((r) => r.uid);
+          seedKnownStaffPending(staffEmail, ids);
+          setPendingStaffIds(ids);
           setPendingStaffCount(rows.length);
         })
       : () => {
+          setPendingStaffIds([]);
           setPendingStaffCount(0);
         };
     return () => {
@@ -552,7 +562,20 @@ function AdminAppInner() {
       unsubOrders();
       unsubStaff();
     };
-  }, [allowed, canManageStaff]);
+  }, [allowed, canManageStaff, user?.email]);
+
+  useEffect(() => {
+    return subscribeOpsUnread(() => {
+      setUnreadTick((n) => n + 1);
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!allowed || tab !== "staff" || !canManageStaff) return;
+    const email = user?.email ?? "";
+    if (!email || pendingStaffIds.length === 0) return;
+    markStaffPendingSeen(email, pendingStaffIds);
+  }, [allowed, tab, canManageStaff, user?.email, pendingStaffIds]);
 
   useEffect(() => {
     setAlertsTodoCount(reminderTodoCount);
@@ -727,6 +750,15 @@ function AdminAppInner() {
 
   const consoleReady = Boolean(user && allowed && staffReady);
   const gateReady = !user || staffReady;
+
+  const staffEmail = user?.email ?? "";
+  const hasUnreadOrders =
+    unreadTick >= 0 && countUnreadOrders(staffEmail, activeOrderIds) > 0;
+  const hasUnreadStaff =
+    unreadTick >= 0 &&
+    countUnreadStaffPending(staffEmail, pendingStaffIds) > 0;
+  const hasUnreadContact = openInquiriesCount > 0;
+  const hasUnreadAlerts = alertsTodoCount > 0;
 
   return (
     <OpsBootProvider
@@ -960,15 +992,13 @@ function AdminAppInner() {
         mobileView={mobileView}
         setMobileView={setMobileView}
         setDestination={setDestination}
-        openInquiriesCount={openInquiriesCount}
-        alertsTodoCount={alertsTodoCount}
-        pendingStaffCount={pendingStaffCount}
+        hasUnreadOrders={hasUnreadOrders}
+        hasUnreadContact={hasUnreadContact}
+        hasUnreadAlerts={hasUnreadAlerts}
+        hasUnreadStaff={hasUnreadStaff}
         setPendingStaffCount={setPendingStaffCount}
         canManageStaff={canManageStaff}
         setReminderTodoCount={setReminderTodoCount}
-        ordersCount={ordersCount}
-        futureCount={futureCount}
-        historyCount={historyCount}
         accountMenuOpen={accountMenuOpen}
         setAccountMenuOpen={setAccountMenuOpen}
         accountMenuRef={accountMenuRef}
@@ -984,15 +1014,13 @@ function OpsConsole({
   mobileView,
   setMobileView,
   setDestination,
-  openInquiriesCount,
-  alertsTodoCount,
-  pendingStaffCount,
+  hasUnreadOrders,
+  hasUnreadContact,
+  hasUnreadAlerts,
+  hasUnreadStaff,
   setPendingStaffCount,
   canManageStaff,
   setReminderTodoCount,
-  ordersCount,
-  futureCount,
-  historyCount,
   accountMenuOpen,
   setAccountMenuOpen,
   accountMenuRef,
@@ -1002,15 +1030,13 @@ function OpsConsole({
   mobileView: MobileView;
   setMobileView: (view: MobileView) => void;
   setDestination: (next: AdminTab) => void;
-  openInquiriesCount: number;
-  alertsTodoCount: number;
-  pendingStaffCount: number;
+  hasUnreadOrders: boolean;
+  hasUnreadContact: boolean;
+  hasUnreadAlerts: boolean;
+  hasUnreadStaff: boolean;
   setPendingStaffCount: (count: number) => void;
   canManageStaff: boolean;
   setReminderTodoCount: (count: number) => void;
-  ordersCount: number;
-  futureCount: number;
-  historyCount: number;
   accountMenuOpen: boolean;
   setAccountMenuOpen: (open: boolean | ((prev: boolean) => boolean)) => void;
   accountMenuRef: RefObject<HTMLDivElement | null>;
@@ -1089,7 +1115,9 @@ function OpsConsole({
             >
               <Truck size={18} aria-hidden />
               <span>Orders</span>
-              <b>{ordersCount}</b>
+              {hasUnreadOrders ? (
+                <i className="ops-nav-dot" aria-label="New orders" />
+              ) : null}
             </button>
             <button
               type="button"
@@ -1098,7 +1126,6 @@ function OpsConsole({
             >
               <CalendarDays size={18} aria-hidden />
               <span>Future</span>
-              <b>{futureCount}</b>
             </button>
             <button
               type="button"
@@ -1111,7 +1138,6 @@ function OpsConsole({
             >
               <History size={18} aria-hidden />
               <span>History</span>
-              <b>{historyCount}</b>
             </button>
             <button
               type="button"
@@ -1120,7 +1146,9 @@ function OpsConsole({
             >
               <Headphones size={18} aria-hidden />
               <span>Contact</span>
-              <b>{openInquiriesCount}</b>
+              {hasUnreadContact ? (
+                <i className="ops-nav-dot" aria-label="New messages" />
+              ) : null}
             </button>
             <button
               type="button"
@@ -1129,7 +1157,9 @@ function OpsConsole({
             >
               <Bell size={18} aria-hidden />
               <span>Notifications</span>
-              <b>{alertsTodoCount}</b>
+              {hasUnreadAlerts ? (
+                <i className="ops-nav-dot" aria-label="New notifications" />
+              ) : null}
             </button>
             {canManageStaff ? (
               <button
@@ -1143,7 +1173,9 @@ function OpsConsole({
               >
                 <Users size={18} aria-hidden />
                 <span>Staff</span>
-                <b>{pendingStaffCount}</b>
+                {hasUnreadStaff ? (
+                  <i className="ops-nav-dot" aria-label="New staff requests" />
+                ) : null}
               </button>
             ) : null}
             <button
@@ -1217,6 +1249,9 @@ function OpsConsole({
               ) : (
                 <Menu size={22} strokeWidth={2.25} aria-hidden />
               )}
+              {!moreMenuOpen && hasUnreadStaff ? (
+                <i className="ops-nav-dot is-corner" aria-hidden />
+              ) : null}
             </button>
 
             {moreMenuOpen ? (
@@ -1232,7 +1267,6 @@ function OpsConsole({
                 >
                   <History size={18} aria-hidden />
                   <span>History</span>
-                  <b>{historyCount}</b>
                 </button>
                 {canManageStaff ? (
                   <button
@@ -1246,7 +1280,9 @@ function OpsConsole({
                   >
                     <Users size={18} aria-hidden />
                     <span>Staff</span>
-                    <b>{pendingStaffCount}</b>
+                    {hasUnreadStaff ? (
+                      <i className="ops-nav-dot" aria-label="New staff requests" />
+                    ) : null}
                   </button>
                 ) : null}
                 <button

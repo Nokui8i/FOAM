@@ -110,6 +110,11 @@ import { customerVisiblePhotos, firstNameFromContact } from "@/lib/order-trackin
 import { BUSINESS_WHATSAPP } from "@/lib/site-config";
 import { useOpsPageReadyWhen } from "@/components/ops-boot";
 import { cn } from "@/lib/utils";
+import {
+  isOrderUnread,
+  markOrderSeen,
+  subscribeOpsUnread,
+} from "@/lib/ops-unread";
 import { useQueryReplace } from "@/lib/use-query-replace";
 
 type Filter = "waiting" | "progress" | "ready" | "all";
@@ -431,6 +436,7 @@ export function AdminOrdersPanel({
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [showHistoryCalendar, setShowHistoryCalendar] = useState(false);
   const [rowMenuId, setRowMenuId] = useState<string | null>(null);
+  const [unreadTick, setUnreadTick] = useState(0);
   const [confirmAction, setConfirmAction] = useState<
     | { kind: "cancel"; order: FoamOrder }
     | { kind: "delete"; order: FoamOrder }
@@ -786,6 +792,17 @@ export function AdminOrdersPanel({
       replaceQuery({ id: null, view: null });
     }
   }, [rows, selectedId, replaceQuery, mode]);
+
+  useEffect(() => {
+    return subscribeOpsUnread(() => {
+      setUnreadTick((n) => n + 1);
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!selectedId || isDriverViewer || !adminEmail) return;
+    markOrderSeen(adminEmail, selectedId);
+  }, [selectedId, adminEmail, isDriverViewer]);
 
   useEffect(() => {
     if (!selected) return;
@@ -1508,6 +1525,9 @@ export function AdminOrdersPanel({
     : "";
 
   function selectOrder(id: string) {
+    if (!isDriverViewer && adminEmail) {
+      markOrderSeen(adminEmail, id);
+    }
     replaceQuery({ id, view: "detail" });
   }
 
@@ -2530,6 +2550,10 @@ export function AdminOrdersPanel({
                 const menuOpen = rowMenuId === row.id;
                 const canDeleteRow =
                   mode === "history" || isWaitingForPickup(row.status);
+                const unread =
+                  !isDriverViewer &&
+                  unreadTick >= 0 &&
+                  isOrderUnread(adminEmail, row.id);
                 return (
                   <div
                     key={row.id}
@@ -2537,7 +2561,8 @@ export function AdminOrdersPanel({
                       "ops-row",
                       selectedId === row.id && "is-active",
                       canDeleteRow && "has-menu",
-                      menuOpen && "is-menu-open"
+                      menuOpen && "is-menu-open",
+                      unread && "is-unread"
                     )}
                   >
                     <button
@@ -2548,6 +2573,9 @@ export function AdminOrdersPanel({
                         selectOrder(row.id);
                       }}
                     >
+                      {unread ? (
+                        <i className="ops-row-unread-dot" aria-hidden />
+                      ) : null}
                       <span className="ops-row-top">
                         <span className="ops-row-name">{row.contact.name}</span>
                         <span
