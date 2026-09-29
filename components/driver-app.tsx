@@ -32,7 +32,12 @@ import {
   subscribeStaffProfile,
   type StaffProfile,
 } from "@/lib/staff-access";
-import { getFirebaseAuth, readyFirebaseAuth } from "@/lib/firebase";
+import {
+  bindStaffFirebaseBackend,
+  getFirebaseAuth,
+  readyFirebaseAuth,
+  unbindStaffFirebaseBackend,
+} from "@/lib/firebase";
 import {
   googleSignInErrorMessage,
   signInWithGoogle,
@@ -40,6 +45,9 @@ import {
 import { isAdminEmail } from "@/lib/site-config";
 import { useQueryReplace } from "@/lib/use-query-replace";
 import { cn } from "@/lib/utils";
+
+// Isolate Driver Auth from the public site — staff signOut must not clear /account.
+bindStaffFirebaseBackend();
 
 type MobileView = "list" | "detail";
 type AuthMode = "signin" | "signup";
@@ -85,6 +93,11 @@ function DriverAppInner() {
   const [showLoginBrand, setShowLoginBrand] = useState(false);
   const mobileView: MobileView =
     searchParams.get("view") === "detail" ? "detail" : "list";
+
+  useEffect(() => {
+    bindStaffFirebaseBackend();
+    return () => unbindStaffFirebaseBackend();
+  }, []);
 
   const isAdmin = isAdminEmail(user?.email);
   const approved = canAccessDriverPortal(profile, user?.email);

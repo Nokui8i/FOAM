@@ -40,7 +40,13 @@ import { BrandSplash } from "@/components/brand-splash";
 import { GoogleGIcon } from "@/components/google-g-icon";
 import { OpsBootProvider } from "@/components/ops-boot";
 import { Button } from "@/components/ui/button";
-import { getFirebaseAuth, getFirebaseDb, readyFirebaseAuth } from "@/lib/firebase";
+import {
+  bindStaffFirebaseBackend,
+  getFirebaseAuth,
+  getFirebaseDb,
+  readyFirebaseAuth,
+  unbindStaffFirebaseBackend,
+} from "@/lib/firebase";
 import {
   googleSignInErrorMessage,
   signInWithGoogle,
@@ -73,6 +79,9 @@ import {
   type StaffProfile,
 } from "@/lib/staff-access";
 import { reconcileWeeklyQueues } from "@/lib/weekly-automation";
+
+// Isolate OPS Auth from the public site — staff signOut must not clear /account.
+bindStaffFirebaseBackend();
 
 type AdminTab =
   | "orders"
@@ -196,6 +205,11 @@ function AdminAppInner() {
   const [historyCount, setHistoryCount] = useState(0);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const accountMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    bindStaffFirebaseBackend();
+    return () => unbindStaffFirebaseBackend();
+  }, []);
   const bootstrappingAccess = useRef(false);
   const [showLoginBrand, setShowLoginBrand] = useState(false);
   const [bannedAccess, setBannedAccess] = useState(false);

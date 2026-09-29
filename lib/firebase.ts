@@ -1,5 +1,6 @@
-import { initializeApp, getApps, getApp } from "firebase/app";
+import { initializeApp, getApps, getApp, type FirebaseApp } from "firebase/app";
 import {
+  browserLocalPersistence,
   browserPopupRedirectResolver,
   browserSessionPersistence,
   getAuth,
@@ -17,15 +18,13 @@ import {
 import { getStorage } from "firebase/storage";
 
 const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
+const STAFF_APP_NAME = "foam-staff";
 
 /**
  * Use the Firebase Auth domain Google already authorizes
  * (`*.firebaseapp.com/__/auth/handler`). Forcing `*.web.app` as authDomain
  * without adding that URI in Google Cloud Console causes
  * `redirect_uri_mismatch` on every Google popup.
- *
- * Popup auth (preferred) talks to firebaseapp.com via postMessage and works
- * while the app itself runs on foam-laundry-app.web.app.
  */
 function resolveAuthDomain() {
   const raw = process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN?.trim();
@@ -45,8 +44,24 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
-let dbInstance: Firestore | null = null;
-let authInstance: Auth | null = null;
+let customerDb: Firestore | null = null;
+let staffDb: Firestore | null = null;
+let customerAuth: Auth | null = null;
+let staffAuth: Auth | null = null;
+
+/**
+ * When true, getFirebaseAuth/getFirebaseDb resolve to the isolated staff app.
+ * Set only from /ops and /driver so a staff signOut never clears the public site.
+ */
+let staffBackendBound = false;
+
+export function bindStaffFirebaseBackend() {
+  staffBackendBound = true;
+}
+
+export function unbindStaffFirebaseBackend() {
+  staffBackendBound = false;
+}
 
 function assertConfig() {
   if (!firebaseConfig.apiKey || !firebaseConfig.projectId) {
@@ -59,51 +74,84 @@ export function getFirebaseApp() {
   return getApps().length ? getApp() : initializeApp(firebaseConfig);
 }
 
-/**
- * Session persistence (sessionStorage) — one login per browser tab/window.
- * OPS, Driver, and other tabs do not share Auth; each can use a different user.
- */
-export function getFirebaseAuth() {
-  if (authInstance) return authInstance;
-  const app = getFirebaseApp();
+function getStaffFirebaseApp(): FirebaseApp {
+  assertConfig();
   try {
-    // Must pass popupRedirectResolver — initializeAuth does not include it
-    // by default, and signInWithPopup fails without it.
-    authInstance = initializeAuth(app, {
-      persistence: browserSessionPersistence,
+    return getApp(STAFF_APP_NAME);
+  } catch {
+    return initializeApp(firebaseConfig, STAFF_APP_NAME);
+  }
+}
+
+function initAuth(
+  app: FirebaseApp,
+  persistence: typeof browserLocalPersistence | typeof browserSessionPersistence
+) {
+  try {
+    return initializeAuth(app, {
+      persistence,
       popupRedirectResolver: browserPopupRedirectResolver,
     });
   } catch {
-    // Already initialized in this runtime (HMR / duplicate import).
-    authInstance = getAuth(app);
-    void setPersistence(authInstance, browserSessionPersistence).catch(
-      () => undefined
-    );
+    const auth = getAuth(app);
+    void setPersistence(auth, persistence).catch(() => undefined);
+    return auth;
   }
-  return authInstance;
 }
 
-/** Resolves once Auth is ready (session persistence already applied at init). */
-export function readyFirebaseAuth(): Promise<Auth> {
-  return Promise.resolve(getFirebaseAuth());
-}
-
-export function getFirebaseDb() {
-  if (dbInstance) return dbInstance;
-  const app = getFirebaseApp();
+function initDb(app: FirebaseApp) {
   try {
-    // Cache locally so refresh can paint from disk before the network round-trip.
-    dbInstance = initializeFirestore(app, {
+    return initializeFirestore(app, {
       localCache: persistentLocalCache({
         tabManager: persistentMultipleTabManager(),
       }),
     });
   } catch {
-    dbInstance = getFirestore(app);
+    return getFirestore(app);
   }
-  return dbInstance;
+}
+
+/** Public site Auth — stays signed in across tabs/refreshes. */
+export function getCustomerAuth() {
+  if (!customerAuth) {
+    customerAuth = initAuth(getFirebaseApp(), browserLocalPersistence);
+  }
+  return customerAuth;
+}
+
+/** OPS / Driver Auth — separate Firebase app, per-tab session only. */
+export function getStaffAuth() {
+  if (!staffAuth) {
+    staffAuth = initAuth(getStaffFirebaseApp(), browserSessionPersistence);
+  }
+  return staffAuth;
+}
+
+export function getFirebaseAuth() {
+  return staffBackendBound ? getStaffAuth() : getCustomerAuth();
+}
+
+/** Resolves once Auth is ready for the active backend. */
+export function readyFirebaseAuth(): Promise<Auth> {
+  return Promise.resolve(getFirebaseAuth());
+}
+
+export function getCustomerDb() {
+  if (!customerDb) customerDb = initDb(getFirebaseApp());
+  return customerDb;
+}
+
+export function getStaffDb() {
+  if (!staffDb) staffDb = initDb(getStaffFirebaseApp());
+  return staffDb;
+}
+
+export function getFirebaseDb() {
+  return staffBackendBound ? getStaffDb() : getCustomerDb();
 }
 
 export function getFirebaseStorage() {
-  return getStorage(getFirebaseApp());
+  return getStorage(
+    staffBackendBound ? getStaffFirebaseApp() : getFirebaseApp()
+  );
 }
