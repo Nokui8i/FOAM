@@ -106,6 +106,72 @@ export function staffRoleLabel(role: StaffRole) {
   }
 }
 
+/** sessionStorage key — survives signOut so the login form can show why. */
+export const STAFF_LOGIN_NOTICE_KEY = "foam-staff-login-notice";
+
+export function setStaffLoginNotice(message: string) {
+  try {
+    sessionStorage.setItem(STAFF_LOGIN_NOTICE_KEY, message);
+  } catch {
+    /* private mode / blocked storage */
+  }
+}
+
+export function takeStaffLoginNotice(): string {
+  try {
+    const value = sessionStorage.getItem(STAFF_LOGIN_NOTICE_KEY) ?? "";
+    if (value) sessionStorage.removeItem(STAFF_LOGIN_NOTICE_KEY);
+    return value;
+  } catch {
+    return "";
+  }
+}
+
+export function staffPendingLoginMessage(portal: StaffPortal) {
+  return portal === "ops"
+    ? "Request sent. Wait on this login page until an admin approves you on Staff, then sign in again."
+    : "Request sent. Wait on this login page until an admin approves you, then sign in again.";
+}
+
+export function staffApprovedLoginMessage(portal: StaffPortal) {
+  return portal === "ops"
+    ? "You're approved. Sign in to open OPS."
+    : "You're approved. Sign in to open Driver.";
+}
+
+export function staffDeniedLoginMessage(portal: StaffPortal) {
+  return portal === "ops"
+    ? "This account was not approved for OPS. Contact a FOAM admin if you think this is a mistake."
+    : "This account was not approved for driver access. Contact FOAM ops if you think this is a mistake.";
+}
+
+/** Gate for OPS/Driver sessions — owners always pass. */
+export function staffAccessGateKind(
+  profile: StaffProfile | null | undefined,
+  email?: string | null
+): "ok" | "pending" | "denied" {
+  if (isAdminEmail(email)) return "ok";
+  if (!profile) return "ok";
+  if (profile.status === "pending") return "pending";
+  if (profile.status === "denied" || profile.status === "revoked") {
+    return "denied";
+  }
+  return "ok";
+}
+
+export async function fetchStaffProfileFromServer(
+  uid: string
+): Promise<StaffProfile | null> {
+  if (!uid || uid.startsWith("bootstrap:")) return null;
+  try {
+    const snap = await getDocFromServer(doc(getFirebaseDb(), "staff", uid));
+    if (!snap.exists()) return null;
+    return mapStaffProfile(uid, snap.data() as Record<string, unknown>);
+  } catch {
+    return null;
+  }
+}
+
 function defaultRoleForPortal(portal: StaffPortal): StaffRole {
   // OPS applicants start as manager candidates; drivers as driver.
   // Admins promote to admin explicitly from Staff.

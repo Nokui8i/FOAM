@@ -17,7 +17,7 @@ import {
   updateProfile,
   type User,
 } from "firebase/auth";
-import { LogOut, ShieldAlert, Truck } from "lucide-react";
+import { LogOut, Truck } from "lucide-react";
 
 import { AdminOrdersPanel } from "@/components/admin-orders-panel";
 import { BrandSplash } from "@/components/brand-splash";
@@ -28,9 +28,16 @@ import {
   canAccessDriverPortal,
   ensureStaffProfile,
   isStaffBannedError,
+  setStaffLoginNotice,
+  staffAccessGateKind,
+  staffApprovedLoginMessage,
+  staffDeniedLoginMessage,
+  staffPendingLoginMessage,
   subscribeStaffBan,
   subscribeStaffProfile,
+  takeStaffLoginNotice,
   type StaffProfile,
+  type StaffStatus,
 } from "@/lib/staff-access";
 import {
   bindStaffFirebaseBackend,
@@ -86,8 +93,10 @@ function DriverAppInner() {
   const [profile, setProfile] = useState<StaffProfile | null>(null);
   const [profileReady, setProfileReady] = useState(false);
   const bootstrappingAccess = useRef(false);
+  const lastStatusRef = useRef<StaffStatus | null>(null);
   const [banned, setBanned] = useState(false);
   const [loginError, setLoginError] = useState("");
+  const [loginNotice, setLoginNotice] = useState("");
   const [loggingIn, setLoggingIn] = useState(false);
   const [authMode, setAuthMode] = useState<AuthMode>("signin");
   const [showLoginBrand, setShowLoginBrand] = useState(false);
@@ -101,11 +110,11 @@ function DriverAppInner() {
 
   const isAdmin = isAdminEmail(user?.email);
   const approved = canAccessDriverPortal(profile, user?.email);
-  const pending = !isAdmin && !banned && profile?.status === "pending";
-  const denied =
-    !isAdmin &&
-    !banned &&
-    (profile?.status === "denied" || profile?.status === "revoked");
+
+  useEffect(() => {
+    const notice = takeStaffLoginNotice();
+    if (notice) setLoginNotice(notice);
+  }, []);
 
   useEffect(() => {
     const mq = window.matchMedia("(min-width: 821px)");
@@ -114,6 +123,39 @@ function DriverAppInner() {
     mq.addEventListener("change", sync);
     return () => mq.removeEventListener("change", sync);
   }, []);
+
+  async function releaseToLogin(message: string) {
+    setStaffLoginNotice(message);
+    setLoginNotice(message);
+    setProfile(null);
+    setProfileReady(false);
+    setBanned(false);
+    lastStatusRef.current = null;
+    bootstrappingAccess.current = true;
+    try {
+      await signOut(getFirebaseAuth());
+    } finally {
+      window.setTimeout(() => {
+        bootstrappingAccess.current = false;
+      }, 1500);
+    }
+  }
+
+  async function gateLoadedProfile(
+    loaded: StaffProfile | null,
+    email?: string | null
+  ): Promise<boolean> {
+    const gate = staffAccessGateKind(loaded, email);
+    if (gate === "pending") {
+      await releaseToLogin(staffPendingLoginMessage("driver"));
+      return false;
+    }
+    if (gate === "denied") {
+      await releaseToLogin(staffDeniedLoginMessage("driver"));
+      return false;
+    }
+    return true;
+  }
 
   useEffect(() => {
     let alive = true;
@@ -134,6 +176,11 @@ function DriverAppInner() {
               );
               if (!alive) return;
               if (created) {
+                const allowed = await gateLoadedProfile(
+                  created,
+                  redirectResult.user.email
+                );
+                if (!alive || !allowed) return;
                 setProfile(created);
                 setBanned(false);
                 setProfileReady(true);
@@ -174,6 +221,7 @@ function DriverAppInner() {
       setProfile(null);
       setProfileReady(false);
       setBanned(false);
+      lastStatusRef.current = null;
       return;
     }
 
@@ -187,6 +235,8 @@ function DriverAppInner() {
     let alive = true;
     let syncing = false;
     let sawStaffDoc = false;
+    const activeUser = user;
+    const userEmail = activeUser.email;
     setProfileReady(false);
     setBanned(false);
 
@@ -195,11 +245,27 @@ function DriverAppInner() {
       void signOut(getFirebaseAuth());
     }
 
+    async function applyProfile(loaded: StaffProfile) {
+      if (!alive) return;
+      const prev = lastStatusRef.current;
+      lastStatusRef.current = loaded.status;
+      if (prev === "pending" && loaded.status === "approved") {
+        await releaseToLogin(staffApprovedLoginMessage("driver"));
+        return;
+      }
+      const allowed = await gateLoadedProfile(loaded, userEmail);
+      if (!alive || !allowed) return;
+      sawStaffDoc = true;
+      setProfile(loaded);
+      setBanned(false);
+      setProfileReady(true);
+    }
+
     async function syncProfile() {
-      if (!alive || !user || syncing) return;
+      if (!alive || syncing) return;
       syncing = true;
       try {
-        const loaded = await ensureStaffProfile(user, "driver", {
+        const loaded = await ensureStaffProfile(activeUser, "driver", {
           createIfMissing: true,
         });
         if (!alive) return;
@@ -208,10 +274,7 @@ function DriverAppInner() {
           setProfileReady(true);
           return;
         }
-        sawStaffDoc = true;
-        setProfile(loaded);
-        setBanned(false);
-        setProfileReady(true);
+        await applyProfile(loaded);
       } catch (error) {
         if (!alive) return;
         setProfile(null);
@@ -221,15 +284,12 @@ function DriverAppInner() {
           return;
         }
         try {
-          const retry = await ensureStaffProfile(user, "driver", {
+          const retry = await ensureStaffProfile(activeUser, "driver", {
             createIfMissing: true,
           });
           if (!alive) return;
           if (retry) {
-            sawStaffDoc = true;
-            setProfile(retry);
-            setBanned(false);
-            setProfileReady(true);
+            await applyProfile(retry);
             return;
           }
         } catch (retryError) {
@@ -248,13 +308,10 @@ function DriverAppInner() {
 
     void syncProfile();
 
-    const unsubProfile = subscribeStaffProfile(user.uid, (next) => {
+    const unsubProfile = subscribeStaffProfile(activeUser.uid, (next) => {
       if (!alive) return;
       if (next) {
-        sawStaffDoc = true;
-        setProfile(next);
-        setBanned(false);
-        setProfileReady(true);
+        void applyProfile(next);
         return;
       }
       setProfile(null);
@@ -264,7 +321,7 @@ function DriverAppInner() {
       }
     });
 
-    const unsubBan = subscribeStaffBan(user.email ?? "", (isBanned) => {
+    const unsubBan = subscribeStaffBan(userEmail ?? "", (isBanned) => {
       if (!alive) return;
       if (isBanned) {
         setBanned(true);
@@ -297,6 +354,7 @@ function DriverAppInner() {
     event.preventDefault();
     setLoggingIn(true);
     setLoginError("");
+    setLoginNotice("");
     const data = new FormData(event.currentTarget);
     const email = String(data.get("email") ?? "").trim();
     const password = String(data.get("password") ?? "");
@@ -317,6 +375,8 @@ function DriverAppInner() {
         const created = await ensureStaffProfile(result.user, "driver", {
           createIfMissing: true,
         });
+        const allowed = await gateLoadedProfile(created, result.user.email);
+        if (!allowed) return;
         setProfile(created);
         setBanned(false);
         setProfileReady(true);
@@ -325,6 +385,8 @@ function DriverAppInner() {
         const created = await ensureStaffProfile(result.user, "driver", {
           createIfMissing: true,
         });
+        const allowed = await gateLoadedProfile(created, result.user.email);
+        if (!allowed) return;
         setProfile(created);
         setBanned(false);
         setProfileReady(true);
@@ -362,6 +424,7 @@ function DriverAppInner() {
   async function handleGoogleLogin() {
     setLoggingIn(true);
     setLoginError("");
+    setLoginNotice("");
     try {
       bootstrappingAccess.current = true;
       const googleUser = await signInWithGoogle();
@@ -369,6 +432,8 @@ function DriverAppInner() {
         const created = await ensureStaffProfile(googleUser, "driver", {
           createIfMissing: true,
         });
+        const allowed = await gateLoadedProfile(created, googleUser.email);
+        if (!allowed) return;
         setProfile(created);
         setBanned(false);
         setProfileReady(true);
@@ -382,6 +447,8 @@ function DriverAppInner() {
           createIfMissing: false,
         }).catch(() => null);
         if (recovered) {
+          const allowed = await gateLoadedProfile(recovered, googleUser.email);
+          if (!allowed) return;
           setProfile(recovered);
           setBanned(false);
           setProfileReady(true);
@@ -425,12 +492,13 @@ function DriverAppInner() {
                 <h1 className="ops-login-title">
                   {authMode === "signup" ? "Join the team." : "Ready for the route."}
                 </h1>
-                <p className="ops-muted">
-                  {authMode === "signup"
-                    ? "Create an account. An admin must approve you before you can see orders."
-                    : "Sign in to see today’s pickups and deliveries."}
-                </p>
               </div>
+
+              {loginNotice ? (
+                <p className="ops-flash is-ok" role="status">
+                  {loginNotice}
+                </p>
+              ) : null}
 
               <Button
                 type="button"
@@ -602,118 +670,8 @@ function DriverAppInner() {
             </div>
           </section>
         </main>
-      ) : pending ? (
-        <main className="ops-login">
-          <section className="ops-login-form-pane">
-            <div className="ops-login-card">
-              <FoamMark />
-              <div className="ops-driver-status-icon is-waiting" aria-hidden>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src="/ops-waiting-icon.png"
-                  alt=""
-                  width={88}
-                  height={88}
-                />
-              </div>
-              <h1 className="ops-login-title">Waiting for approval</h1>
-              <p className="ops-muted">
-                Signed in as <strong>{user.email}</strong>. An admin must
-                approve your access on the OPS Staff page before you can see
-                orders.
-              </p>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => {
-                  if (!window.confirm("Sign out?")) return;
-                  void signOut(getFirebaseAuth());
-                }}
-              >
-                Sign out
-              </Button>
-            </div>
-          </section>
-        </main>
-      ) : denied ? (
-        <main className="ops-login">
-          <section className="ops-login-form-pane">
-            <div className="ops-login-card">
-              <FoamMark />
-              <div className="ops-driver-status-icon is-danger" aria-hidden>
-                <ShieldAlert size={28} />
-              </div>
-              <h1 className="ops-login-title">Access not approved</h1>
-              <p className="ops-muted">
-                This account was not approved for driver access. Contact FOAM
-                ops if you think this is a mistake.
-              </p>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => {
-                  void signOut(getFirebaseAuth());
-                }}
-              >
-                Sign out
-              </Button>
-            </div>
-          </section>
-        </main>
       ) : !approved ? (
-        <main className="ops-login">
-          <section className="ops-login-form-pane">
-            <div className="ops-login-card">
-              <FoamMark />
-              <div className="ops-driver-status-icon is-waiting" aria-hidden>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src="/ops-waiting-icon.png"
-                  alt=""
-                  width={88}
-                  height={88}
-                />
-              </div>
-              <h1 className="ops-login-title">Waiting for approval</h1>
-              <p className="ops-muted">
-                Signed in as <strong>{user.email}</strong>. Your access request
-                is being sent to Staff. Keep this page open — it updates when
-                an admin approves you.
-              </p>
-              <Button
-                type="button"
-                size="lg"
-                onClick={() => {
-                  bootstrappingAccess.current = true;
-                  void ensureStaffProfile(user, "driver", {
-                    createIfMissing: true,
-                  })
-                    .then((created) => {
-                      if (created) {
-                        setProfile(created);
-                        setBanned(false);
-                        setProfileReady(true);
-                      }
-                    })
-                    .finally(() => {
-                      window.setTimeout(() => {
-                        bootstrappingAccess.current = false;
-                      }, 2000);
-                    });
-                }}
-              >
-                Send request again
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => void signOut(getFirebaseAuth())}
-              >
-                Sign out
-              </Button>
-            </div>
-          </section>
-        </main>
+        null
       ) : (
         <div className="ops-shell is-driver">
           <header className="ops-driver-bar">

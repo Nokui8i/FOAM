@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Search } from "lucide-react";
 
@@ -11,6 +11,7 @@ import {
   banStaffMember,
   canChangeStaffRoles,
   canRemoveStaffMember,
+  fetchStaffProfileFromServer,
   mergeStaffWithBootstrap,
   removeStaffMember,
   reviewStaffMember,
@@ -21,6 +22,7 @@ import {
   type StaffBan,
   type StaffProfile,
   type StaffRole,
+  type StaffStatus,
 } from "@/lib/staff-access";
 import { useQueryReplace } from "@/lib/use-query-replace";
 import { cn } from "@/lib/utils";
@@ -30,6 +32,8 @@ type StaffTab = "employees" | "pending" | "banned";
 type StaffConfirm =
   | { kind: "approve" | "deny" | "ban" | "remove"; row: StaffProfile }
   | { kind: "unban"; email: string };
+
+type StaffPatch = Partial<Pick<StaffProfile, "status" | "role" | "reviewedBy">> | "removed";
 
 function statusLabel(row: StaffProfile) {
   if (isAdminEmail(row.email)) {
@@ -74,8 +78,10 @@ function RoleOptions({ roles }: { roles: StaffRole[] }) {
 
 export function AdminStaffPanel({
   adminEmail,
+  onPendingCountChange,
 }: {
   adminEmail: string;
+  onPendingCountChange?: (count: number) => void;
 }) {
   const { searchParams, replaceQuery } = useQueryReplace();
   const [rows, setRows] = useState<StaffProfile[]>([]);
@@ -95,7 +101,38 @@ export function AdminStaffPanel({
   const [confirmAction, setConfirmAction] = useState<StaffConfirm | null>(null);
   /** Employees table: click Role to group Admin → Manager → Driver (toggle reverse). */
   const [roleSort, setRoleSort] = useState<"asc" | "desc">("asc");
+  const serverRowsRef = useRef<StaffProfile[]>([]);
+  const patchesRef = useRef<Map<string, StaffPatch>>(new Map());
   useOpsPageReadyWhen(ready);
+
+  function publishRows(serverRows: StaffProfile[]) {
+    serverRowsRef.current = serverRows;
+    let next = mergeStaffWithBootstrap(serverRows);
+    for (const [uid, patch] of patchesRef.current) {
+      if (patch === "removed") {
+        next = next.filter((r) => r.uid !== uid);
+        if (!serverRows.some((r) => r.uid === uid)) {
+          patchesRef.current.delete(uid);
+        }
+        continue;
+      }
+      const idx = next.findIndex((r) => r.uid === uid);
+      if (idx < 0) continue;
+      next[idx] = { ...next[idx], ...patch };
+      const server = serverRows.find((r) => r.uid === uid);
+      if (
+        server &&
+        (!patch.status || server.status === patch.status) &&
+        (!patch.role || server.role === patch.role)
+      ) {
+        patchesRef.current.delete(uid);
+      }
+    }
+    setRows(next);
+    onPendingCountChange?.(
+      next.filter((row) => row.status === "pending").length
+    );
+  }
 
   useEffect(() => {
     if (!confirmAction) return;
@@ -121,7 +158,7 @@ export function AdminStaffPanel({
 
   useEffect(() => {
     const unsubStaff = subscribeAllStaff((next) => {
-      setRows(mergeStaffWithBootstrap(next));
+      publishRows(next);
       setReady(true);
     });
     const unsubBans = subscribeStaffBans(setBans);
@@ -129,6 +166,7 @@ export function AdminStaffPanel({
       unsubStaff();
       unsubBans();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- subscribe once; publishRows reads refs
   }, []);
 
   const allRows = rows;
@@ -227,21 +265,15 @@ export function AdminStaffPanel({
 
     // Optimistic list update so Pending/Employees move instantly.
     if (status === "denied") {
-      setRows((prev) => prev.filter((r) => r.uid !== row.uid));
+      patchesRef.current.set(row.uid, "removed");
     } else {
-      setRows((prev) =>
-        prev.map((r) =>
-          r.uid === row.uid
-            ? {
-                ...r,
-                status,
-                role: role ?? r.role,
-                reviewedBy: adminEmail || "admin",
-              }
-            : r
-        )
-      );
+      patchesRef.current.set(row.uid, {
+        status: status as StaffStatus,
+        role: role ?? row.role,
+        reviewedBy: adminEmail || "admin",
+      });
     }
+    publishRows(serverRowsRef.current);
     setOkMsg(
       status === "approved"
         ? `${row.displayName || row.email} approved as ${staffRoleLabel(draftRole(row))}.`
@@ -249,7 +281,7 @@ export function AdminStaffPanel({
           ? `${row.displayName || row.email} denied. They can sign in and request again.`
           : `${row.displayName || row.email} access revoked.`
     );
-    if (status === "approved") setTab("employees");
+    if (status === "approved") selectStaffTab("employees");
 
     try {
       await reviewStaffMember(
@@ -258,7 +290,25 @@ export function AdminStaffPanel({
         adminEmail || "admin",
         row.email
       );
+      if (status === "denied") {
+        patchesRef.current.set(row.uid, "removed");
+        publishRows(
+          serverRowsRef.current.filter((r) => r.uid !== row.uid)
+        );
+      } else {
+        const confirmed = await fetchStaffProfileFromServer(row.uid);
+        if (confirmed) {
+          patchesRef.current.delete(row.uid);
+          publishRows(
+            serverRowsRef.current.map((r) =>
+              r.uid === row.uid ? confirmed : r
+            )
+          );
+        }
+      }
     } catch {
+      patchesRef.current.delete(row.uid);
+      publishRows(serverRowsRef.current);
       setError("Could not update staff member. Refresh if the list looks wrong.");
     }
   }
@@ -270,7 +320,8 @@ export function AdminStaffPanel({
     setConfirmAction(null);
     setBusyId("");
 
-    setRows((prev) => prev.filter((r) => r.uid !== row.uid));
+    patchesRef.current.set(row.uid, "removed");
+    publishRows(serverRowsRef.current);
     setBans((prev) => {
       if (prev.some((b) => b.email === row.email)) return prev;
       return [
@@ -283,11 +334,15 @@ export function AdminStaffPanel({
       ].sort((a, b) => a.email.localeCompare(b.email));
     });
     setOkMsg(`${row.email} banned. They cannot request access until Unban.`);
-    setTab("banned");
+    selectStaffTab("banned");
 
     try {
       await banStaffMember(row, adminEmail || "admin");
+      patchesRef.current.set(row.uid, "removed");
+      publishRows(serverRowsRef.current.filter((r) => r.uid !== row.uid));
     } catch {
+      patchesRef.current.delete(row.uid);
+      publishRows(serverRowsRef.current);
       setError("Could not ban this email. Refresh if the list looks wrong.");
     }
   }
@@ -315,13 +370,11 @@ export function AdminStaffPanel({
     setError("");
     setOkMsg("");
 
-    setRows((prev) =>
-      prev.map((r) =>
-        r.uid === row.uid
-          ? { ...r, role: nextRole, status: "approved" as const }
-          : r
-      )
-    );
+    patchesRef.current.set(row.uid, {
+      role: nextRole,
+      status: "approved",
+    });
+    publishRows(serverRowsRef.current);
     setOkMsg(
       `${row.displayName || row.email} is now ${staffRoleLabel(nextRole)}.`
     );
@@ -333,7 +386,18 @@ export function AdminStaffPanel({
         adminEmail || "admin",
         row.email
       );
+      const confirmed = await fetchStaffProfileFromServer(row.uid);
+      if (confirmed) {
+        patchesRef.current.delete(row.uid);
+        publishRows(
+          serverRowsRef.current.map((r) =>
+            r.uid === row.uid ? confirmed : r
+          )
+        );
+      }
     } catch {
+      patchesRef.current.delete(row.uid);
+      publishRows(serverRowsRef.current);
       setError("Could not change role. Refresh if the list looks wrong.");
     }
   }
@@ -345,12 +409,17 @@ export function AdminStaffPanel({
     setConfirmAction(null);
     setBusyId("");
 
-    setRows((prev) => prev.filter((r) => r.uid !== row.uid));
+    patchesRef.current.set(row.uid, "removed");
+    publishRows(serverRowsRef.current);
     setOkMsg(`${row.displayName || row.email} removed.`);
 
     try {
       await removeStaffMember(row.uid, adminEmail, row);
+      patchesRef.current.set(row.uid, "removed");
+      publishRows(serverRowsRef.current.filter((r) => r.uid !== row.uid));
     } catch {
+      patchesRef.current.delete(row.uid);
+      publishRows(serverRowsRef.current);
       setError("Could not remove staff member. Refresh if the list looks wrong.");
     }
   }

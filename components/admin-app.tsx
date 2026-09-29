@@ -72,10 +72,17 @@ import {
   ensureStaffProfile,
   isCompanyOwner,
   isStaffBannedError,
+  setStaffLoginNotice,
+  staffAccessGateKind,
+  staffApprovedLoginMessage,
+  staffDeniedLoginMessage,
+  staffPendingLoginMessage,
   subscribePendingStaff,
   subscribeStaffBan,
   subscribeStaffProfile,
+  takeStaffLoginNotice,
   type StaffProfile,
+  type StaffStatus,
 } from "@/lib/staff-access";
 import { reconcileWeeklyQueues } from "@/lib/weekly-automation";
 
@@ -190,6 +197,7 @@ function AdminAppInner() {
   const [staffProfile, setStaffProfile] = useState<StaffProfile | null>(null);
   const [staffReady, setStaffReady] = useState(false);
   const [loginError, setLoginError] = useState("");
+  const [loginNotice, setLoginNotice] = useState("");
   const [loggingIn, setLoggingIn] = useState(false);
   const [authMode, setAuthMode] = useState<AuthMode>("signin");
   const tab = parseAdminTab(searchParams.get("tab"));
@@ -210,23 +218,12 @@ function AdminAppInner() {
     return () => unbindStaffFirebaseBackend();
   }, []);
   const bootstrappingAccess = useRef(false);
+  const lastStatusRef = useRef<StaffStatus | null>(null);
   const [showLoginBrand, setShowLoginBrand] = useState(false);
   const [bannedAccess, setBannedAccess] = useState(false);
 
   const allowed = canAccessOps(staffProfile, user?.email);
   const canManageStaff = canManageStaffPage(staffProfile, user?.email);
-  const pendingAccess =
-    Boolean(user) &&
-    staffReady &&
-    !allowed &&
-    !bannedAccess &&
-    staffProfile?.status === "pending";
-  const deniedAccess =
-    Boolean(user) &&
-    staffReady &&
-    !allowed &&
-    !bannedAccess &&
-    (staffProfile?.status === "denied" || staffProfile?.status === "revoked");
   const driverOnlyAccess =
     Boolean(user) &&
     staffReady &&
@@ -234,6 +231,45 @@ function AdminAppInner() {
     !bannedAccess &&
     staffProfile?.status === "approved" &&
     staffProfile.role === "driver";
+
+  useEffect(() => {
+    const notice = takeStaffLoginNotice();
+    if (notice) setLoginNotice(notice);
+  }, []);
+
+  async function releaseToLogin(message: string) {
+    setStaffLoginNotice(message);
+    setLoginNotice(message);
+    setStaffProfile(null);
+    setStaffReady(false);
+    setBannedAccess(false);
+    lastStatusRef.current = null;
+    bootstrappingAccess.current = true;
+    try {
+      await signOut(getFirebaseAuth());
+    } finally {
+      window.setTimeout(() => {
+        bootstrappingAccess.current = false;
+      }, 1500);
+    }
+  }
+
+  async function gateLoadedProfile(
+    loaded: StaffProfile | null,
+    email?: string | null
+  ): Promise<boolean> {
+    if (isCompanyOwner(email)) return true;
+    const gate = staffAccessGateKind(loaded, email);
+    if (gate === "pending") {
+      await releaseToLogin(staffPendingLoginMessage("ops"));
+      return false;
+    }
+    if (gate === "denied") {
+      await releaseToLogin(staffDeniedLoginMessage("ops"));
+      return false;
+    }
+    return true;
+  }
 
   useEffect(() => {
     const mq = window.matchMedia("(min-width: 821px)");
@@ -282,6 +318,11 @@ function AdminAppInner() {
             });
             if (!alive) return;
             if (created) {
+              const allowedIn = await gateLoadedProfile(
+                created,
+                redirectResult.user.email
+              );
+              if (!alive || !allowedIn) return;
               setStaffProfile(created);
               setBannedAccess(false);
               setStaffReady(true);
@@ -321,16 +362,19 @@ function AdminAppInner() {
       setStaffProfile(null);
       setStaffReady(false);
       setBannedAccess(false);
+      lastStatusRef.current = null;
       return;
     }
 
     let alive = true;
     let syncing = false;
     let sawStaffDoc = false;
+    const activeUser = user;
+    const userEmail = activeUser.email;
     setStaffReady(false);
     setBannedAccess(false);
 
-    const isOwnerAccount = isCompanyOwner(user.email);
+    const isOwnerAccount = isCompanyOwner(userEmail);
 
     function kickToLogin() {
       if (bootstrappingAccess.current) return;
@@ -338,13 +382,36 @@ function AdminAppInner() {
       void signOut(getFirebaseAuth());
     }
 
+    async function applyProfile(loaded: StaffProfile) {
+      if (!alive) return;
+      if (isOwnerAccount) {
+        sawStaffDoc = true;
+        lastStatusRef.current = loaded.status;
+        setStaffProfile(loaded);
+        setBannedAccess(false);
+        setStaffReady(true);
+        return;
+      }
+      const prev = lastStatusRef.current;
+      lastStatusRef.current = loaded.status;
+      if (prev === "pending" && loaded.status === "approved") {
+        await releaseToLogin(staffApprovedLoginMessage("ops"));
+        return;
+      }
+      const allowedIn = await gateLoadedProfile(loaded, userEmail);
+      if (!alive || !allowedIn) return;
+      // Approved drivers stay signed in only long enough for the driver-only screen.
+      sawStaffDoc = true;
+      setStaffProfile(loaded);
+      setBannedAccess(false);
+      setStaffReady(true);
+    }
+
     async function syncProfile() {
-      if (!alive || !user || syncing) return;
+      if (!alive || syncing) return;
       syncing = true;
       try {
-        // Always create Pending for Auth users with no Firestore staff row
-        // (re-apply after Remove keeps the Auth account).
-        const loaded = await ensureStaffProfile(user, "ops", {
+        const loaded = await ensureStaffProfile(activeUser, "ops", {
           createIfMissing: true,
         });
         if (!alive) return;
@@ -353,10 +420,7 @@ function AdminAppInner() {
           setStaffReady(true);
           return;
         }
-        sawStaffDoc = true;
-        setStaffProfile(loaded);
-        setBannedAccess(false);
-        setStaffReady(true);
+        await applyProfile(loaded);
       } catch (error) {
         if (!alive) return;
         setStaffProfile(null);
@@ -365,17 +429,13 @@ function AdminAppInner() {
           setStaffReady(true);
           return;
         }
-        // Retry once — first create after Remove can lose a race.
         try {
-          const retry = await ensureStaffProfile(user, "ops", {
+          const retry = await ensureStaffProfile(activeUser, "ops", {
             createIfMissing: true,
           });
           if (!alive) return;
           if (retry) {
-            sawStaffDoc = true;
-            setStaffProfile(retry);
-            setBannedAccess(false);
-            setStaffReady(true);
+            await applyProfile(retry);
             return;
           }
         } catch (retryError) {
@@ -394,25 +454,20 @@ function AdminAppInner() {
 
     void syncProfile();
 
-    const unsubProfile = subscribeStaffProfile(user.uid, (next) => {
+    const unsubProfile = subscribeStaffProfile(activeUser.uid, (next) => {
       if (!alive) return;
       if (next) {
-        sawStaffDoc = true;
-        setStaffProfile(next);
-        setBannedAccess(false);
-        setStaffReady(true);
+        void applyProfile(next);
         return;
       }
       setStaffProfile(null);
-      // Only sign out when a live staff row was removed (Remove/Deny),
-      // never on the initial empty snapshot before create finishes.
       if (sawStaffDoc) {
         sawStaffDoc = false;
         kickToLogin();
       }
     });
 
-    const unsubBan = subscribeStaffBan(user.email ?? "", (isBanned) => {
+    const unsubBan = subscribeStaffBan(userEmail ?? "", (isBanned) => {
       if (!alive) return;
       if (isBanned) {
         setBannedAccess(true);
@@ -525,6 +580,7 @@ function AdminAppInner() {
     event.preventDefault();
     setLoggingIn(true);
     setLoginError("");
+    setLoginNotice("");
     const data = new FormData(event.currentTarget);
     const email = String(data.get("email") ?? "").trim();
     const password = String(data.get("password") ?? "");
@@ -545,6 +601,8 @@ function AdminAppInner() {
         const created = await ensureStaffProfile(result.user, "ops", {
           createIfMissing: true,
         });
+        const allowedIn = await gateLoadedProfile(created, result.user.email);
+        if (!allowedIn) return;
         setStaffProfile(created);
         setBannedAccess(false);
         setStaffReady(true);
@@ -553,6 +611,8 @@ function AdminAppInner() {
         const created = await ensureStaffProfile(result.user, "ops", {
           createIfMissing: true,
         });
+        const allowedIn = await gateLoadedProfile(created, result.user.email);
+        if (!allowedIn) return;
         setStaffProfile(created);
         setBannedAccess(false);
         setStaffReady(true);
@@ -593,6 +653,7 @@ function AdminAppInner() {
   async function handleGoogleLogin() {
     setLoggingIn(true);
     setLoginError("");
+    setLoginNotice("");
     try {
       bootstrappingAccess.current = true;
       const googleUser = await signInWithGoogle();
@@ -600,6 +661,8 @@ function AdminAppInner() {
         const created = await ensureStaffProfile(googleUser, "ops", {
           createIfMissing: true,
         });
+        const allowedIn = await gateLoadedProfile(created, googleUser.email);
+        if (!allowedIn) return;
         setStaffProfile(created);
         setBannedAccess(false);
         setStaffReady(true);
@@ -614,6 +677,8 @@ function AdminAppInner() {
           createIfMissing: false,
         }).catch(() => null);
         if (recovered) {
+          const allowedIn = await gateLoadedProfile(recovered, googleUser.email);
+          if (!allowedIn) return;
           setStaffProfile(recovered);
           setBannedAccess(false);
           setStaffReady(true);
@@ -679,12 +744,13 @@ function AdminAppInner() {
               <h1 className="ops-login-title">
                 {authMode === "signup" ? "Join the team." : "Good to see you."}
               </h1>
-              <p className="ops-muted">
-                {authMode === "signup"
-                  ? "Create an account. An admin must approve you before you can use OPS."
-                  : "Sign in to manage pickups, plant workflow, deliveries, and contact messages."}
-              </p>
             </div>
+
+            {loginNotice ? (
+              <p className="ops-flash is-ok" role="status">
+                {loginNotice}
+              </p>
+            ) : null}
 
             <Button
               type="button"
@@ -854,61 +920,6 @@ function AdminAppInner() {
           </div>
         </section>
       </main>
-      ) : pendingAccess ? (
-      <main className="ops-login">
-        <section className="ops-login-form-pane">
-          <div className="ops-login-card">
-            <FoamMark />
-            <div className="ops-driver-status-icon is-waiting" aria-hidden>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src="/ops-waiting-icon.png"
-                alt=""
-                width={88}
-                height={88}
-              />
-            </div>
-            <h1 className="ops-login-title">Waiting for approval</h1>
-            <p className="ops-muted">
-              Signed in as <strong>{user.email}</strong>. An admin must approve
-              you on the Staff page. Same account covers OPS and Driver — the
-              role they assign (Manager vs Driver) decides which portal opens.
-            </p>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => {
-                if (!window.confirm("Are you sure you want to sign out?")) return;
-                void signOut(getFirebaseAuth());
-              }}
-            >
-              Sign out
-            </Button>
-          </div>
-        </section>
-      </main>
-      ) : deniedAccess ? (
-      <main className="ops-login">
-        <section className="ops-login-form-pane">
-          <div className="ops-login-card">
-            <FoamMark />
-            <h1 className="ops-login-title">Access not approved</h1>
-            <p className="ops-muted">
-              This account was not approved for OPS. Contact a FOAM admin if you
-              think this is a mistake.
-            </p>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => {
-                void signOut(getFirebaseAuth());
-              }}
-            >
-              Sign out
-            </Button>
-          </div>
-        </section>
-      </main>
       ) : driverOnlyAccess ? (
       <main className="ops-login">
         <section className="ops-login-form-pane">
@@ -941,62 +952,7 @@ function AdminAppInner() {
         </section>
       </main>
       ) : !allowed ? (
-      <main className="ops-login">
-        <section className="ops-login-form-pane">
-          <div className="ops-login-card">
-            <FoamMark />
-            <div className="ops-driver-status-icon is-waiting" aria-hidden>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src="/ops-waiting-icon.png"
-                alt=""
-                width={88}
-                height={88}
-              />
-            </div>
-            <h1 className="ops-login-title">Waiting for approval</h1>
-            <p className="ops-muted">
-              Signed in as <strong>{user.email}</strong>. Your access request
-              is being sent to Staff. Keep this page open — it updates when an
-              admin approves you.
-            </p>
-            <Button
-              type="button"
-              size="lg"
-              onClick={() => {
-                bootstrappingAccess.current = true;
-                void ensureStaffProfile(user, "ops", {
-                  createIfMissing: true,
-                })
-                  .then((created) => {
-                    if (created) {
-                      setStaffProfile(created);
-                      setBannedAccess(false);
-                      setStaffReady(true);
-                    }
-                  })
-                  .finally(() => {
-                    window.setTimeout(() => {
-                      bootstrappingAccess.current = false;
-                    }, 2000);
-                  });
-              }}
-            >
-              Send request again
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => {
-                if (!window.confirm("Are you sure you want to sign out?")) return;
-                void signOut(getFirebaseAuth());
-              }}
-            >
-              Sign out
-            </Button>
-          </div>
-        </section>
-      </main>
+      null
       ) : (
       <OpsConsole
         user={user}
@@ -1007,6 +963,7 @@ function AdminAppInner() {
         openInquiriesCount={openInquiriesCount}
         alertsTodoCount={alertsTodoCount}
         pendingStaffCount={pendingStaffCount}
+        setPendingStaffCount={setPendingStaffCount}
         canManageStaff={canManageStaff}
         setReminderTodoCount={setReminderTodoCount}
         ordersCount={ordersCount}
@@ -1030,6 +987,7 @@ function OpsConsole({
   openInquiriesCount,
   alertsTodoCount,
   pendingStaffCount,
+  setPendingStaffCount,
   canManageStaff,
   setReminderTodoCount,
   ordersCount,
@@ -1047,6 +1005,7 @@ function OpsConsole({
   openInquiriesCount: number;
   alertsTodoCount: number;
   pendingStaffCount: number;
+  setPendingStaffCount: (count: number) => void;
   canManageStaff: boolean;
   setReminderTodoCount: (count: number) => void;
   ordersCount: number;
@@ -1487,7 +1446,10 @@ function OpsConsole({
                 onTodoCountChange={setReminderTodoCount}
               />
             ) : tab === "staff" && canManageStaff ? (
-              <AdminStaffPanel adminEmail={user.email ?? ""} />
+              <AdminStaffPanel
+                adminEmail={user.email ?? ""}
+                onPendingCountChange={setPendingStaffCount}
+              />
             ) : tab === "catalog" ? (
               <AdminCatalogPanel
                 adminEmail={user.email ?? ""}

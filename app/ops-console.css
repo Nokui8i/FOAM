@@ -4201,6 +4201,13 @@
 }
 .admin-page .ops-login-title { margin: 5px 0 8px; font: 800 30px/1.05 var(--ops-display); letter-spacing: -.04em; }
 .admin-page .ops-login-intro { margin: 25px 0; }
+.admin-page .ops-login-card > .ops-flash {
+  margin: 0 0 16px;
+  padding: 10px 12px;
+  border-radius: 9px;
+  font-size: 13px;
+  line-height: 1.35;
+}
 .admin-page .ops-login-google,
 .admin-page .ops-login-fields button { width: 100%; min-height: 47px; border-radius: 9px; }
 .admin-page .ops-login-divider { display: flex; align-items: center; gap: 10px; margin: 17px 0; color: var(--ops-muted); font-size: 10px; }
