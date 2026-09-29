@@ -171,14 +171,22 @@ service cloud.firestore {
       );
 
       // Owners may delete any non-owner. Managers may delete drivers or any pending request (Deny).
-      allow delete: if !isStaffTargetOwner()
-        && (
-          isCompanyOwnerEmail(request.auth.token.email)
-          || (
-            isApprovedManagerOnly()
-            && (
-              resource.data.role == 'driver'
-              || resource.data.status == 'pending'
+      // Applicants may clear their own unfinished request so they can apply again.
+      allow delete: if
+        (
+          isOwner(uid)
+          && resource.data.status in ['pending', 'denied', 'revoked']
+        )
+        || (
+          !isStaffTargetOwner()
+          && (
+            isCompanyOwnerEmail(request.auth.token.email)
+            || (
+              isApprovedManagerOnly()
+              && (
+                resource.data.role == 'driver'
+                || resource.data.status == 'pending'
+              )
             )
           )
         );

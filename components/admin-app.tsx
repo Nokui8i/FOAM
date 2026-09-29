@@ -579,12 +579,22 @@ function AdminAppInner() {
       } catch (error) {
         if (isStaffBannedError(error)) {
           setLoginError("This email is banned from OPS and Driver access.");
-        } else {
-          setLoginError(
-            "Signed in, but could not create your access request. Try again."
-          );
           void signOut(getFirebaseAuth());
+          return;
         }
+        // Parallel create may have already written the row — recover before giving up.
+        const recovered = await ensureStaffProfile(googleUser, "ops", {
+          createIfMissing: false,
+        }).catch(() => null);
+        if (recovered) {
+          setStaffProfile(recovered);
+          setBannedAccess(false);
+          setStaffReady(true);
+          return;
+        }
+        setLoginError(
+          "Signed in, but could not create your access request. Try again."
+        );
       }
     } catch (error) {
       setLoginError(

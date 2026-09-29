@@ -115,8 +115,13 @@ function defaultRoleForPortal(portal: StaffPortal): StaffRole {
 export async function isStaffEmailBanned(email: string): Promise<boolean> {
   const id = staffBanDocId(email);
   if (!id) return false;
-  const snap = await getDoc(doc(getFirebaseDb(), "staffBanned", id));
-  return snap.exists();
+  try {
+    const snap = await getDoc(doc(getFirebaseDb(), "staffBanned", id));
+    return snap.exists();
+  } catch {
+    // Permission/network blip — do not block a legitimate sign-in.
+    return false;
+  }
 }
 
 export function subscribeStaffBans(onChange: (rows: StaffBan[]) => void) {
@@ -182,11 +187,18 @@ export async function ensureStaffProfile(
   const db = getFirebaseDb();
   const ref = doc(db, "staff", user.uid);
   const email = (user.email ?? "").trim().toLowerCase();
-  const displayName =
-    (user.displayName ?? "").trim() || email.split("@")[0] || "Staff";
+  const displayName = (
+    (user.displayName ?? "").trim() ||
+    email.split("@")[0] ||
+    "Staff"
+  ).slice(0, 120);
   const bootstrapAdmin = isAdminEmail(email);
 
-  if (!bootstrapAdmin && email && (await isStaffEmailBanned(email))) {
+  if (!email || email.length < 4) {
+    throw new Error("Signed-in account has no usable email for staff access.");
+  }
+
+  if (!bootstrapAdmin && (await isStaffEmailBanned(email))) {
     throw new StaffBannedError(email);
   }
 
@@ -207,8 +219,11 @@ export async function ensureStaffProfile(
       !bootstrapAdmin &&
       (existing.status === "denied" || existing.status === "revoked")
     ) {
-      await deleteDoc(ref);
-      // Fall through — treat as missing so createIfMissing can open a fresh Pending.
+      try {
+        await deleteDoc(ref);
+      } catch {
+        // Fall through to overwrite via setDoc when rules allow recreate.
+      }
     } else if (bootstrapAdmin && existing.status !== "approved") {
       await updateDoc(ref, {
         email,
@@ -269,7 +284,24 @@ export async function ensureStaffProfile(
     payload.reviewedAt = serverTimestamp();
     payload.reviewedBy = "bootstrap";
   }
-  await setDoc(ref, payload);
+
+  try {
+    await setDoc(ref, payload);
+  } catch (error) {
+    // Parallel login paths can race: first create wins, second looks like a
+    // denied update. If the row exists now, treat this as success.
+    let again;
+    try {
+      again = await getDocFromServer(ref);
+    } catch {
+      again = await getDoc(ref);
+    }
+    if (again.exists()) {
+      return mapStaffProfile(user.uid, again.data() as Record<string, unknown>);
+    }
+    throw error;
+  }
+
   return {
     uid: user.uid,
     email,
