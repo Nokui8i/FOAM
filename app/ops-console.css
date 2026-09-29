@@ -4644,27 +4644,50 @@
     overscroll-behavior: auto;
     touch-action: pan-y;
   }
-  /* Staff: lock title/tabs; only the list scrolls (same pattern as Orders). */
-  .admin-page .ops-staff-plane {
+  /*
+   * Staff double-scroll fix: ONE scrollport on the plane, sticky head.
+   * Nested .ops-staff-sections scroll was fighting the plane scroll on iOS.
+   */
+  .admin-page .ops-catalog-plane.ops-staff-plane {
     flex: 1 1 0;
     min-height: 0;
-    max-height: 100%;
-    overflow: hidden;
-    overscroll-behavior: none;
-    touch-action: manipulation;
-  }
-  .admin-page .ops-staff-plane > .ops-catalog-plane-head,
-  .admin-page .ops-staff-plane > .ops-flash {
-    flex: 0 0 auto;
-  }
-  .admin-page .ops-staff-sections {
-    flex: 1 1 0;
-    min-height: 0;
+    height: 0; /* fill remaining frame via flex, don't size to content */
+    max-height: none;
     overflow-x: hidden;
     overflow-y: auto;
     overscroll-behavior: contain;
     -webkit-overflow-scrolling: touch;
     touch-action: pan-y;
+    container-type: normal;
+    gap: 12px;
+    padding-top: 0;
+  }
+  .admin-page .ops-staff-plane > .ops-catalog-plane-head {
+    position: sticky;
+    top: 0;
+    z-index: 6;
+    flex: 0 0 auto;
+    margin: 0 -16px;
+    padding: 16px 16px 12px;
+    background: #fff;
+    border-bottom: 1px solid var(--ops-border);
+  }
+  .admin-page .ops-staff-plane > .ops-flash {
+    flex: 0 0 auto;
+  }
+  .admin-page .ops-staff-sections {
+    flex: 0 0 auto;
+    min-height: 0;
+    height: auto;
+    max-height: none;
+    overflow: visible;
+    overscroll-behavior: auto;
+    touch-action: pan-y;
+    padding-right: 0;
+    padding-bottom: 8px;
+  }
+  .admin-page .ops-frame:has(.ops-staff-plane) {
+    overflow: hidden;
   }
   .admin-page .ops-catalog-editor {
     flex: 0 0 auto;
