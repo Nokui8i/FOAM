@@ -3,6 +3,7 @@ import {
   onAuthStateChanged,
   signInWithPopup,
   signInWithRedirect,
+  type Auth,
   type User,
 } from "firebase/auth";
 
@@ -19,12 +20,29 @@ function sleep(ms: number) {
   return new Promise((resolve) => window.setTimeout(resolve, ms));
 }
 
+/** iOS (and iOS Chrome) partition storage across web.app ↔ firebaseapp.com. */
+function isAppleMobileBrowser() {
+  if (typeof navigator === "undefined") return false;
+  return /iPhone|iPad|iPod/i.test(navigator.userAgent);
+}
+
+/**
+ * Redirect only works when the page origin matches authDomain. Otherwise
+ * Firebase writes state on web.app, then the handler on firebaseapp.com
+ * can't read it → "missing initial state" (the white error page).
+ */
+function redirectWouldLoseState(auth: Auth) {
+  const domain = auth.app.options.authDomain;
+  if (!domain || typeof window === "undefined") return true;
+  return domain !== window.location.hostname;
+}
+
 /**
  * Google sign-in that survives Cross-Origin-Opener-Policy popup glitches.
  *
- * Chrome logs "COOP would block window.closed/close" while Google auth often
- * still succeeds. signInWithPopup can hang or throw even after Auth has the
- * user — so we also resolve from onAuthStateChanged / currentUser.
+ * Prefer popup. Only fall back to redirect when the popup is truly blocked
+ * AND redirect can keep sessionStorage on the same host. Never redirect on
+ * iPhone — it lands on firebaseapp.com with a dead state.
  */
 export async function signInWithGoogle(): Promise<User> {
   const auth = await readyFirebaseAuth();
@@ -81,15 +99,23 @@ export async function signInWithGoogle(): Promise<User> {
           return;
         }
 
-        const tryRedirect =
+        const popupBlocked =
           code === "auth/popup-blocked" ||
-          code === "auth/operation-not-supported-in-this-environment" ||
-          code === "auth/internal-error" ||
-          code === "auth/argument-error" ||
-          code === "";
+          code === "auth/operation-not-supported-in-this-environment";
 
-        if (!tryRedirect) {
-          fail(error);
+        const canRedirect =
+          popupBlocked &&
+          !isAppleMobileBrowser() &&
+          !redirectWouldLoseState(auth);
+
+        if (!canRedirect) {
+          fail(
+            popupBlocked
+              ? Object.assign(new Error("popup-unavailable-no-redirect"), {
+                  code: "auth/popup-blocked",
+                })
+              : error
+          );
           return;
         }
 
@@ -116,6 +142,9 @@ export function googleSignInErrorMessage(error: unknown, fallback: string) {
     /invalid.?request/i.test(message)
   ) {
     return "Google sign-in isn’t configured for this address yet. Try email, or try again in a moment.";
+  }
+  if (/missing initial state/i.test(message)) {
+    return "Google sign-in couldn’t finish in this browser. Close this tab, open the site again, and try Google — or use email.";
   }
   if (
     code === "auth/popup-closed-by-user" ||

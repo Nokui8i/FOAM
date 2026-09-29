@@ -205,6 +205,22 @@ async function signInWithProvider(provider: AuthProvider) {
     if (!popupUnavailable) {
       throw error;
     }
+
+    // Redirect through *.firebaseapp.com loses sessionStorage on iPhone /
+    // partitioned browsers when the app is on *.web.app → white error page.
+    const authDomain = auth.app.options.authDomain ?? "";
+    const redirectCrossOrigin =
+      !!authDomain && authDomain !== window.location.hostname;
+    const onIos = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+    if (onIos || redirectCrossOrigin) {
+      throw Object.assign(
+        new Error(
+          "Google sign-in needs a popup on this phone. Allow popups for this site, or use email + password."
+        ),
+        { code: "auth/popup-blocked" }
+      );
+    }
+
     // Fall through to the redirect flow below.
   }
 
