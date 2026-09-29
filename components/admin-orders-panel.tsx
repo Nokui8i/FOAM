@@ -27,6 +27,7 @@ import {
   Mail,
   MapPin,
   Minus,
+  MoreVertical,
   PackageCheck,
   Phone,
   Plus,
@@ -42,6 +43,7 @@ import {
 import { Button } from "@/components/ui/button";
 import {
   DELIVERY_FEE_USD,
+  DETERGENT_IMAGES,
   MIN_ORDER_USD,
   RATE_STANDARD_PER_LB_USD,
   RATE_WEEKLY_PER_LB_USD,
@@ -154,9 +156,16 @@ function normalizeWashPrefValue(key: string, raw: string) {
 function washPreferenceRows(prefs?: Record<string, string> | null) {
   return WASH_PREF_ROWS.map(({ key, label }) => {
     const stored = normalizeWashPrefValue(key, String(prefs?.[key] ?? ""));
+    const value = stored || WASH_PREF_DEFAULTS[key] || "—";
+    const imageSrc =
+      key === "detergent"
+        ? DETERGENT_IMAGES[value as keyof typeof DETERGENT_IMAGES]
+        : undefined;
     return {
+      key,
       label,
-      value: stored || WASH_PREF_DEFAULTS[key] || "—",
+      value,
+      imageSrc,
     };
   });
 }
@@ -378,12 +387,16 @@ export function AdminOrdersPanel({
   adminEmail,
   mobileView,
   onMobileViewChange,
+  viewer = "ops",
 }: {
   mode?: OrdersMode;
   adminEmail: string;
   mobileView: MobileView;
   onMobileViewChange: (view: MobileView) => void;
+  /** Drivers never see customer email — only phone / WhatsApp / address. */
+  viewer?: "ops" | "driver";
 }) {
+  const isDriverViewer = viewer === "driver";
   const { searchParams, replaceQuery } = useQueryReplace();
   const [rows, setRows] = useState<FoamOrder[]>([]);
   const [listReady, setListReady] = useState(false);
@@ -404,7 +417,46 @@ export function AdminOrdersPanel({
   const [deleting, setDeleting] = useState(false);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [showHistoryCalendar, setShowHistoryCalendar] = useState(false);
+  const [rowMenuId, setRowMenuId] = useState<string | null>(null);
+  const [confirmAction, setConfirmAction] = useState<
+    | { kind: "cancel"; order: FoamOrder }
+    | { kind: "delete"; order: FoamOrder }
+    | { kind: "back"; label: string; prev: OrderStatus }
+    | null
+  >(null);
   const catalogRef = useRef<HTMLDivElement>(null);
+  const rowMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!rowMenuId) return;
+    function onPointerDown(event: PointerEvent) {
+      const root = rowMenuRef.current;
+      if (!root) return;
+      const target = event.target;
+      if (target instanceof Node && root.contains(target)) return;
+      setRowMenuId(null);
+    }
+    function onKey(event: KeyboardEvent) {
+      if (event.key === "Escape") setRowMenuId(null);
+    }
+    document.addEventListener("pointerdown", onPointerDown, true);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown, true);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [rowMenuId]);
+
+  useEffect(() => {
+    if (!confirmAction) return;
+    function onKey(event: KeyboardEvent) {
+      if (event.key === "Escape" && !deleting && !saving) {
+        setConfirmAction(null);
+      }
+    }
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [confirmAction, deleting, saving]);
 
   const futureWeekDays = useMemo(() => buildFutureWeekDays(), []);
   const futureWeekEnd = futureWeekDays[futureWeekDays.length - 1] ?? "";
@@ -457,10 +509,17 @@ export function AdminOrdersPanel({
       const target = event.target;
       if (target instanceof Node && root.contains(target)) return;
       setOpenCatalog(false);
+      setDryQuery("");
+      const active = document.activeElement;
+      if (active instanceof HTMLElement) active.blur();
     }
 
     function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") setOpenCatalog(false);
+      if (event.key !== "Escape") return;
+      setOpenCatalog(false);
+      setDryQuery("");
+      const active = document.activeElement;
+      if (active instanceof HTMLElement) active.blur();
     }
 
     document.addEventListener("pointerdown", handlePointerDown, true);
@@ -576,7 +635,7 @@ export function AdminOrdersPanel({
       if (!q) return true;
       const hay = [
         row.contact.name,
-        row.contact.email,
+        !isDriverViewer ? row.contact.email : "",
         row.contact.phone,
         row.pickup.address,
         row.pickup.zip,
@@ -610,6 +669,7 @@ export function AdminOrdersPanel({
     selectedFutureDay,
     futureWeekEnd,
     historyDay,
+    isDriverViewer,
   ]);
 
   // Prefer URL selection across all rows so a status/tab change does not close the card.
@@ -710,15 +770,12 @@ export function AdminOrdersPanel({
   ]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function deleteHistoryOrder(order: FoamOrder) {
-    const ok = window.confirm(
-      `Delete order ${orderDisplayId(order.id)} permanently?\n\nThis removes the order, tracking link, and photos. Cannot be undone.`
-    );
-    if (!ok) return;
     setDeleting(true);
     setError("");
     setOkMsg("");
     try {
       await deleteOrderCompletely(order.id);
+      setConfirmAction(null);
       replaceQuery({ id: null, view: null });
       setOkMsg("Order deleted.");
       onMobileViewChange?.("list");
@@ -731,17 +788,6 @@ export function AdminOrdersPanel({
 
   async function cancelAdminOrder(order: FoamOrder) {
     if (!isWaitingForPickup(order.status)) return;
-    const name = order.contact.name?.trim() || "this customer";
-    const when = [
-      formatPickupDate(order.pickup.date, true),
-      formatSlotShort(order.pickup.slot),
-    ]
-      .filter(Boolean)
-      .join(" · ");
-    const ok = window.confirm(
-      `Cancel pickup for ${name}?\n\n${when}\nOrder ${orderDisplayId(order.id)}\n\nThis removes the order and frees the time slot. Are you sure?`
-    );
-    if (!ok) return;
 
     setDeleting(true);
     setError("");
@@ -749,6 +795,7 @@ export function AdminOrdersPanel({
     try {
       await releasePickupSlot(order.pickup.date, order.pickup.slot);
       await deleteOrderCompletely(order.id);
+      setConfirmAction(null);
       replaceQuery({ id: null, view: null });
       setOkMsg("Order cancelled.");
       onMobileViewChange?.("list");
@@ -757,6 +804,16 @@ export function AdminOrdersPanel({
     } finally {
       setDeleting(false);
     }
+  }
+
+  function requestDeleteOrder(order: FoamOrder) {
+    setRowMenuId(null);
+    if (mode === "history") {
+      setConfirmAction({ kind: "delete", order });
+      return;
+    }
+    if (!isWaitingForPickup(order.status)) return;
+    setConfirmAction({ kind: "cancel", order });
   }
 
   async function patchOrderDoc(
@@ -825,7 +882,7 @@ export function AdminOrdersPanel({
     syncFilterToOrder({ ...selected, status });
   }
 
-  async function goBackStage() {
+  function goBackStage() {
     if (!selected) return;
     const prev = orderStatusPrevious(selected.status);
     const label = orderStageBackLabel(selected.status);
@@ -839,10 +896,11 @@ export function AdminOrdersPanel({
       );
       return;
     }
-    const ok = window.confirm(
-      `${label}? Customer tracking will move back to this step.`
-    );
-    if (!ok) return;
+    setConfirmAction({ kind: "back", label, prev });
+  }
+
+  async function confirmGoBack(prev: OrderStatus) {
+    setConfirmAction(null);
     await setStatus(prev);
   }
 
@@ -872,7 +930,16 @@ export function AdminOrdersPanel({
     setOpenCatalog(true);
   }
 
-  function setDryItemQty(item: DryCleanCatalogItem, qty: number) {
+  function closeDryCatalog() {
+    setOpenCatalog(false);
+    setDryQuery("");
+    if (typeof document !== "undefined") {
+      const active = document.activeElement;
+      if (active instanceof HTMLElement) active.blur();
+    }
+  }
+
+  function setDryItemQty(item: { name: string; price: number }, qty: number) {
     const nextQty = Math.max(0, Math.floor(qty));
     setDryItems((current) => {
       const others = current.filter((dry) => dry.name !== item.name);
@@ -887,7 +954,7 @@ export function AdminOrdersPanel({
     });
   }
 
-  function nudgeDryItem(item: DryCleanCatalogItem, delta: number) {
+  function nudgeDryItem(item: { name: string; price: number }, delta: number) {
     const count = dryItems.filter((dry) => dry.name === item.name).length;
     setDryItemQty(item, count + delta);
   }
@@ -1067,7 +1134,7 @@ export function AdminOrdersPanel({
         setError(
           `Delivered, but failed to queue next weekly pickup: ${
             err instanceof Error ? err.message : "unknown error"
-          }. Open Support → Alerts later or refresh Ops to reconcile.`
+          }. Open Notifications later or refresh Ops to reconcile.`
         );
       }
     }
@@ -1391,15 +1458,6 @@ export function AdminOrdersPanel({
                 I’m on the way
                 <ArrowRight size={16} />
               </Button>
-              <button
-                type="button"
-                className="ops-order-cancel"
-                disabled={saving || uploadingPhoto || deleting}
-                onClick={() => void cancelAdminOrder(selected)}
-              >
-                <X size={15} aria-hidden />
-                {deleting ? "Cancelling…" : "Cancel order"}
-              </button>
             </div>
           </div>
         </section>
@@ -1519,7 +1577,6 @@ export function AdminOrdersPanel({
                   <input
                     type="file"
                     accept="image/*"
-                    capture="environment"
                     disabled={uploadingPhoto || saving}
                     onChange={(e) => {
                       const file = e.target.files?.[0] ?? null;
@@ -1637,7 +1694,7 @@ export function AdminOrdersPanel({
                       <div
                         className="ops-catalog-overlay"
                         role="presentation"
-                        onClick={() => setOpenCatalog(false)}
+                        onClick={() => closeDryCatalog()}
                       >
                         <div
                           className="ops-catalog-modal"
@@ -1653,19 +1710,30 @@ export function AdminOrdersPanel({
                               type="button"
                               className="ops-catalog-modal-close"
                               aria-label="Close"
-                              onClick={() => setOpenCatalog(false)}
+                              onClick={() => closeDryCatalog()}
                             >
                               <X size={16} />
                             </button>
                           </div>
-                          <label className="ops-search is-compact">
-                            <Search size={14} aria-hidden />
+                          <label className="ops-search">
+                            <Search size={16} aria-hidden />
                             <input
-                              autoFocus
                               value={dryQuery}
                               onChange={(e) => setDryQuery(e.target.value)}
-                              placeholder=""
+                              onBlur={() => {
+                                // iOS can leave the visual viewport zoomed after the keyboard closes.
+                                window.setTimeout(() => {
+                                  window.scrollTo(0, 0);
+                                  document.documentElement.scrollTop = 0;
+                                  document.body.scrollTop = 0;
+                                }, 50);
+                              }}
+                              placeholder="Search items"
                               aria-label="Search catalog"
+                              enterKeyHint="search"
+                              autoComplete="off"
+                              autoCorrect="off"
+                              spellCheck={false}
                             />
                           </label>
                           <div
@@ -1730,7 +1798,7 @@ export function AdminOrdersPanel({
                           <button
                             type="button"
                             className="ops-catalog-modal-done"
-                            onClick={() => setOpenCatalog(false)}
+                            onClick={() => closeDryCatalog()}
                           >
                             Done
                           </button>
@@ -1904,16 +1972,12 @@ export function AdminOrdersPanel({
                 </button>
               ) : null}
             </div>
+            {error || okMsg ? (
+              <p className={cn("ops-flash", error ? "is-error" : "is-ok")}>
+                {error || okMsg}
+              </p>
+            ) : null}
           </div>
-          <button
-            type="button"
-            className="ops-order-cancel is-footer"
-            disabled={saving || uploadingPhoto || deleting}
-            onClick={() => void cancelAdminOrder(selected)}
-          >
-            <X size={15} aria-hidden />
-            {deleting ? "Cancelling…" : "Cancel order"}
-          </button>
         </div>
       </>
     );
@@ -1923,8 +1987,14 @@ export function AdminOrdersPanel({
     if (!selected) return null;
 
     if (mode === "history") {
+      const totalLabel =
+        selected.finalTotal != null
+          ? `$${Number(selected.finalTotal).toFixed(2)}`
+          : null;
+      const slotLabel = formatSlotShort(selected.pickup.slot);
+      const addressLabel = formatOrderAddress(selected);
       return (
-        <section className="stage future-stage">
+        <section className="stage future-stage is-history">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             className="ops-history-stage-art"
@@ -1938,21 +2008,12 @@ export function AdminOrdersPanel({
           <div className="stage-copy">
             <small>DELIVERED</small>
             <h3>{formatPickupDate(selected.pickup.date, true)}</h3>
-            <p>
-              {formatSlotShort(selected.pickup.slot)}
-              {selected.finalTotal != null
-                ? ` · $${Number(selected.finalTotal).toFixed(2)}`
-                : ""}
+            <p className="ops-history-meta">
+              {[slotLabel, totalLabel].filter(Boolean).join(" · ")}
             </p>
-            <button
-              type="button"
-              className="ops-history-delete"
-              disabled={deleting || saving}
-              onClick={() => void deleteHistoryOrder(selected)}
-            >
-              <Trash2 size={15} aria-hidden />
-              {deleting ? "Deleting…" : "Delete permanently"}
-            </button>
+            {addressLabel ? (
+              <p className="ops-history-address">{addressLabel}</p>
+            ) : null}
           </div>
         </section>
       );
@@ -1973,15 +2034,6 @@ export function AdminOrdersPanel({
               <LockKeyhole size={16} />
               Scheduled order · waiting for pickup day
             </div>
-            <button
-              type="button"
-              className="ops-order-cancel"
-              disabled={saving || deleting}
-              onClick={() => void cancelAdminOrder(selected)}
-            >
-              <X size={15} aria-hidden />
-              {deleting ? "Cancelling…" : "Cancel order"}
-            </button>
           </div>
         </section>
       );
@@ -2048,20 +2100,38 @@ export function AdminOrdersPanel({
             </div>
             {showWashBlock ? (
               <div className="ops-wash-prefs">
+                <DriverNotesBlock washingNotes={washingNotes || undefined} />
                 {showPrefs ? (
                   <>
-                    <h4>Wash preferences</h4>
+                    <h4
+                      className={cn(
+                        washingNotes && "ops-wash-prefs-title-follow"
+                      )}
+                    >
+                      Wash preferences
+                    </h4>
                     <dl>
                       {prefRows.map((row) => (
                         <div key={row.label} className="ops-wash-pref-row">
                           <dt>{row.label}</dt>
-                          <dd>{row.value}</dd>
+                          <dd>
+                            {row.imageSrc ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img
+                                src={row.imageSrc}
+                                alt=""
+                                width={28}
+                                height={40}
+                                className="ops-wash-pref-thumb"
+                              />
+                            ) : null}
+                            <span>{row.value}</span>
+                          </dd>
                         </div>
                       ))}
                     </dl>
                   </>
                 ) : null}
-                <DriverNotesBlock washingNotes={washingNotes || undefined} />
               </div>
             ) : null}
           </section>
@@ -2100,7 +2170,6 @@ export function AdminOrdersPanel({
               <input
                 type="file"
                 accept="image/*"
-                capture="environment"
                 disabled={uploadingPhoto || saving}
                 onChange={(e) => {
                   const file = e.target.files?.[0] ?? null;
@@ -2142,19 +2211,19 @@ export function AdminOrdersPanel({
                 disabled={saving || uploadingPhoto}
                 onClick={() => void goBackStage()}
               >
-                <ArrowLeft size={14} aria-hidden />
+                <ArrowLeft size={16} aria-hidden />
                 Back
               </button>
             ) : null}
-            <Button
+            <button
               type="button"
               className="ops-btn-lg"
               disabled={saving || uploadingPhoto}
               onClick={() => void markDelivered()}
             >
-              <PackageCheck size={16} />
+              <PackageCheck size={16} aria-hidden />
               Confirm delivered
-            </Button>
+            </button>
           </div>
         </>
       );
@@ -2370,49 +2439,106 @@ export function AdminOrdersPanel({
                     : "Live orders will appear here."}
               </p>
             ) : (
-              listRows.map((row) => (
-                <button
-                  key={row.id}
-                  type="button"
-                  className={cn(
-                    "ops-row",
-                    selectedId === row.id && "is-active"
-                  )}
-                  onClick={() => selectOrder(row.id)}
-                >
-                  <span className="ops-row-top">
-                    <span className="ops-row-name">{row.contact.name}</span>
-                    <span
-                      className={cn(
-                        "ops-status-pill",
-                        listBadgeClass(row.status)
-                      )}
+              listRows.map((row) => {
+                const menuOpen = rowMenuId === row.id;
+                const canDeleteRow =
+                  mode === "history" || isWaitingForPickup(row.status);
+                return (
+                  <div
+                    key={row.id}
+                    className={cn(
+                      "ops-row",
+                      selectedId === row.id && "is-active",
+                      canDeleteRow && "has-menu",
+                      menuOpen && "is-menu-open"
+                    )}
+                  >
+                    <button
+                      type="button"
+                      className="ops-row-main"
+                      onClick={() => {
+                        setRowMenuId(null);
+                        selectOrder(row.id);
+                      }}
                     >
-                      {orderListBadge(row.status)}
-                    </span>
-                  </span>
-                  <span className="ops-row-when">
-                    {formatPickupDate(row.pickup.date)},{" "}
-                    {formatSlotShort(row.pickup.slot)}
-                  </span>
-                  <span className="ops-row-address">
-                    {formatOrderAddress(row)}
-                  </span>
-                  <span className="ops-row-foot">
-                    <span className="ops-row-ref">{orderDisplayId(row.id)}</span>
-                    <span className="ops-row-price">
-                      {row.finalTotal != null
-                        ? `$${row.finalTotal.toFixed(2)}`
-                        : mode === "future" &&
-                            (row.pickup.repeat || row.pickup.repeatRequested)
-                          ? row.pricing?.repeatDiscountEligible
-                            ? "Weekly · 10% off"
-                            : "Weekly"
-                          : "—"}
-                    </span>
-                  </span>
-                </button>
-              ))
+                      <span className="ops-row-top">
+                        <span className="ops-row-name">{row.contact.name}</span>
+                        <span
+                          className={cn(
+                            "ops-status-pill",
+                            listBadgeClass(row.status)
+                          )}
+                        >
+                          {orderListBadge(row.status)}
+                        </span>
+                      </span>
+                      <span className="ops-row-when">
+                        {formatPickupDate(row.pickup.date)},{" "}
+                        {formatSlotShort(row.pickup.slot)}
+                      </span>
+                      <span className="ops-row-address">
+                        {formatOrderAddress(row)}
+                      </span>
+                      <span className="ops-row-foot">
+                        <span className="ops-row-ref">
+                          {orderDisplayId(row.id)}
+                        </span>
+                        <span className="ops-row-price">
+                          {row.finalTotal != null
+                            ? `$${row.finalTotal.toFixed(2)}`
+                            : mode === "future" &&
+                                (row.pickup.repeat || row.pickup.repeatRequested)
+                              ? row.pricing?.repeatDiscountEligible
+                                ? "Weekly · 10% off"
+                                : "Weekly"
+                              : "—"}
+                        </span>
+                      </span>
+                    </button>
+
+                    {canDeleteRow ? (
+                      <div
+                        className="ops-row-menu"
+                        ref={menuOpen ? rowMenuRef : undefined}
+                      >
+                        <button
+                          type="button"
+                          className="ops-row-menu-trigger"
+                          aria-label="Order actions"
+                          aria-haspopup="menu"
+                          aria-expanded={menuOpen}
+                          disabled={deleting}
+                          onClick={(event) => {
+                            event.preventDefault();
+                            event.stopPropagation();
+                            setRowMenuId(menuOpen ? null : row.id);
+                          }}
+                        >
+                          <MoreVertical size={18} aria-hidden />
+                        </button>
+                        {menuOpen ? (
+                          <div className="ops-row-menu-panel" role="menu">
+                            <button
+                              type="button"
+                              role="menuitem"
+                              className="ops-row-menu-item is-danger"
+                              disabled={deleting}
+                              onClick={(event) => {
+                                event.preventDefault();
+                                event.stopPropagation();
+                                requestDeleteOrder(row);
+                              }}
+                            >
+                              <Trash2 size={16} aria-hidden />
+                              {deleting ? "Deleting…" : "Delete"}
+                            </button>
+                          </div>
+                        ) : null}
+                      </div>
+                    ) : null}
+                  </div>
+                );
+              })
             )}
           </div>
         </div>
@@ -2454,7 +2580,7 @@ export function AdminOrdersPanel({
                     <span>{orderDisplayId(selected.id)}</span>
                   </p>
                   <h2 className="ops-detail-title">{selected.contact.name}</h2>
-                  {selected.contact.email ? (
+                  {!isDriverViewer && selected.contact.email ? (
                     <p className="ops-detail-email">
                       <Mail size={14} aria-hidden />
                       <a href={`mailto:${selected.contact.email}`}>
@@ -2523,11 +2649,11 @@ export function AdminOrdersPanel({
               </div>
             </div>
 
-            {(okMsg || error) && (
+            {(okMsg || error) && stage !== 0 ? (
               <p className={cn("ops-flash", error ? "is-error" : "is-ok")}>
                 {error || okMsg}
               </p>
-            )}
+            ) : null}
 
             <div className="ops-detail-stack">
               <section className="ops-card ops-workflow-card">
@@ -2636,6 +2762,121 @@ export function AdminOrdersPanel({
               </div>
             </div>,
             document.querySelector(".admin-page") ?? document.body
+          )
+        : null}
+
+      {confirmAction && typeof document !== "undefined"
+        ? createPortal(
+            <div className="admin-page ops-confirm-root">
+              <div
+                className="ops-confirm-overlay"
+                role="presentation"
+                onClick={() => {
+                  if (!deleting && !saving) setConfirmAction(null);
+                }}
+              >
+                <div
+                  className="ops-confirm-modal"
+                  role="alertdialog"
+                  aria-modal="true"
+                  aria-labelledby="ops-confirm-title"
+                  aria-describedby="ops-confirm-desc"
+                  onClick={(event) => event.stopPropagation()}
+                >
+                  <h4 id="ops-confirm-title">Are you sure?</h4>
+                  <div id="ops-confirm-desc" className="ops-confirm-body">
+                    {confirmAction.kind === "cancel" ? (
+                      <>
+                        <p>
+                          Cancel pickup for{" "}
+                          <strong>
+                            {confirmAction.order.contact.name?.trim() ||
+                              "this customer"}
+                          </strong>
+                          ?
+                        </p>
+                        <p className="ops-confirm-meta">
+                          {[
+                            formatPickupDate(
+                              confirmAction.order.pickup.date,
+                              true
+                            ),
+                            formatSlotShort(confirmAction.order.pickup.slot),
+                          ]
+                            .filter(Boolean)
+                            .join(" · ")}
+                        </p>
+                        <p className="ops-confirm-meta">
+                          Order {orderDisplayId(confirmAction.order.id)}
+                        </p>
+                        <p className="ops-confirm-note">
+                          This removes the order and frees the time slot.
+                        </p>
+                      </>
+                    ) : confirmAction.kind === "delete" ? (
+                      <>
+                        <p>
+                          Delete order{" "}
+                          <strong>
+                            {orderDisplayId(confirmAction.order.id)}
+                          </strong>{" "}
+                          permanently?
+                        </p>
+                        <p className="ops-confirm-note">
+                          This removes the order, tracking link, and photos.
+                          Cannot be undone.
+                        </p>
+                      </>
+                    ) : (
+                      <>
+                        <p>
+                          <strong>{confirmAction.label}</strong>?
+                        </p>
+                        <p className="ops-confirm-note">
+                          Customer tracking will move back to this step.
+                        </p>
+                      </>
+                    )}
+                  </div>
+                  <div className="ops-confirm-actions">
+                    <button
+                      type="button"
+                      className="ops-confirm-btn is-cancel"
+                      disabled={deleting || saving}
+                      onClick={() => setConfirmAction(null)}
+                    >
+                      Cancel
+                    </button>
+                    {confirmAction.kind === "back" ? (
+                      <button
+                        type="button"
+                        className="ops-confirm-btn is-confirm"
+                        disabled={saving}
+                        onClick={() => void confirmGoBack(confirmAction.prev)}
+                      >
+                        {saving ? "Updating…" : "Go back"}
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        className="ops-confirm-btn is-danger"
+                        disabled={deleting}
+                        onClick={() => {
+                          if (confirmAction.kind === "delete") {
+                            void deleteHistoryOrder(confirmAction.order);
+                          } else {
+                            void cancelAdminOrder(confirmAction.order);
+                          }
+                        }}
+                      >
+                        {deleting ? "Deleting…" : "Delete"}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>,
+            document.body
           )
         : null}
     </>

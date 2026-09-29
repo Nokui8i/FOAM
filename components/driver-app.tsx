@@ -751,6 +751,7 @@ function DriverAppInner() {
                 adminEmail={user.email ?? ""}
                 mobileView={mobileView}
                 onMobileViewChange={setMobileView}
+                viewer="driver"
               />
             </div>
           </div>

@@ -1860,6 +1860,17 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* Kill iOS/Android auto-mailto on Staff emails (mail only via dedicated actions). */
+.admin-page .ops-staff-plane a[href^="mailto:"],
+.admin-page .ops-staff-plane a[x-apple-data-detectors] {
+  color: inherit !important;
+  text-decoration: none !important;
+  pointer-events: none !important;
+  cursor: text;
+  font-weight: inherit !important;
+  font-size: inherit !important;
+  font-style: inherit !important;
+}
 .admin-page .ops-staff-portal {
   font-weight: 600;
   color: #334155;

@@ -565,7 +565,7 @@ export function AdminStaffPanel({
 
   return (
     <>
-    <section className="ops-catalog-plane ops-staff-plane">
+    <section className="ops-catalog-plane ops-staff-plane" {...{ "x-apple-data-detectors": "false" }}>
       <header className="ops-catalog-plane-head">
         <div className="ops-catalog-plane-title-row">
           <h1 className="ops-list-title">Staff</h1>
@@ -654,7 +654,7 @@ export function AdminStaffPanel({
                     }`}
                   >
                     <strong>{row.displayName || "—"}</strong>
-                    <span>{row.email}</span>
+                    <span className="ops-staff-email">{row.email}</span>
                     <span className="ops-staff-portal">
                       {row.requestedPortal === "ops" ? "OPS" : "Driver"}
                     </span>
@@ -729,7 +729,7 @@ export function AdminStaffPanel({
                     className={`ops-staff-table-row${
                       index % 2 === 1 ? " is-stripe" : ""
                     }`}
-                  >                    <strong>{row.email}</strong>
+                  >                    <strong className="ops-staff-email">{row.email}</strong>
                     <span>{row.bannedBy || "—"}</span>
                     <span>{row.reason || "—"}</span>
                     <span className="ops-status-pill">Banned</span>
@@ -886,7 +886,7 @@ export function AdminStaffPanel({
                     return (
                       <div key={row.uid} className="ops-staff-table-row">
                         <strong>{row.displayName || "—"}</strong>
-                        <span>{row.email}</span>
+                        <span className="ops-staff-email">{row.email}</span>
                         <span className="ops-staff-portal">
                           {row.requestedPortal === "ops" ? "OPS" : "Driver"}
                         </span>
