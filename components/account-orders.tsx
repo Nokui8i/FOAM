@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
   collection,
@@ -10,11 +10,12 @@ import {
   where,
 } from "firebase/firestore";
 import {
+  ArrowLeft,
   ArrowRight,
-  ChevronDown,
   MoreHorizontal,
   PackageOpen,
   Pencil,
+  Search,
   XCircle,
 } from "lucide-react";
 
@@ -24,15 +25,15 @@ import { formatPickupDate } from "@/lib/booking";
 import { deleteOrderCompletely } from "@/lib/data-retention";
 import { getFirebaseDb } from "@/lib/firebase";
 import {
-  ORDER_STATUS_LABELS,
   isCancelledOrder,
-  isInProgressOrder,
   isWaitingForPickup,
   normalizeOrderStatus,
+  orderDisplayId,
+  orderListBadge,
   type OrderPhoto,
   type OrderStatus,
 } from "@/lib/orders";
-import { orderRefFromId, trackPath } from "@/lib/order-tracking";
+import { trackPath } from "@/lib/order-tracking";
 import { releasePickupSlot } from "@/lib/pickup-availability";
 import { BOOKING_PATH } from "@/lib/site-config";
 import { cn } from "@/lib/utils";
@@ -42,6 +43,10 @@ type AccountOrderRow = {
   status: OrderStatus;
   pickupDate: string;
   pickupSlot: string;
+  address: string;
+  unit: string;
+  city: string;
+  zip: string;
   laundry: boolean;
   dryCleaning: boolean;
   bagCount: number;
@@ -66,6 +71,10 @@ function mapRow(id: string, data: Record<string, unknown>): AccountOrderRow {
     status: normalizeOrderStatus(data.status),
     pickupDate: String(pickup.date ?? ""),
     pickupSlot: String(pickup.slot ?? ""),
+    address: String(pickup.address ?? ""),
+    unit: String(pickup.unit ?? ""),
+    city: String(pickup.city ?? ""),
+    zip: String(pickup.zip ?? ""),
     laundry: Boolean(services.laundry),
     dryCleaning: Boolean(services.dryCleaning),
     bagCount: Number(services.bagCount ?? 0),
@@ -78,13 +87,65 @@ function mapRow(id: string, data: Record<string, unknown>): AccountOrderRow {
   };
 }
 
+function formatSlotShort(slot: string) {
+  if (!slot) return "—";
+  return slot
+    .replace(/\s*-\s*/g, " – ")
+    .replace(/\bam\b/gi, "am")
+    .replace(/\bpm\b/gi, "pm");
+}
+
+function formatAccountAddress(order: AccountOrderRow) {
+  const unit = order.unit.trim();
+  const street = order.address.trim();
+  if (!street) {
+    const cityZip = `${order.city || "Las Vegas"} ${order.zip}`.trim();
+    return cityZip || "Address missing";
+  }
+  const line = unit ? `${street}, ${unit}` : street;
+  return `${line}, ${order.city || "Las Vegas"} ${order.zip}`.trim();
+}
+
+function listBadgeClass(status: OrderStatus) {
+  switch (status) {
+    case "new":
+      return "is-waiting";
+    case "confirmed":
+      return "is-en-route";
+    case "picked_up":
+    case "weighed":
+    case "washing":
+      return "is-progress";
+    case "out_for_delivery":
+      return "is-en-route";
+    case "delivered":
+      return "is-ready";
+    case "cancelled":
+      return "is-cancelled";
+    default:
+      return "is-waiting";
+  }
+}
+
+function servicesLine(order: AccountOrderRow) {
+  return [
+    order.laundry
+      ? `Laundry${order.bagCount > 0 ? ` (${order.bagCount})` : ""}`
+      : null,
+    order.dryCleaning ? "Dry cleaning" : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+}
+
 export function AccountOrders({ uid }: { uid: string }) {
   const [orders, setOrders] = useState<AccountOrderRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [actionNote, setActionNote] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
-  const [openId, setOpenId] = useState<string | null>(null);
+  const [queryText, setQueryText] = useState("");
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [menuId, setMenuId] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
 
@@ -104,9 +165,9 @@ export function AccountOrders({ uid }: { uid: string }) {
           .filter((row) => !isCancelledOrder(row.status));
         setOrders(rows);
         setLoading(false);
-        setOpenId((current) => {
+        setSelectedId((current) => {
           if (current && rows.some((r) => r.id === current)) return current;
-          return rows[0]?.id ?? null;
+          return null;
         });
       },
       () => {
@@ -137,6 +198,31 @@ export function AccountOrders({ uid }: { uid: string }) {
     };
   }, [menuId]);
 
+  const filtered = useMemo(() => {
+    const q = queryText.trim().toLowerCase();
+    if (!q) return orders;
+    return orders.filter((row) => {
+      const hay = [
+        formatPickupDate(row.pickupDate),
+        row.pickupDate,
+        row.pickupSlot,
+        formatAccountAddress(row),
+        orderDisplayId(row.id),
+        orderListBadge(row.status),
+        servicesLine(row),
+        row.weekly ? "weekly" : "",
+      ]
+        .join(" ")
+        .toLowerCase();
+      return hay.includes(q);
+    });
+  }, [orders, queryText]);
+
+  const selected =
+    filtered.find((row) => row.id === selectedId) ??
+    orders.find((row) => row.id === selectedId) ??
+    null;
+
   async function cancelOrder(order: AccountOrderRow) {
     if (!isWaitingForPickup(order.status)) return;
     const ok = window.confirm(
@@ -154,6 +240,7 @@ export function AccountOrders({ uid }: { uid: string }) {
       await releasePickupSlot(order.pickupDate, order.pickupSlot);
       await deleteOrderCompletely(order.id);
       setActionNote("Pickup cancelled.");
+      setSelectedId(null);
     } catch {
       setError("Could not cancel this pickup. Try again or contact FOAM.");
     } finally {
@@ -167,9 +254,24 @@ export function AccountOrders({ uid }: { uid: string }) {
         id="panel-orders"
         role="tabpanel"
         aria-labelledby="tab-orders"
-        className="py-6 text-sm text-muted-foreground"
+        className="account-orders-queue"
       >
-        Loading orders…
+        <div className="account-orders-head">
+          <div className="account-orders-heading">
+            <h1 className="account-orders-title">Orders</h1>
+          </div>
+        </div>
+        <div className="account-orders-scroll">
+          <div className="account-orders-list" aria-busy="true">
+            {[0, 1, 2].map((key) => (
+              <div key={key} className="account-orders-skel">
+                <span className="account-orders-skel-title" />
+                <span className="account-orders-skel-line" />
+                <span className="account-orders-skel-line is-short" />
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
     );
   }
@@ -180,9 +282,14 @@ export function AccountOrders({ uid }: { uid: string }) {
         id="panel-orders"
         role="tabpanel"
         aria-labelledby="tab-orders"
-        className="py-6 text-sm font-medium text-destructive"
+        className="account-orders-queue"
       >
-        {error}
+        <div className="account-orders-head">
+          <div className="account-orders-heading">
+            <h1 className="account-orders-title">Orders</h1>
+          </div>
+        </div>
+        <p className="account-orders-flash is-error">{error}</p>
       </div>
     );
   }
@@ -193,137 +300,120 @@ export function AccountOrders({ uid }: { uid: string }) {
         id="panel-orders"
         role="tabpanel"
         aria-labelledby="tab-orders"
-        className="grid justify-items-center gap-4 py-10 text-center"
+        className="account-orders-queue"
       >
-        <span className="grid size-12 place-items-center rounded-full border border-border bg-white text-muted-foreground">
-          <PackageOpen className="size-5" />
-        </span>
-        <div>
-          <h3 className="font-display text-lg font-semibold tracking-tight">
-            Recent orders
-          </h3>
-          <p className="mt-1 max-w-sm text-sm text-muted-foreground">
+        <div className="account-orders-head">
+          <div className="account-orders-heading">
+            <h1 className="account-orders-title">Orders</h1>
+          </div>
+        </div>
+        <div className="account-ops-empty">
+          <span className="account-ops-empty-icon">
+            <PackageOpen className="size-5" />
+          </span>
+          <h3>Recent orders</h3>
+          <p>
             No orders yet. After your first pickup, your order history will show
             up here.
           </p>
+          <Button asChild>
+            <Link href={BOOKING_PATH}>
+              Book a Pickup <ArrowRight />
+            </Link>
+          </Button>
         </div>
-        <Button asChild>
-          <Link href={BOOKING_PATH}>
-            Book a Pickup <ArrowRight />
-          </Link>
-        </Button>
       </div>
     );
   }
 
-  return (
-    <div
-      id="panel-orders"
-      role="tabpanel"
-      aria-labelledby="tab-orders"
-      className="account-orders"
-    >
-      <div>
-        <h2 className="font-display text-lg font-semibold tracking-tight">
-          Your orders
-        </h2>
-        {actionNote ? (
-          <p className="mt-2 text-sm font-medium text-emerald-700">{actionNote}</p>
-        ) : null}
-        {error ? (
-          <p className="mt-2 text-sm font-medium text-destructive">{error}</p>
-        ) : null}
-      </div>
+  if (selected) {
+    const canCancel = isWaitingForPickup(selected.status);
+    const canEdit =
+      canCancel && Boolean(selected.trackKey);
+    const hasActions = canEdit || canCancel;
+    const services = servicesLine(selected);
 
-      {orders.map((order) => {
-        const open = openId === order.id;
-        const menuOpen = menuId === order.id;
-        const active =
-          isWaitingForPickup(order.status) || isInProgressOrder(order.status);
-        const canCancel = isWaitingForPickup(order.status);
-        const canEdit = canCancel && Boolean(order.trackKey);
-        const hasActions = canEdit || canCancel;
-        const services = [
-          order.laundry
-            ? `Laundry${order.bagCount > 0 ? ` (${order.bagCount})` : ""}`
-            : null,
-          order.dryCleaning ? "Dry cleaning" : null,
-        ]
-          .filter(Boolean)
-          .join(" · ");
+    return (
+      <div
+        id="panel-orders"
+        role="tabpanel"
+        aria-labelledby="tab-orders"
+        className="account-orders-queue is-detail"
+      >
+        <div className="account-orders-detail-head">
+          <button
+            type="button"
+            className="account-orders-back"
+            onClick={() => {
+              setMenuId(null);
+              setSelectedId(null);
+            }}
+          >
+            <ArrowLeft size={16} aria-hidden />
+            Back
+          </button>
 
-        return (
-          <article key={order.id} className="account-order-card">
-            <div className="account-order-top">
-              <button
-                type="button"
-                className="account-order-head"
-                aria-expanded={open}
-                onClick={() => {
-                  setMenuId(null);
-                  setOpenId(open ? null : order.id);
-                }}
+          <div className="account-orders-detail-top">
+            <div className="account-orders-detail-main">
+              <p className="account-orders-breadcrumb">
+                <span>Orders</span>
+                <span aria-hidden>›</span>
+                <span>{orderDisplayId(selected.id)}</span>
+              </p>
+              <h2 className="account-orders-detail-title">
+                {selected.pickupDate
+                  ? formatPickupDate(selected.pickupDate)
+                  : "Pickup"}
+              </h2>
+              <p className="account-orders-detail-meta">
+                {selected.pickupSlot
+                  ? formatSlotShort(selected.pickupSlot)
+                  : null}
+                {services ? ` · ${services}` : null}
+                {selected.weekly
+                  ? selected.automatedWeekly
+                    ? " · Weekly auto"
+                    : " · Weekly"
+                  : null}
+              </p>
+              <p className="account-orders-detail-address">
+                {formatAccountAddress(selected)}
+              </p>
+            </div>
+
+            <div className="account-orders-detail-aside">
+              <span
+                className={cn(
+                  "ops-status-pill is-lg",
+                  listBadgeClass(selected.status)
+                )}
               >
-                <div>
-                  <h3>
-                    {order.pickupDate
-                      ? `${formatPickupDate(order.pickupDate)}${
-                          order.pickupSlot ? ` · ${order.pickupSlot}` : ""
-                        }`
-                      : "Pickup scheduled"}
-                    {services ? ` · ${services}` : ""}
-                  </h3>
-                  <p>Ref {orderRefFromId(order.id)}</p>
-                </div>
-                <span className="inline-flex items-center gap-2">
-                  {order.weekly ? (
-                    <span className="account-order-badge is-weekly">
-                      {order.automatedWeekly ? "Weekly auto" : "Weekly"}
-                    </span>
-                  ) : null}
-                  <span
-                    className={cn(
-                      "account-order-badge",
-                      active && "is-active"
-                    )}
-                  >
-                    {ORDER_STATUS_LABELS[order.status]}
-                  </span>
-                  <ChevronDown
-                    className={cn(
-                      "size-4 text-muted-foreground transition",
-                      open && "rotate-180"
-                    )}
-                  />
-                </span>
-              </button>
-
+                {orderListBadge(selected.status)}
+              </span>
               {hasActions ? (
                 <div
                   className="account-order-menu"
-                  ref={menuOpen ? menuRef : undefined}
+                  ref={menuId === selected.id ? menuRef : undefined}
                 >
                   <button
                     type="button"
                     className="account-order-menu-trigger"
                     aria-label="Order actions"
                     aria-haspopup="menu"
-                    aria-expanded={menuOpen}
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      setMenuId(menuOpen ? null : order.id);
-                    }}
+                    aria-expanded={menuId === selected.id}
+                    onClick={() =>
+                      setMenuId(menuId === selected.id ? null : selected.id)
+                    }
                   >
                     <MoreHorizontal size={18} aria-hidden />
                   </button>
-
-                  {menuOpen ? (
+                  {menuId === selected.id ? (
                     <div className="account-order-menu-panel" role="menu">
-                      {canEdit && order.trackKey ? (
+                      {canEdit && selected.trackKey ? (
                         <Link
                           role="menuitem"
                           className="account-order-menu-item"
-                          href={`${trackPath(order.trackKey)}&edit=1`}
+                          href={`${trackPath(selected.trackKey)}&edit=1`}
                           onClick={() => setMenuId(null)}
                         >
                           <Pencil size={16} aria-hidden />
@@ -342,11 +432,11 @@ export function AccountOrders({ uid }: { uid: string }) {
                             type="button"
                             role="menuitem"
                             className="account-order-menu-item is-danger"
-                            disabled={busyId === order.id}
-                            onClick={() => void cancelOrder(order)}
+                            disabled={busyId === selected.id}
+                            onClick={() => void cancelOrder(selected)}
                           >
                             <XCircle size={16} aria-hidden />
-                            {busyId === order.id
+                            {busyId === selected.id
                               ? "Cancelling…"
                               : "Cancel pickup"}
                           </button>
@@ -357,20 +447,112 @@ export function AccountOrders({ uid }: { uid: string }) {
                 </div>
               ) : null}
             </div>
+          </div>
+        </div>
 
-            {open ? (
-              <div className="account-order-body">
-                <OrderProgress
-                  status={order.status}
-                  photos={order.photos}
-                  weightLbs={order.weightLbs}
-                  finalTotal={order.finalTotal}
-                />
-              </div>
-            ) : null}
-          </article>
-        );
-      })}
+        {actionNote ? (
+          <p className="account-orders-flash is-ok">{actionNote}</p>
+        ) : null}
+        {error ? (
+          <p className="account-orders-flash is-error">{error}</p>
+        ) : null}
+
+        <div className="account-orders-detail-scroll">
+          <OrderProgress
+            status={selected.status}
+            photos={selected.photos}
+            weightLbs={selected.weightLbs}
+            finalTotal={selected.finalTotal}
+          />
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      id="panel-orders"
+      role="tabpanel"
+      aria-labelledby="tab-orders"
+      className="account-orders-queue"
+    >
+      <div className="account-orders-head">
+        <div className="account-orders-heading">
+          <h1 className="account-orders-title">Orders</h1>
+        </div>
+        <label className="account-orders-search">
+          <Search size={16} aria-hidden />
+          <input
+            value={queryText}
+            onChange={(e) => setQueryText(e.target.value)}
+            placeholder="Search date, address, or order #"
+            aria-label="Search orders"
+          />
+        </label>
+        {actionNote ? (
+          <p className="account-orders-flash is-ok">{actionNote}</p>
+        ) : null}
+        {error ? (
+          <p className="account-orders-flash is-error">{error}</p>
+        ) : null}
+      </div>
+
+      <div className="account-orders-scroll">
+        <div className="account-orders-list">
+          {filtered.length === 0 ? (
+            <p className="account-orders-empty">No orders match your search.</p>
+          ) : (
+            filtered.map((row) => (
+              <button
+                key={row.id}
+                type="button"
+                className="account-orders-row"
+                onClick={() => {
+                  setMenuId(null);
+                  setSelectedId(row.id);
+                }}
+              >
+                <span className="account-orders-row-top">
+                  <span className="account-orders-row-name">
+                    {row.pickupDate
+                      ? formatPickupDate(row.pickupDate)
+                      : "Pickup"}
+                  </span>
+                  <span
+                    className={cn(
+                      "ops-status-pill",
+                      listBadgeClass(row.status)
+                    )}
+                  >
+                    {orderListBadge(row.status)}
+                  </span>
+                </span>
+                <span className="account-orders-row-when">
+                  {row.pickupSlot ? formatSlotShort(row.pickupSlot) : "—"}
+                  {row.weekly
+                    ? row.automatedWeekly
+                      ? " · Weekly auto"
+                      : " · Weekly"
+                    : ""}
+                </span>
+                <span className="account-orders-row-address">
+                  {formatAccountAddress(row)}
+                </span>
+                <span className="account-orders-row-foot">
+                  <span className="account-orders-row-ref">
+                    {orderDisplayId(row.id)}
+                  </span>
+                  <span className="account-orders-row-price">
+                    {row.finalTotal != null
+                      ? `$${row.finalTotal.toFixed(2)}`
+                      : "—"}
+                  </span>
+                </span>
+              </button>
+            ))
+          )}
+        </div>
+      </div>
     </div>
   );
 }

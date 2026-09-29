@@ -283,51 +283,6 @@ function AccountProfile({
     <div className="account-ops-shell">
       <div className="account-ops-frame">
         <aside className="account-ops-rail" aria-label="Account sections">
-          <div className="account-ops-brand">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="/foam-ops-logo-on-dark.png"
-              alt="FOAM"
-              width={217}
-              height={72}
-            />
-            <small>ACCOUNT</small>
-            {!signOutConfirm ? (
-              <button
-                type="button"
-                className="account-ops-rail-signout-icon"
-                aria-label="Sign out"
-                title="Sign out"
-                onClick={() => setSignOutConfirm(true)}
-              >
-                <LogOut size={16} aria-hidden />
-              </button>
-            ) : null}
-          </div>
-
-          {signOutConfirm ? (
-            <div className="account-ops-signout-confirm">
-              <strong>Are you sure?</strong>
-              <div className="account-ops-signout-actions">
-                <button
-                  type="button"
-                  className="account-ops-signout-btn is-cancel"
-                  onClick={() => setSignOutConfirm(false)}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  className="account-ops-signout-btn is-confirm"
-                  onClick={onSignOut}
-                >
-                  <LogOut size={14} aria-hidden />
-                  Sign out
-                </button>
-              </div>
-            </div>
-          ) : null}
-
           <div
             className="account-ops-nav"
             role="tablist"
@@ -356,23 +311,91 @@ function AccountProfile({
             })}
           </div>
 
+          <div className="account-ops-signout-wrap is-mobile">
+            <button
+              type="button"
+              className={cn(
+                "account-ops-rail-signout-icon",
+                signOutConfirm && "is-open"
+              )}
+              aria-label="Sign out"
+              title="Sign out"
+              aria-expanded={signOutConfirm}
+              onClick={() => setSignOutConfirm((v) => !v)}
+            >
+              <LogOut size={16} aria-hidden />
+            </button>
+            {signOutConfirm ? (
+              <div className="account-ops-signout-confirm" role="dialog">
+                <strong>Are you sure?</strong>
+                <div className="account-ops-signout-actions">
+                  <button
+                    type="button"
+                    className="account-ops-signout-btn is-cancel"
+                    onClick={() => setSignOutConfirm(false)}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    className="account-ops-signout-btn is-confirm"
+                    onClick={onSignOut}
+                  >
+                    <LogOut size={14} aria-hidden />
+                    Sign out
+                  </button>
+                </div>
+              </div>
+            ) : null}
+          </div>
+
           <div className="account-ops-rail-foot">
-            <span className="account-ops-rail-email">{email}</span>
-            {!signOutConfirm ? (
+            <div className="account-ops-signout-wrap is-desktop">
               <button
                 type="button"
-                className="account-ops-rail-signout"
-                onClick={() => setSignOutConfirm(true)}
+                className={cn(
+                  "account-ops-rail-signout",
+                  signOutConfirm && "is-open"
+                )}
+                aria-expanded={signOutConfirm}
+                onClick={() => setSignOutConfirm((v) => !v)}
               >
                 <LogOut size={14} aria-hidden />
                 Sign out
               </button>
-            ) : null}
+              {signOutConfirm ? (
+                <div className="account-ops-signout-confirm" role="dialog">
+                  <strong>Are you sure?</strong>
+                  <div className="account-ops-signout-actions">
+                    <button
+                      type="button"
+                      className="account-ops-signout-btn is-cancel"
+                      onClick={() => setSignOutConfirm(false)}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      className="account-ops-signout-btn is-confirm"
+                      onClick={onSignOut}
+                    >
+                      <LogOut size={14} aria-hidden />
+                      Sign out
+                    </button>
+                  </div>
+                </div>
+              ) : null}
+            </div>
           </div>
         </aside>
 
         <section className="account-ops-plane">
-          <div className="account-ops-plane-body">
+          <div
+            className={cn(
+              "account-ops-plane-body",
+              activeTab === "Orders" && "is-orders"
+            )}
+          >
             {activeTab === "Details" ? (
               <form
                 id="panel-details"
@@ -677,7 +700,7 @@ function AccountProfile({
 
             {activeTab === "Orders" ? <AccountOrders uid={uid} /> : null}
 
-            {activeTab === "Payments" ? <PaymentsDemo /> : null}
+            {activeTab === "Payments" ? <PaymentsPanel /> : null}
           </div>
         </section>
       </div>
@@ -686,20 +709,7 @@ function AccountProfile({
 }
 
 
-function PaymentsDemo() {
-  const demoInvoices = Array.from({ length: 30 }, (_, index) => {
-    const n = index + 1;
-    const day = 27 - (index % 26);
-    const amount = (32 + (index % 17) * 3.25 + (index % 5) * 1.1).toFixed(2);
-    return {
-      id: `inv_demo_${n}`,
-      label: `Demo pickup #${String(n).padStart(2, "0")}`,
-      when: `Sep ${day}, 2026`,
-      amount: `$${amount}`,
-      status: "Paid" as const,
-    };
-  });
-
+function PaymentsPanel() {
   return (
     <section
       id="panel-payments"
@@ -709,56 +719,10 @@ function PaymentsDemo() {
     >
       <PanelIntro title="Payments" />
 
-      <div className="account-ops-note account-ops-payments-demo-flag">
-        <strong>Demo only.</strong> 30 sample paid invoices so you can review
-        the list layout. Real Stripe billing is not connected yet.
+      <div className="account-ops-note">
+        No payments yet. Invoices will show here after your first completed
+        order.
       </div>
-
-      <div className="account-ops-pay-card">
-        <div className="account-ops-pay-card-top">
-          <span className="account-ops-pay-card-brand">
-            <CreditCard size={18} aria-hidden />
-            Card on file
-          </span>
-          <span className="account-ops-pay-card-chip">Default</span>
-        </div>
-        <p className="account-ops-pay-card-number">•••• •••• •••• 4242</p>
-        <div className="account-ops-pay-card-meta">
-          <span>Visa</span>
-          <span>Exp 12/28</span>
-        </div>
-        <div className="account-ops-pay-card-actions">
-          <button type="button" className="account-ops-btn is-ghost" disabled>
-            Update card
-          </button>
-          <button type="button" className="account-ops-btn is-ghost" disabled>
-            Remove
-          </button>
-        </div>
-      </div>
-
-      <div className="account-ops-pay-invoices">
-        <h3>Recent invoices · 30 demo</h3>
-        <ul>
-          {demoInvoices.map((row) => (
-            <li key={row.id}>
-              <div>
-                <strong>{row.label}</strong>
-                <span>{row.when}</span>
-              </div>
-              <div className="account-ops-pay-invoice-right">
-                <b>{row.amount}</b>
-                <em>{row.status}</em>
-              </div>
-            </li>
-          ))}
-        </ul>
-      </div>
-
-      <p className="account-ops-pay-footnote">
-        Live billing will charge the card on file after weight is confirmed —
-        same flow as your first order.
-      </p>
     </section>
   );
 }
@@ -939,59 +903,31 @@ export function AccountApp() {
     );
   }
 
-  const fieldClass =
-    "mt-1.5 mb-4 w-full rounded-xl border border-gray-200 bg-white px-4 py-3.5 text-base text-foreground outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 sm:mb-5 sm:rounded-lg sm:py-2.5 sm:text-sm";
-
-  const socialClass =
-    "flex min-h-12 w-full touch-manipulation items-center justify-center rounded-xl bg-white px-4 py-3.5 text-base font-semibold text-gray-700 shadow-sm ring-1 ring-gray-200 transition hover:bg-gray-50 active:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 sm:min-h-0 sm:rounded-lg sm:py-3 sm:shadow-md sm:ring-0";
-
   return (
-    <div className="account-ops-auth">
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        className="account-ops-auth-mark"
-        src="/foam-ops-logo.png"
-        alt="FOAM"
-        width={217}
-        height={72}
-      />
-      <p className="ops-eyebrow">ACCOUNT</p>
-      <h1>{mode === "signin" ? "Good to see you." : "Create account"}</h1>
-      <p className="account-ops-auth-lead">
-        {mode === "signin"
-          ? "Sign in to manage pickups, preferences, and past orders."
-          : "Join FOAM to save your laundry preferences and book faster."}
-      </p>
+    <div className="account-ops-auth-shell">
+      <div className="account-ops-auth">
+        <h1>{mode === "signin" ? "Log in" : "Create account"}</h1>
 
-          <form id="foam-auth-form" className="mt-2" onSubmit={handleSubmit}>
-            {mode === "signup" ? (
-              <label
-                className="mb-1 block text-sm font-semibold text-gray-600"
-                htmlFor="account-name"
-              >
-                Name
-              </label>
-            ) : null}
-            {mode === "signup" ? (
+        <form id="foam-auth-form" className="account-ops-auth-form" onSubmit={handleSubmit}>
+          {mode === "signup" ? (
+            <label className="account-ops-auth-label" htmlFor="account-name">
+              Name
               <input
                 id="account-name"
-                className={fieldClass}
+                className="account-ops-auth-input"
                 name="name"
                 type="text"
                 required
                 autoComplete="name"
               />
-            ) : null}
-
-            <label
-              className="mb-1 block text-sm font-semibold text-gray-600"
-              htmlFor="account-email"
-            >
-              E-mail
             </label>
+          ) : null}
+
+          <label className="account-ops-auth-label" htmlFor="account-email">
+            E-mail
             <input
               id="account-email"
-              className={fieldClass}
+              className="account-ops-auth-input"
               name="email"
               type="email"
               required
@@ -1000,16 +936,13 @@ export function AccountApp() {
               autoCapitalize="none"
               autoCorrect="off"
             />
+          </label>
 
-            <label
-              className="mb-1 block text-sm font-semibold text-gray-600"
-              htmlFor="account-password"
-            >
-              Password
-            </label>
+          <label className="account-ops-auth-label" htmlFor="account-password">
+            Password
             <input
               id="account-password"
-              className={fieldClass}
+              className="account-ops-auth-input"
               name="password"
               type="password"
               required
@@ -1018,97 +951,88 @@ export function AccountApp() {
                 mode === "signup" ? "new-password" : "current-password"
               }
             />
+          </label>
 
-            {mode === "signin" ? (
-              <div className="mb-5 text-right sm:mb-4">
-                <button
-                  type="button"
-                  className="cursor-pointer touch-manipulation py-1 font-display text-sm font-semibold text-gray-500 hover:text-gray-600 sm:text-xs"
-                  onClick={() =>
-                    setError(
-                      "Password reset is coming soon. For now contact support if you need help."
-                    )
-                  }
-                >
-                  Forgot Password?
-                </button>
-              </div>
-            ) : null}
-          </form>
-
-          {error ? (
-            <p
-              className="relative z-30 mb-4 rounded-xl bg-red-50 px-3 py-3 text-sm font-medium text-red-600 sm:bg-transparent sm:px-0 sm:py-0"
-              role="alert"
-            >
-              {error}
-            </p>
-          ) : null}
-
-          {/* Outside <form> so mobile Safari doesn't swallow taps */}
-          <div className="relative z-30 mt-1 flex w-full flex-col gap-3 sm:gap-4">
-            <GoogleSignInButton
-              className={`${socialClass} cursor-pointer disabled:opacity-60`}
-              onError={(message) => {
-                setError(message);
-              }}
-            />
-
-            <button
-              type="button"
-              className={`${socialClass} cursor-pointer disabled:opacity-60`}
-              disabled={oauthBusy}
-              onClick={(event) => {
-                event.preventDefault();
-                event.stopPropagation();
-                void handleApple();
-              }}
-            >
-              <svg
-                viewBox="0 0 30 30"
-                height="28"
-                width="28"
-                xmlns="http://www.w3.org/2000/svg"
-                aria-hidden
-                className="pointer-events-none"
+          {mode === "signin" ? (
+            <div className="account-ops-auth-forgot">
+              <button
+                type="button"
+                onClick={() =>
+                  setError(
+                    "Password reset is coming soon. For now contact support if you need help."
+                  )
+                }
               >
-                <path d="M25.565,9.785c-0.123,0.077-3.051,1.702-3.051,5.305c0.138,4.109,3.695,5.55,3.756,5.55 c-0.061,0.077-0.537,1.963-1.947,3.94C23.204,26.283,21.962,28,20.076,28c-1.794,0-2.438-1.135-4.508-1.135 c-2.223,0-2.852,1.135-4.554,1.135c-1.886,0-3.22-1.809-4.4-3.496c-1.533-2.208-2.836-5.673-2.882-9 c-0.031-1.763,0.307-3.496,1.165-4.968c1.211-2.055,3.373-3.45,5.734-3.496c1.809-0.061,3.419,1.242,4.523,1.242 c1.058,0,3.036-1.242,5.274-1.242C21.394,7.041,23.97,7.332,25.565,9.785z M15.001,6.688c-0.322-1.61,0.567-3.22,1.395-4.247 c1.058-1.242,2.729-2.085,4.17-2.085c0.092,1.61-0.491,3.189-1.533,4.339C18.098,5.937,16.488,6.872,15.001,6.688z" />
-              </svg>
-              <span className="pointer-events-none ml-2">
-                {oauthBusy ? "Opening…" : "Sign in with Apple"}
-              </span>
-            </button>
-          </div>
+                Forgot Password?
+              </button>
+            </div>
+          ) : null}
+        </form>
 
-          <div className="mt-4 sm:mt-5">
-            <button
-              type="submit"
-              form="foam-auth-form"
-              disabled={busy || oauthBusy}
-              className="account-ops-btn is-primary min-h-12 w-full"
-            >
-              {busy || oauthBusy
-                ? "Please wait..."
-                : mode === "signin"
-                  ? "Log in"
-                  : "Create account"}
-            </button>
-          </div>
+        {error ? (
+          <p className="account-ops-auth-error" role="alert">
+            {error}
+          </p>
+        ) : null}
 
-          <div className="mt-5 flex items-center justify-between sm:mt-4">
-            <span className="w-1/5 border-b border-gray-300 md:w-1/4" />
-            <button
-              type="button"
-              className="touch-manipulation px-3 py-2 text-xs uppercase tracking-wide text-gray-500 hover:underline"
-              onClick={() => {
-                setMode(mode === "signin" ? "signup" : "signin");
-                setError("");
-              }}
+        <div className="account-ops-auth-social">
+          <GoogleSignInButton
+            className="account-ops-auth-social-btn"
+            onError={(message) => {
+              setError(message);
+            }}
+          />
+
+          <button
+            type="button"
+            className="account-ops-auth-social-btn"
+            disabled={oauthBusy}
+            onClick={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              void handleApple();
+            }}
+          >
+            <svg
+              viewBox="0 0 30 30"
+              height="22"
+              width="22"
+              xmlns="http://www.w3.org/2000/svg"
+              aria-hidden
+              className="pointer-events-none"
             >
-              {mode === "signin" ? "or sign up" : "or log in"}
-            </button>
-            <span className="w-1/5 border-b border-gray-300 md:w-1/4" />
-          </div>
+              <path d="M25.565,9.785c-0.123,0.077-3.051,1.702-3.051,5.305c0.138,4.109,3.695,5.55,3.756,5.55 c-0.061,0.077-0.537,1.963-1.947,3.94C23.204,26.283,21.962,28,20.076,28c-1.794,0-2.438-1.135-4.508-1.135 c-2.223,0-2.852,1.135-4.554,1.135c-1.886,0-3.22-1.809-4.4-3.496c-1.533-2.208-2.836-5.673-2.882-9 c-0.031-1.763,0.307-3.496,1.165-4.968c1.211-2.055,3.373-3.45,5.734-3.496c1.809-0.061,3.419,1.242,4.523,1.242 c1.058,0,3.036-1.242,5.274-1.242C21.394,7.041,23.97,7.332,25.565,9.785z M15.001,6.688c-0.322-1.61,0.567-3.22,1.395-4.247 c1.058-1.242,2.729-2.085,4.17-2.085c0.092,1.61-0.491,3.189-1.533,4.339C18.098,5.937,16.488,6.872,15.001,6.688z" />
+            </svg>
+            <span className="pointer-events-none">
+              {oauthBusy ? "Opening…" : "Sign in with Apple"}
+            </span>
+          </button>
+        </div>
+
+        <button
+          type="submit"
+          form="foam-auth-form"
+          disabled={busy || oauthBusy}
+          className="account-ops-btn is-primary account-ops-auth-submit"
+        >
+          {busy || oauthBusy
+            ? "Please wait..."
+            : mode === "signin"
+              ? "Log in"
+              : "Create account"}
+        </button>
+
+        <button
+          type="button"
+          className="account-ops-auth-switch"
+          onClick={() => {
+            setMode(mode === "signin" ? "signup" : "signin");
+            setError("");
+          }}
+        >
+          {mode === "signin" ? "or sign up" : "or log in"}
+        </button>
+      </div>
     </div>
   );
 }

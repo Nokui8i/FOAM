@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import {
+  arrayUnion,
   collection,
   doc,
   onSnapshot,
@@ -13,11 +14,12 @@ import {
 import {
   ArrowLeft,
   Check,
+  ClipboardList,
   Mail,
-  MessageCircle,
-  Phone,
   Repeat2,
   Search,
+  Send,
+  Tag,
 } from "lucide-react";
 
 import { useOpsPageReadyWhen } from "@/components/ops-boot";
@@ -26,11 +28,16 @@ import { getFirebaseDb } from "@/lib/firebase";
 import { BUSINESS_WHATSAPP } from "@/lib/site-config";
 import { useQueryReplace } from "@/lib/use-query-replace";
 import { cn } from "@/lib/utils";
-import {
-  buildDemoSupportVolume,
-  mergeDemoSupport,
-  isOpsDemoId,
-} from "@/lib/ops-demo-volume";
+
+type ContactReply = {
+  id: string;
+  body: string;
+  createdAt: string;
+  createdBy: string;
+  /** "internal" until company email is wired; then "email". */
+  channel: "internal" | "email";
+  emailStatus?: "pending" | "sent" | "failed" | null;
+};
 
 type ContactRow = {
   id: string;
@@ -42,6 +49,7 @@ type ContactRow = {
   status: "new" | "done";
   read: boolean;
   createdAt: Timestamp | null;
+  replies: ContactReply[];
 };
 
 type InboxFilter = "open" | "done" | "all";
@@ -65,6 +73,38 @@ function formatDate(value: Timestamp | null) {
   return value.toDate().toLocaleString();
 }
 
+function formatReplyAt(iso: string) {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleString();
+}
+
+function mapReplies(raw: unknown): ContactReply[] {
+  if (!Array.isArray(raw)) return [];
+  const next: ContactReply[] = [];
+  for (const item of raw) {
+    if (!item || typeof item !== "object") continue;
+    const row = item as Record<string, unknown>;
+    const body = String(row.body ?? "").trim();
+    if (!body) continue;
+    const emailStatus =
+      row.emailStatus === "pending" ||
+      row.emailStatus === "sent" ||
+      row.emailStatus === "failed"
+        ? row.emailStatus
+        : null;
+    next.push({
+      id: String(row.id ?? crypto.randomUUID()),
+      body,
+      createdAt: String(row.createdAt ?? ""),
+      createdBy: String(row.createdBy ?? "staff"),
+      channel: row.channel === "email" ? "email" : "internal",
+      emailStatus,
+    });
+  }
+  return next.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+}
+
 function waUrl(phone: string, body: string) {
   const digits = phone.replace(/\D/g, "");
   const to = digits || BUSINESS_WHATSAPP;
@@ -72,9 +112,11 @@ function waUrl(phone: string, body: string) {
 }
 
 export function AdminContactsPanel({
+  adminEmail,
   mobileView,
   onMobileViewChange,
 }: {
+  adminEmail: string;
   mobileView: MobileView;
   onMobileViewChange: (view: MobileView) => void;
 }) {
@@ -86,6 +128,9 @@ export function AdminContactsPanel({
   const filter = parseInboxFilter(searchParams.get("filter"));
   const [queryText, setQueryText] = useState("");
   const [error, setError] = useState("");
+  const [okMsg, setOkMsg] = useState("");
+  const [replyDraft, setReplyDraft] = useState("");
+  const [replySaving, setReplySaving] = useState(false);
 
   function setFilter(next: InboxFilter) {
     replaceQuery({
@@ -117,14 +162,10 @@ export function AdminContactsPanel({
             status: data.status === "done" ? "done" : "new",
             read: Boolean(data.read),
             createdAt: (data.createdAt as Timestamp | null) ?? null,
+            replies: mapReplies(data.replies),
           } satisfies ContactRow;
         });
-        setRows(
-          mergeDemoSupport(
-            next,
-            buildDemoSupportVolume() as ContactRow[]
-          )
-        );
+        setRows(next);
         setListReady(true);
         setError("");
       },
@@ -160,32 +201,59 @@ export function AdminContactsPanel({
   const selected =
     filtered.find((row) => row.id === selectedId) ?? filtered[0] ?? null;
 
+  useEffect(() => {
+    setReplyDraft("");
+    setOkMsg("");
+    setError("");
+  }, [selected?.id]);
+
   async function markRead(id: string) {
-    if (isOpsDemoId(id)) return;
     await updateDoc(doc(getFirebaseDb(), "contactMessages", id), {
       read: true,
     });
   }
 
   async function toggleDone(row: ContactRow) {
-    if (isOpsDemoId(row.id)) {
-      setRows((prev) =>
-        prev.map((item) =>
-          item.id === row.id
-            ? {
-                ...item,
-                status: item.status === "done" ? "new" : "done",
-                read: true,
-              }
-            : item
-        )
-      );
-      return;
-    }
     await updateDoc(doc(getFirebaseDb(), "contactMessages", row.id), {
       status: row.status === "done" ? "new" : "done",
       read: true,
     });
+  }
+
+  async function saveReply(row: ContactRow) {
+    const body = replyDraft.trim();
+    if (!body) {
+      setError("Write a reply before saving.");
+      return;
+    }
+
+    const reply: ContactReply = {
+      id:
+        typeof crypto !== "undefined" && "randomUUID" in crypto
+          ? crypto.randomUUID()
+          : `reply-${Date.now()}`,
+      body,
+      createdAt: new Date().toISOString(),
+      createdBy: adminEmail.trim() || "staff",
+      channel: "internal",
+      emailStatus: null,
+    };
+
+    setReplySaving(true);
+    setError("");
+    setOkMsg("");
+    try {
+      await updateDoc(doc(getFirebaseDb(), "contactMessages", row.id), {
+        replies: arrayUnion(reply),
+        read: true,
+      });
+      setReplyDraft("");
+      setOkMsg("Reply saved. Company email sending will connect later.");
+    } catch {
+      setError("Could not save reply. Try again.");
+    } finally {
+      setReplySaving(false);
+    }
   }
 
   async function selectRow(row: ContactRow) {
@@ -209,7 +277,7 @@ export function AdminContactsPanel({
       >
         <div className="ops-list-head">
           <div className="queue-heading">
-            <h1 className="ops-list-title">Support</h1>
+            <h1 className="ops-list-title">Contact</h1>
           </div>
 
           <label className="ops-search">
@@ -224,7 +292,7 @@ export function AdminContactsPanel({
           <div
             className="ops-filter-row is-alerts"
             role="group"
-            aria-label="Support filters"
+            aria-label="Contact filters"
           >
             {FILTERS.map((item) => (
               <button
@@ -251,32 +319,35 @@ export function AdminContactsPanel({
               <p className="ops-empty">Live messages will appear here.</p>
             ) : (
               filtered.map((row) => (
-                <button
+                <div
                   key={row.id}
-                  type="button"
                   className={cn(
                     "ops-row",
                     selectedId === row.id && "is-active",
                     !row.read && "is-unread"
                   )}
-                  onClick={() => void selectRow(row)}
                 >
-                  <span className="ops-row-icon">
-                    <Mail size={16} />
-                  </span>
-                  <span className="ops-row-main">
-                    <span className="ops-row-name">{row.name}</span>
-                    <span className="ops-row-meta">{row.topic}</span>
-                  </span>
-                  <span
-                    className={cn(
-                      "ops-status-pill",
-                      row.status === "done" ? "is-done" : "is-open"
-                    )}
+                  <button
+                    type="button"
+                    className="ops-row-main"
+                    onClick={() => void selectRow(row)}
                   >
-                    {row.status === "done" ? "Done" : "Open"}
-                  </span>
-                </button>
+                    <span className="ops-row-top">
+                      <span className="ops-row-name">{row.name}</span>
+                      <span
+                        className={cn(
+                          "ops-status-pill",
+                          row.status === "done" ? "is-done" : "is-open"
+                        )}
+                      >
+                        {row.status === "done" ? "Done" : "Open"}
+                      </span>
+                    </span>
+                    <span className="ops-row-address">
+                      {row.topic || "—"}
+                    </span>
+                  </button>
+                </div>
               ))
             )}
           </div>
@@ -292,113 +363,171 @@ export function AdminContactsPanel({
         {!selected ? (
           <p className="ops-empty ops-pad">Select a message.</p>
         ) : (
-          <article className="ops-inquiry">
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="ops-back ops-back-labeled"
-              onClick={() => onMobileViewChange("list")}
-            >
-              <ArrowLeft size={16} />
-              Back to support
-            </Button>
+          <article className="ops-detail">
+            <div className="ops-detail-head">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="ops-back ops-back-labeled"
+                onClick={() => onMobileViewChange("list")}
+              >
+                <ArrowLeft size={16} />
+                Back
+              </Button>
 
-            <div className="ops-inquiry-inner">
-              <div className="ops-inquiry-head">
-                <div>
-                  <span
-                    className={cn(
-                      "ops-status-pill is-lg",
-                      selected.status === "done" ? "is-done" : "is-open"
-                    )}
-                  >
-                    {selected.status === "done" ? "Done" : "Open"}
-                  </span>
-                  <h2>{selected.name}</h2>
-                  <p className="ops-muted">
-                    {formatDate(selected.createdAt)}
+              <div className="ops-detail-top is-contact">
+                <div className="ops-detail-top-main">
+                  <p className="ops-breadcrumb">
+                    <span>Contact</span>
+                    <span aria-hidden>›</span>
+                    <span>
+                      {selected.status === "done" ? "Done" : "Open"}
+                    </span>
+                  </p>
+                  <h2 className="ops-detail-title">{selected.name}</h2>
+                  {selected.email ? (
+                    <p className="ops-detail-email">
+                      <Mail size={14} aria-hidden />
+                      <a href={`mailto:${selected.email}`}>
+                        {selected.email}
+                      </a>
+                    </p>
+                  ) : null}
+                  <div className="ops-detail-meta">
+                    <span>
+                      <ClipboardList size={14} aria-hidden />
+                      {formatDate(selected.createdAt)}
+                    </span>
+                  </div>
+                  <p className="ops-detail-address">
+                    <Tag size={16} aria-hidden />
+                    <span>{selected.topic || "No topic"}</span>
                   </p>
                 </div>
+
                 <div className="ops-icon-row">
                   {selected.phone ? (
                     <a
-                      className="ops-text-btn"
+                      className="ops-action-btn"
                       href={`tel:${selected.phone}`}
+                      aria-label="Call"
+                      title="Call"
                     >
-                      <Phone size={16} aria-hidden />
-                      Call
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src="/ops-icon-call.png"
+                        alt=""
+                        width={22}
+                        height={22}
+                      />
                     </a>
                   ) : null}
                   {selected.phone ? (
                     <a
-                      className="ops-text-btn"
+                      className="ops-action-btn"
                       href={waUrl(selected.phone, replyBody)}
                       target="_blank"
                       rel="noreferrer"
+                      aria-label="WhatsApp"
+                      title="WhatsApp"
                     >
-                      <MessageCircle size={16} aria-hidden />
-                      WhatsApp
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src="/ops-icon-whatsapp.png"
+                        alt=""
+                        width={26}
+                        height={26}
+                      />
                     </a>
                   ) : null}
-                  <a
-                    className="ops-text-btn"
-                    href={`mailto:${selected.email}?subject=${encodeURIComponent(`Re: FOAM — ${selected.topic}`)}`}
-                  >
-                    <Mail size={16} aria-hidden />
-                    Email
-                  </a>
+                  {selected.email ? (
+                    <a
+                      className="ops-action-btn"
+                      href={`mailto:${selected.email}?subject=${encodeURIComponent(`Re: FOAM — ${selected.topic || "your message"}`)}`}
+                      aria-label="Email"
+                      title="Email"
+                    >
+                      <Mail size={18} aria-hidden />
+                    </a>
+                  ) : null}
                 </div>
               </div>
+            </div>
 
-              <section className="ops-support-block">
-                <h3 className="ops-support-block-title">Customer</h3>
-                <div className="ops-fields">
-                  <div>
-                    <p className="ops-field-label">Name</p>
-                    <p>{selected.name}</p>
-                  </div>
-                  <div>
-                    <p className="ops-field-label">Topic</p>
-                    <p>{selected.topic || "—"}</p>
-                  </div>
-                  <div>
-                    <p className="ops-field-label">Email</p>
-                    <p>
-                      <a href={`mailto:${selected.email}`}>{selected.email}</a>
-                    </p>
-                  </div>
-                  <div>
-                    <p className="ops-field-label">Phone</p>
-                    <p>
-                      {selected.phone ? (
-                        <a href={`tel:${selected.phone}`}>{selected.phone}</a>
+            {okMsg || error ? (
+              <p className={cn("ops-flash", error ? "is-error" : "is-ok")}>
+                {error || okMsg}
+              </p>
+            ) : null}
+
+            <div className="ops-detail-stack">
+              <section className="ops-contact-conversation">
+                <div className="ops-contact-bubble is-customer">
+                  <header>
+                    <strong>{selected.name.split(" ")[0] || "Customer"}</strong>
+                    <span>{formatDate(selected.createdAt)}</span>
+                  </header>
+                  <p>{selected.message}</p>
+                </div>
+
+                {selected.replies.map((reply) => (
+                  <article
+                    key={reply.id}
+                    className="ops-contact-bubble is-staff"
+                  >
+                    <header>
+                      <strong>FOAM</strong>
+                      <span>
+                        {reply.createdAt
+                          ? formatReplyAt(reply.createdAt)
+                          : "Just now"}
+                      </span>
+                    </header>
+                    <p>{reply.body}</p>
+                  </article>
+                ))}
+
+                <div className="ops-contact-compose">
+                  <label className="ops-contact-reply-box">
+                    <span className="sr-only">Reply to customer</span>
+                    <textarea
+                      value={replyDraft}
+                      onChange={(e) => setReplyDraft(e.target.value)}
+                      rows={5}
+                      placeholder={`Hi ${selected.name.split(" ")[0] || "there"}, …`}
+                      disabled={replySaving}
+                    />
+                  </label>
+                  <div className="ops-contact-reply-actions">
+                    <Button
+                      type="button"
+                      className="ops-btn-lg"
+                      disabled={replySaving || !replyDraft.trim()}
+                      onClick={() => void saveReply(selected)}
+                    >
+                      <Send size={16} aria-hidden />
+                      {replySaving ? "Saving…" : "Save reply"}
+                    </Button>
+                    <Button
+                      type="button"
+                      className="ops-btn-lg"
+                      variant={
+                        selected.status === "done" ? "outline" : "default"
+                      }
+                      disabled={replySaving}
+                      onClick={() => void toggleDone(selected)}
+                    >
+                      {selected.status === "done" ? (
+                        <Repeat2 size={16} />
                       ) : (
-                        "—"
+                        <Check size={16} />
                       )}
-                    </p>
+                      {selected.status === "done" ? "Reopen" : "Mark done"}
+                    </Button>
                   </div>
                 </div>
               </section>
-
-              <section className="ops-support-block">
-                <h3 className="ops-support-block-title">Message</h3>
-                <div className="ops-message-body">{selected.message}</div>
-              </section>
-
-              <Button
-                type="button"
-                className="ops-btn-lg"
-                variant={selected.status === "done" ? "outline" : "default"}
-                onClick={() => void toggleDone(selected)}
-              >
-                {selected.status === "done" ? (
-                  <Repeat2 size={16} />
-                ) : (
-                  <Check size={16} />
-                )}
-                {selected.status === "done" ? "Reopen" : "Mark done"}
-              </Button>
             </div>
           </article>
         )}

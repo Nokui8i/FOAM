@@ -36,7 +36,6 @@ import { useQueryReplace } from "@/lib/use-query-replace";
 import { cn } from "@/lib/utils";
 import { cancelFutureWeeklyOrders } from "@/lib/weekly-automation";
 import { releasePickupSlot } from "@/lib/pickup-availability";
-import { mergeDemoAlerts, isOpsDemoId } from "@/lib/ops-demo-volume";
 
 type MobileView = "list" | "detail";
 
@@ -151,7 +150,7 @@ export function AdminAlertsPanel({
           if (mapped) next.push(mapped);
         }
         next.sort(reminderSortKey);
-        setRows(mergeDemoAlerts(next));
+        setRows(next);
         setListReady(true);
         setError("");
       },
@@ -211,25 +210,6 @@ export function AdminAlertsPanel({
   async function markContacted(orderId: string) {
     setError("");
     setOkMsg("");
-    if (isOpsDemoId(orderId)) {
-      setRows((prev) =>
-        prev.map((row) =>
-          row.orderId === orderId
-            ? {
-                ...row,
-                contacted: true,
-                contactedAt: new Date().toISOString(),
-                contactedBy: adminEmail || "admin",
-              }
-            : row
-        )
-      );
-      setOkMsg(
-        "DEMO — confirmed for the schedule locally (not saved)."
-      );
-      replaceQuery({ id: null, view: null, filter: null });
-      return;
-    }
     try {
       await updateDoc(doc(getFirebaseDb(), "orders", orderId), {
         opsReminder: {
@@ -249,10 +229,6 @@ export function AdminAlertsPanel({
   }
 
   async function cancelAlertOrder(alert: PickupReminderAlert) {
-    if (isOpsDemoId(alert.orderId)) {
-      setOkMsg("DEMO row — cancel is disabled.");
-      return;
-    }
     const weeklyNote = alert.weekly
       ? "\n\nThis also turns OFF weekly automation for this customer — future auto pickups and the 10% weekly discount will stop."
       : "";

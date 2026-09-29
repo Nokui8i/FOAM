@@ -22,11 +22,6 @@ import {
   type StaffProfile,
   type StaffRole,
 } from "@/lib/staff-access";
-import {
-  buildDemoStaffVolume,
-  isOpsDemoId,
-  mergeDemoStaff,
-} from "@/lib/ops-demo-volume";
 import { useQueryReplace } from "@/lib/use-query-replace";
 import { cn } from "@/lib/utils";
 
@@ -85,10 +80,6 @@ export function AdminStaffPanel({
   const { searchParams, replaceQuery } = useQueryReplace();
   const [rows, setRows] = useState<StaffProfile[]>([]);
   const [bans, setBans] = useState<StaffBan[]>([]);
-  const [demoRows, setDemoRows] = useState<StaffProfile[]>(() =>
-    buildDemoStaffVolume() as StaffProfile[]
-  );
-  const [demoBans, setDemoBans] = useState<StaffBan[]>([]);
   const [ready, setReady] = useState(false);
   const [tab, setTab] = useState<StaffTab>(() => {
     const section = searchParams.get("section");
@@ -140,21 +131,11 @@ export function AdminStaffPanel({
     };
   }, []);
 
-  const allRows = useMemo(
-    () => mergeDemoStaff(rows, demoRows),
-    [rows, demoRows]
+  const allRows = rows;
+  const allBans = useMemo(
+    () => [...bans].sort((a, b) => a.email.localeCompare(b.email)),
+    [bans]
   );
-
-  const allBans = useMemo(() => {
-    const map = new Map<string, StaffBan>();
-    for (const row of bans) map.set(row.email, row);
-    for (const row of demoBans) {
-      if (!map.has(row.email)) map.set(row.email, row);
-    }
-    return Array.from(map.values()).sort((a, b) =>
-      a.email.localeCompare(b.email)
-    );
-  }, [bans, demoBans]);
 
   function selectStaffTab(next: StaffTab) {
     setTab(next);
@@ -226,18 +207,6 @@ export function AdminStaffPanel({
     return isAdminEmail(row.email) || row.uid.startsWith("bootstrap:");
   }
 
-  function patchDemoRow(
-    uid: string,
-    patch: Partial<StaffProfile> | null
-  ) {
-    setDemoRows((prev) => {
-      if (patch === null) return prev.filter((row) => row.uid !== uid);
-      return prev.map((row) =>
-        row.uid === uid ? { ...row, ...patch } : row
-      );
-    });
-  }
-
   async function review(
     row: StaffProfile,
     status: "approved" | "denied" | "revoked"
@@ -255,28 +224,6 @@ export function AdminStaffPanel({
     // Close the modal immediately — don't wait on Firebase round-trips.
     setConfirmAction(null);
     setBusyId("");
-
-    if (isOpsDemoId(row.uid)) {
-      if (status === "denied") {
-        patchDemoRow(row.uid, null);
-        setOkMsg(
-          `DEMO — ${row.displayName || row.email} denied. They can request again (local only).`
-        );
-      } else {
-        patchDemoRow(row.uid, {
-          status,
-          role: role ?? row.role,
-          reviewedBy: adminEmail || "demo",
-        });
-        setOkMsg(
-          status === "approved"
-            ? `DEMO — ${row.displayName || row.email} approved as ${staffRoleLabel(draftRole(row))} (local only).`
-            : `DEMO — ${row.displayName || row.email} revoked (local only).`
-        );
-      }
-      if (status === "approved") setTab("employees");
-      return;
-    }
 
     // Optimistic list update so Pending/Employees move instantly.
     if (status === "denied") {
@@ -323,21 +270,6 @@ export function AdminStaffPanel({
     setConfirmAction(null);
     setBusyId("");
 
-    if (isOpsDemoId(row.uid)) {
-      patchDemoRow(row.uid, null);
-      setDemoBans((prev) => [
-        ...prev.filter((b) => b.email !== row.email),
-        {
-          email: row.email,
-          bannedBy: adminEmail || "demo",
-          reason: "DEMO ban",
-        },
-      ]);
-      setOkMsg(`DEMO — ${row.email} banned (local only).`);
-      setTab("banned");
-      return;
-    }
-
     setRows((prev) => prev.filter((r) => r.uid !== row.uid));
     setBans((prev) => {
       if (prev.some((b) => b.email === row.email)) return prev;
@@ -366,14 +298,6 @@ export function AdminStaffPanel({
     setConfirmAction(null);
     setBusyId("");
 
-    if (email.startsWith("demo.") || demoBans.some((b) => b.email === email)) {
-      setDemoBans((prev) => prev.filter((b) => b.email !== email));
-      if (!bans.some((b) => b.email === email)) {
-        setOkMsg(`DEMO — ${email} unbanned (local only).`);
-        return;
-      }
-    }
-
     setBans((prev) => prev.filter((b) => b.email !== email));
     setOkMsg(`${email} unbanned. They can request access again.`);
 
@@ -390,14 +314,6 @@ export function AdminStaffPanel({
     if (nextRole === row.role) return;
     setError("");
     setOkMsg("");
-
-    if (isOpsDemoId(row.uid)) {
-      patchDemoRow(row.uid, { role: nextRole, status: "approved" });
-      setOkMsg(
-        `DEMO — ${row.displayName || row.email} is now ${staffRoleLabel(nextRole)} (local only).`
-      );
-      return;
-    }
 
     setRows((prev) =>
       prev.map((r) =>
@@ -428,12 +344,6 @@ export function AdminStaffPanel({
     setOkMsg("");
     setConfirmAction(null);
     setBusyId("");
-
-    if (isOpsDemoId(row.uid)) {
-      patchDemoRow(row.uid, null);
-      setOkMsg(`DEMO — ${row.displayName || row.email} removed (local only).`);
-      return;
-    }
 
     setRows((prev) => prev.filter((r) => r.uid !== row.uid));
     setOkMsg(`${row.displayName || row.email} removed.`);

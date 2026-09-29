@@ -105,7 +105,6 @@ import { BUSINESS_WHATSAPP } from "@/lib/site-config";
 import { useOpsPageReadyWhen } from "@/components/ops-boot";
 import { cn } from "@/lib/utils";
 import { useQueryReplace } from "@/lib/use-query-replace";
-import { mergeDemoOrders } from "@/lib/ops-demo-volume";
 
 type Filter = "waiting" | "progress" | "ready" | "all";
 type MobileView = "list" | "detail";
@@ -539,7 +538,7 @@ export function AdminOrdersPanel({
         const next = snap.docs.map((item) =>
           mapOrder(item.id, item.data() as Record<string, unknown>)
         );
-        setRows(mergeDemoOrders(next));
+        setRows(next);
         setListReady(true);
         setError("");
       },

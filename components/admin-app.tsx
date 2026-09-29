@@ -61,7 +61,6 @@ import {
   normalizeOrderStatus,
   type FoamOrder,
 } from "@/lib/orders";
-import { OPS_DEMO_VOLUME, OPS_DEMO_STAFF_PENDING } from "@/lib/ops-demo-volume";
 import { useQueryReplace } from "@/lib/use-query-replace";
 import { cn } from "@/lib/utils";
 import {
@@ -439,7 +438,7 @@ function AdminAppInner() {
       collection(db, "contactMessages"),
       (snap) => {
         const open = snap.docs.filter((d) => d.data().status !== "done").length;
-        setOpenInquiriesCount(open + OPS_DEMO_VOLUME);
+        setOpenInquiriesCount(open);
       },
       () => {
         /* permission/network blip — keep last counts */
@@ -477,10 +476,10 @@ function AdminAppInner() {
             todayActive += 1;
           }
         }
-        setOrdersCount(todayActive + OPS_DEMO_VOLUME);
-        setFutureCount(future + OPS_DEMO_VOLUME);
-        setHistoryCount(history + OPS_DEMO_VOLUME);
-        setReminderTodoCount(alertsTodo + OPS_DEMO_VOLUME);
+        setOrdersCount(todayActive);
+        setFutureCount(future);
+        setHistoryCount(history);
+        setReminderTodoCount(alertsTodo);
       },
       () => {
         /* permission/network blip — keep last counts */
@@ -488,7 +487,7 @@ function AdminAppInner() {
     );
     const unsubStaff = canManageStaff
       ? subscribePendingStaff((rows) => {
-          setPendingStaffCount(rows.length + OPS_DEMO_STAFF_PENDING);
+          setPendingStaffCount(rows.length);
         })
       : () => {
           setPendingStaffCount(0);
