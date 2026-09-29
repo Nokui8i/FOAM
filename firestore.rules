@@ -260,12 +260,23 @@ service cloud.firestore {
           || (isSignedIn() && request.resource.data.uid == request.auth.uid)
         );
 
-      allow read: if isStaff()
+      allow read: if isAdmin()
+        || (
+          isDriver()
+          && 'assignedDriverUid' in resource.data
+          && resource.data.assignedDriverUid == request.auth.uid
+        )
         || (isSignedIn()
           && resource.data.uid is string
           && resource.data.uid == request.auth.uid);
 
-      allow update: if isStaff() || (
+      allow update: if isAdmin() || (
+        // Assigned driver may advance workflow — cannot reassign the job
+        isDriver()
+        && 'assignedDriverUid' in resource.data
+        && resource.data.assignedDriverUid == request.auth.uid
+        && request.resource.data.assignedDriverUid == resource.data.assignedDriverUid
+      ) || (
         // Owner cancel
         isSignedIn()
         && resource.data.uid is string

@@ -404,6 +404,11 @@ export type FoamOrder = {
   refundAmount?: number | null;
   cancelReason?: string;
   photos?: OrderPhoto[];
+  /** Ops routing — which driver owns this pickup/delivery */
+  assignedDriverUid?: string | null;
+  assignedDriverName?: string | null;
+  assignedBy?: string | null;
+  assignedAt?: { toDate: () => Date } | null;
   /** Unguessable key for public /track?k=… page */
   trackKey?: string;
   statusHistory?: { status: OrderStatus; at: unknown; by?: string }[];

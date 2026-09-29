@@ -1055,6 +1055,64 @@
   color: color-mix(in srgb, var(--ops-ink) 72%, var(--ops-muted));
   font-weight: 600;
 }
+.admin-page .ops-row-driver {
+  margin-top: 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 22px;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: #e8f5fb;
+  color: var(--ops-navy);
+  font-size: 11px;
+  font-weight: 750;
+}
+.admin-page .ops-row-driver.is-open {
+  background: #f1f5f9;
+  color: #64748b;
+}
+.admin-page .ops-assign-row {
+  margin-top: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 10px;
+  max-width: 100%;
+}
+.admin-page .ops-assign-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--ops-muted);
+  font-size: 12px;
+  font-weight: 750;
+}
+.admin-page .ops-assign-select {
+  flex: 1 1 180px;
+  min-width: 0;
+  max-width: 280px;
+  min-height: 36px;
+  padding: 0 10px;
+  border: 1px solid var(--ops-border);
+  border-radius: 9px;
+  background: #fff;
+  color: var(--ops-ink);
+  font-size: 13px;
+  font-weight: 650;
+}
+.admin-page .ops-assign-select:disabled {
+  opacity: 0.65;
+}
+.admin-page .ops-assign-readonly {
+  margin: 10px 0 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--ops-navy);
+  font-size: 13px;
+  font-weight: 700;
+}
 .admin-page .ops-row-foot {
   width: 100%;
   display: flex;

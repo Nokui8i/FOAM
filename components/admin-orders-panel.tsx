@@ -5,12 +5,14 @@ import { createPortal } from "react-dom";
 import {
   arrayUnion,
   collection,
+  deleteField,
   doc,
   onSnapshot,
   orderBy,
   query,
   serverTimestamp,
   updateDoc,
+  where,
 } from "firebase/firestore";
 import {
   ArrowLeft,
@@ -58,9 +60,13 @@ import {
   DATA_RETENTION_DAYS,
   deleteOrderCompletely,
 } from "@/lib/data-retention";
-import { getFirebaseDb } from "@/lib/firebase";
+import { getFirebaseAuth, getFirebaseDb } from "@/lib/firebase";
 import { uploadOrderPhoto } from "@/lib/order-photos";
 import { releasePickupSlot } from "@/lib/pickup-availability";
+import {
+  subscribeAllStaff,
+  type StaffProfile,
+} from "@/lib/staff-access";
 import {
   formatPromoLabel,
   isPromoCurrentlyValid,
@@ -367,6 +373,14 @@ function mapOrder(id: string, data: Record<string, unknown>): FoamOrder {
         )
       : [],
     trackKey: typeof data.trackKey === "string" ? data.trackKey : undefined,
+    assignedDriverUid:
+      typeof data.assignedDriverUid === "string" ? data.assignedDriverUid : null,
+    assignedDriverName:
+      typeof data.assignedDriverName === "string"
+        ? data.assignedDriverName
+        : null,
+    assignedBy: typeof data.assignedBy === "string" ? data.assignedBy : null,
+    assignedAt: (data.assignedAt as FoamOrder["assignedAt"]) ?? null,
     createdAt: (data.createdAt as FoamOrder["createdAt"]) ?? null,
     statusUpdatedAt:
       (data.statusUpdatedAt as FoamOrder["statusUpdatedAt"]) ?? null,
@@ -423,6 +437,8 @@ export function AdminOrdersPanel({
     | { kind: "back"; label: string; prev: OrderStatus }
     | null
   >(null);
+  const [drivers, setDrivers] = useState<StaffProfile[]>([]);
+  const [assigningId, setAssigningId] = useState("");
   const catalogRef = useRef<HTMLDivElement>(null);
   const rowMenuRef = useRef<HTMLDivElement>(null);
 
@@ -531,7 +547,24 @@ export function AdminOrdersPanel({
 
   useEffect(() => {
     const db = getFirebaseDb();
-    const q = query(collection(db, "orders"), orderBy("createdAt", "desc"));
+    const driverUid = isDriverViewer
+      ? getFirebaseAuth().currentUser?.uid ?? ""
+      : "";
+
+    if (isDriverViewer && !driverUid) {
+      setRows([]);
+      setListReady(true);
+      return;
+    }
+
+    const q = isDriverViewer
+      ? query(
+          collection(db, "orders"),
+          where("assignedDriverUid", "==", driverUid),
+          orderBy("createdAt", "desc")
+        )
+      : query(collection(db, "orders"), orderBy("createdAt", "desc"));
+
     return onSnapshot(
       q,
       (snap) => {
@@ -544,10 +577,63 @@ export function AdminOrdersPanel({
       },
       () => {
         setListReady(true);
-        setError("Could not load orders. Check admin permissions.");
+        setError(
+          isDriverViewer
+            ? "Could not load your assigned jobs."
+            : "Could not load orders. Check admin permissions."
+        );
       }
     );
-  }, []);
+  }, [isDriverViewer]);
+
+  useEffect(() => {
+    if (isDriverViewer) {
+      setDrivers([]);
+      return;
+    }
+    return subscribeAllStaff((next) => {
+      setDrivers(
+        next
+          .filter((row) => row.status === "approved" && row.role === "driver")
+          .sort((a, b) =>
+            (a.displayName || a.email).localeCompare(b.displayName || b.email)
+          )
+      );
+    });
+  }, [isDriverViewer]);
+
+  async function assignDriver(orderId: string, driverUid: string) {
+    if (isDriverViewer) return;
+    setError("");
+    setOkMsg("");
+    setAssigningId(orderId);
+    try {
+      const driver = drivers.find((row) => row.uid === driverUid) ?? null;
+      if (!driverUid) {
+        await updateDoc(doc(getFirebaseDb(), "orders", orderId), {
+          assignedDriverUid: deleteField(),
+          assignedDriverName: deleteField(),
+          assignedBy: deleteField(),
+          assignedAt: deleteField(),
+        });
+        setOkMsg("Driver unassigned.");
+      } else if (!driver) {
+        setError("Pick a driver from the list.");
+      } else {
+        await updateDoc(doc(getFirebaseDb(), "orders", orderId), {
+          assignedDriverUid: driver.uid,
+          assignedDriverName: driver.displayName || driver.email,
+          assignedBy: adminEmail || "admin",
+          assignedAt: serverTimestamp(),
+        });
+        setOkMsg(`Assigned to ${driver.displayName || driver.email}.`);
+      }
+    } catch {
+      setError("Could not update driver assignment.");
+    } finally {
+      setAssigningId("");
+    }
+  }
 
   const counts = useMemo(
     () => ({
@@ -2435,7 +2521,9 @@ export function AdminOrdersPanel({
                     ? historyDay
                       ? `No delivered orders on ${formatPickupDate(historyDay)}.`
                       : "Delivered orders appear here."
-                    : "Live orders will appear here."}
+                    : isDriverViewer
+                      ? "No jobs assigned to you yet."
+                      : "Live orders will appear here."}
               </p>
             ) : (
               listRows.map((row) => {
@@ -2478,6 +2566,17 @@ export function AdminOrdersPanel({
                       <span className="ops-row-address">
                         {formatOrderAddress(row)}
                       </span>
+                      {!isDriverViewer ? (
+                        <span
+                          className={cn(
+                            "ops-row-driver",
+                            !row.assignedDriverUid && "is-open"
+                          )}
+                        >
+                          <Truck size={12} aria-hidden />
+                          {row.assignedDriverName || "Unassigned"}
+                        </span>
+                      ) : null}
                       <span className="ops-row-foot">
                         <span className="ops-row-ref">
                           {orderDisplayId(row.id)}
@@ -2610,6 +2709,44 @@ export function AdminOrdersPanel({
                       ) : null;
                     })()}
                   </div>
+                  {!isDriverViewer ? (
+                    <label className="ops-assign-row">
+                      <span className="ops-assign-label">
+                        <Truck size={14} aria-hidden />
+                        Driver
+                      </span>
+                      <select
+                        className="ops-assign-select"
+                        value={selected.assignedDriverUid || ""}
+                        disabled={assigningId === selected.id || saving}
+                        onChange={(e) =>
+                          void assignDriver(selected.id, e.target.value)
+                        }
+                        aria-label="Assign driver"
+                      >
+                        <option value="">Unassigned</option>
+                        {selected.assignedDriverUid &&
+                        !drivers.some(
+                          (d) => d.uid === selected.assignedDriverUid
+                        ) ? (
+                          <option value={selected.assignedDriverUid}>
+                            {selected.assignedDriverName ||
+                              selected.assignedDriverUid}
+                          </option>
+                        ) : null}
+                        {drivers.map((driver) => (
+                          <option key={driver.uid} value={driver.uid}>
+                            {driver.displayName || driver.email}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  ) : selected.assignedDriverName ? (
+                    <p className="ops-assign-readonly">
+                      <Truck size={14} aria-hidden />
+                      {selected.assignedDriverName}
+                    </p>
+                  ) : null}
                 </div>
 
                 <div className="ops-icon-row">
