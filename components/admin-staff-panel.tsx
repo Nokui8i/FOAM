@@ -565,9 +565,12 @@ export function AdminStaffPanel({
 
   return (
     <>
-    <section className="ops-catalog-plane ops-staff-plane" {...{ "x-apple-data-detectors": "false" }}>
-      <header className="ops-catalog-plane-head">
-        <div className="ops-catalog-plane-title-row">
+    <section
+      className="ops-list-pane queue-plane ops-staff-plane"
+      {...{ "x-apple-data-detectors": "false" }}
+    >
+      <div className="ops-list-head">
+        <div className="queue-heading">
           <h1 className="ops-list-title">Staff</h1>
         </div>
         <div className="ops-staff-toolbar">
@@ -620,7 +623,7 @@ export function AdminStaffPanel({
             />
           </label>
         </div>
-      </header>
+      </div>
 
       {(okMsg || error) && (
         <p className={cn("ops-flash", error ? "is-error" : "is-ok")}>
@@ -628,7 +631,7 @@ export function AdminStaffPanel({
         </p>
       )}
 
-      <div className="ops-staff-sections">
+      <div className="ops-list-scroll ops-staff-sections">
         {tab === "pending" ? (
           <section className="ops-staff-section" role="tabpanel">
             {pending.length === 0 ? (

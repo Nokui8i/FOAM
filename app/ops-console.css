@@ -1751,27 +1751,19 @@
   overflow: hidden;
 }
 .admin-page .ops-staff-plane {
-  overflow: hidden;
+  grid-column: 2 / -1;
   min-width: 0;
-  min-height: 0;
-  flex: 1 1 auto;
-  display: flex;
-  flex-direction: column;
   container-type: inline-size;
   container-name: staff;
 }
+.admin-page .ops-staff-plane > .ops-flash {
+  flex: 0 0 auto;
+  margin: 0 0 8px;
+}
 .admin-page .ops-staff-sections {
-  flex: 1 1 0;
-  min-height: 0;
-  min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 28px;
-  overflow-x: hidden;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  -webkit-overflow-scrolling: touch;
-  touch-action: pan-y;
   padding-right: 2px;
 }
 .admin-page .ops-staff-section h2 {
@@ -1941,30 +1933,30 @@
 }
 .admin-page .ops-staff-toolbar {
   display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-top: 4px;
-  flex-wrap: nowrap;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
+  margin-top: 10px;
 }
 .admin-page .ops-staff-tabs {
   margin: 0;
-  flex: 0 0 auto;
+  flex: none;
   max-width: none;
-  width: auto;
+  width: 100%;
 }
 .admin-page .ops-staff-tabs .ops-filter-chip {
-  flex: 0 0 auto;
-  min-width: 110px;
-  min-height: 32px;
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 34px;
   padding: 5px 10px;
   font-size: 12px;
   border-radius: 7px;
 }
 .admin-page .ops-staff-search {
   margin: 0;
-  flex: 0 1 280px;
-  max-width: 280px;
-  min-width: 180px;
+  flex: none;
+  max-width: none;
+  min-width: 0;
   width: 100%;
 }
 .admin-page .ops-staff-denied-block {
@@ -4644,56 +4636,17 @@
     overscroll-behavior: auto;
     touch-action: pan-y;
   }
-  /*
-   * Staff: header OUTSIDE the scrollport (Orders pattern).
-   * Sticky-in-flex fails on iOS — touching the header scrolled the page.
-   */
-  .admin-page .ops-catalog-plane.ops-staff-plane {
-    display: flex;
-    flex-direction: column;
-    flex: 1 1 0;
-    min-height: 0;
-    height: 0;
-    max-height: none;
-    overflow: hidden;
-    overscroll-behavior: none;
-    touch-action: manipulation;
-    container-type: normal;
-    gap: 10px;
-    padding-bottom: 0;
-  }
-  .admin-page .ops-staff-plane > .ops-catalog-plane-head {
-    position: static;
-    flex: 0 0 auto;
-    margin: 0;
-    padding: 0 0 10px;
-    background: #fff;
-    border-bottom: 1px solid var(--ops-border);
-    /* Finger on header must not drag-scroll anything behind/under it */
-    touch-action: none;
-    overscroll-behavior: none;
-  }
-  .admin-page .ops-staff-plane > .ops-flash {
-    flex: 0 0 auto;
-    touch-action: none;
-  }
-  .admin-page .ops-staff-sections {
-    flex: 1 1 0;
+  .admin-page .ops-staff-plane {
+    grid-column: auto;
+    width: 100%;
+    flex: 1 1 auto;
     min-height: 0;
     height: auto;
-    max-height: none;
-    overflow-x: hidden;
-    overflow-y: auto;
-    overscroll-behavior: contain;
-    -webkit-overflow-scrolling: touch;
-    touch-action: pan-y;
-    padding-right: 0;
-    padding-bottom: max(16px, env(safe-area-inset-bottom, 0px));
+    container-type: normal;
   }
-  .admin-page .ops-frame:has(.ops-staff-plane),
-  .admin-page .ops-shell:has(.ops-staff-plane) {
-    overflow: hidden;
-    overscroll-behavior: none;
+  .admin-page .ops-staff-sections {
+    gap: 20px;
+    padding-right: 0;
   }
   .admin-page .ops-catalog-editor {
     flex: 0 0 auto;
