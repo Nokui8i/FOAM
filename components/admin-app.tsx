@@ -65,6 +65,7 @@ import {
   canAccessOps,
   canManageStaffPage,
   ensureStaffProfile,
+  isCompanyOwner,
   isStaffBannedError,
   subscribePendingStaff,
   subscribeStaffBan,
@@ -312,11 +313,15 @@ function AdminAppInner() {
 
     let alive = true;
     let syncing = false;
+    let sawStaffDoc = false;
     setStaffReady(false);
     setBannedAccess(false);
 
+    const isOwnerAccount = isCompanyOwner(user.email);
+
     function kickToLogin() {
       if (bootstrappingAccess.current) return;
+      if (isOwnerAccount) return;
       void signOut(getFirebaseAuth());
     }
 
@@ -324,36 +329,18 @@ function AdminAppInner() {
       if (!alive || !user || syncing) return;
       syncing = true;
       try {
+        // Always create Pending for Auth users with no Firestore staff row
+        // (re-apply after Remove keeps the Auth account).
         const loaded = await ensureStaffProfile(user, "ops", {
-          createIfMissing: false,
+          createIfMissing: true,
         });
         if (!alive) return;
         if (!loaded) {
-          if (bootstrappingAccess.current) {
-            // Google popup may hang on COOP while Auth already signed in —
-            // create the Pending row from here so login can finish.
-            try {
-              const created = await ensureStaffProfile(user, "ops", {
-                createIfMissing: true,
-              });
-              if (!alive) return;
-              if (created) {
-                setStaffProfile(created);
-                setBannedAccess(false);
-                setStaffReady(true);
-              }
-            } catch (error) {
-              if (!alive) return;
-              if (isStaffBannedError(error)) {
-                setBannedAccess(true);
-                setStaffReady(true);
-              }
-            }
-            return;
-          }
-          kickToLogin();
+          setStaffProfile(null);
+          setStaffReady(true);
           return;
         }
+        sawStaffDoc = true;
         setStaffProfile(loaded);
         setBannedAccess(false);
         setStaffReady(true);
@@ -365,7 +352,28 @@ function AdminAppInner() {
           setStaffReady(true);
           return;
         }
-        kickToLogin();
+        // Retry once — first create after Remove can lose a race.
+        try {
+          const retry = await ensureStaffProfile(user, "ops", {
+            createIfMissing: true,
+          });
+          if (!alive) return;
+          if (retry) {
+            sawStaffDoc = true;
+            setStaffProfile(retry);
+            setBannedAccess(false);
+            setStaffReady(true);
+            return;
+          }
+        } catch (retryError) {
+          if (!alive) return;
+          if (isStaffBannedError(retryError)) {
+            setBannedAccess(true);
+            setStaffReady(true);
+            return;
+          }
+        }
+        setStaffReady(true);
       } finally {
         syncing = false;
       }
@@ -376,13 +384,19 @@ function AdminAppInner() {
     const unsubProfile = subscribeStaffProfile(user.uid, (next) => {
       if (!alive) return;
       if (next) {
+        sawStaffDoc = true;
         setStaffProfile(next);
         setBannedAccess(false);
         setStaffReady(true);
         return;
       }
       setStaffProfile(null);
-      kickToLogin();
+      // Only sign out when a live staff row was removed (Remove/Deny),
+      // never on the initial empty snapshot before create finishes.
+      if (sawStaffDoc) {
+        sawStaffDoc = false;
+        kickToLogin();
+      }
     });
 
     const unsubBan = subscribeStaffBan(user.email ?? "", (isBanned) => {
@@ -918,10 +932,45 @@ function AdminAppInner() {
         <section className="ops-login-form-pane">
           <div className="ops-login-card">
             <FoamMark />
-            <h1 className="ops-login-title">Access denied</h1>
+            <div className="ops-driver-status-icon is-waiting" aria-hidden>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/ops-waiting-icon.png"
+                alt=""
+                width={88}
+                height={88}
+              />
+            </div>
+            <h1 className="ops-login-title">Waiting for approval</h1>
             <p className="ops-muted">
-              Signed in as {user.email}, but this account cannot use OPS yet.
+              Signed in as <strong>{user.email}</strong>. Your access request
+              is being sent to Staff. Keep this page open — it updates when an
+              admin approves you.
             </p>
+            <Button
+              type="button"
+              size="lg"
+              onClick={() => {
+                bootstrappingAccess.current = true;
+                void ensureStaffProfile(user, "ops", {
+                  createIfMissing: true,
+                })
+                  .then((created) => {
+                    if (created) {
+                      setStaffProfile(created);
+                      setBannedAccess(false);
+                      setStaffReady(true);
+                    }
+                  })
+                  .finally(() => {
+                    window.setTimeout(() => {
+                      bootstrappingAccess.current = false;
+                    }, 2000);
+                  });
+              }}
+            >
+              Send request again
+            </Button>
             <Button
               type="button"
               variant="outline"

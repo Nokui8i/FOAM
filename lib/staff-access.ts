@@ -170,13 +170,14 @@ export async function unbanStaffEmail(email: string) {
   await deleteDoc(doc(getFirebaseDb(), "staffBanned", id));
 }
 
+const staffEnsureInflight = new Map<string, Promise<StaffProfile | null>>();
+
 /**
  * Load or create the signed-in user's staff/{uid} row.
  *
- * - createIfMissing: false (default on page load) — never invent a Pending
- *   request after Remove/Deny; returns null when no staff doc exists.
- * - createIfMissing: true — used by Sign in / Request access / Sign up so a
- *   new Pending row is written and shows up under Staff → Pending.
+ * - createIfMissing: false — return null when no staff doc (read-only check).
+ * - createIfMissing: true — write a Pending row so re-login after Remove works
+ *   on the first try (Auth user may already exist; Firestore row was deleted).
  */
 export async function ensureStaffProfile(
   user: User,
@@ -184,6 +185,24 @@ export async function ensureStaffProfile(
   options?: { createIfMissing?: boolean }
 ): Promise<StaffProfile | null> {
   const createIfMissing = options?.createIfMissing === true;
+  const key = `${user.uid}:${createIfMissing ? "write" : "read"}`;
+  const existing = staffEnsureInflight.get(key);
+  if (existing) return existing;
+
+  const run = ensureStaffProfileOnce(user, portal, createIfMissing).finally(
+    () => {
+      staffEnsureInflight.delete(key);
+    }
+  );
+  staffEnsureInflight.set(key, run);
+  return run;
+}
+
+async function ensureStaffProfileOnce(
+  user: User,
+  portal: StaffPortal,
+  createIfMissing: boolean
+): Promise<StaffProfile | null> {
   const db = getFirebaseDb();
   const ref = doc(db, "staff", user.uid);
   const email = (user.email ?? "").trim().toLowerCase();
@@ -222,7 +241,7 @@ export async function ensureStaffProfile(
       try {
         await deleteDoc(ref);
       } catch {
-        // Fall through to overwrite via setDoc when rules allow recreate.
+        // Fall through to recreate.
       }
     } else if (bootstrapAdmin && existing.status !== "approved") {
       await updateDoc(ref, {
@@ -288,8 +307,6 @@ export async function ensureStaffProfile(
   try {
     await setDoc(ref, payload);
   } catch (error) {
-    // Parallel login paths can race: first create wins, second looks like a
-    // denied update. If the row exists now, treat this as success.
     let again;
     try {
       again = await getDocFromServer(ref);
