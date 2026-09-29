@@ -102,6 +102,8 @@ export function AdminStaffPanel({
   const [busyId, setBusyId] = useState("");
   const [roleDraft, setRoleDraft] = useState<Record<string, StaffRole>>({});
   const [confirmAction, setConfirmAction] = useState<StaffConfirm | null>(null);
+  /** Employees table: click Role to group Admin → Manager → Driver (toggle reverse). */
+  const [roleSort, setRoleSort] = useState<"asc" | "desc">("asc");
   useOpsPageReadyWhen(ready);
 
   useEffect(() => {
@@ -169,13 +171,21 @@ export function AdminStaffPanel({
         .filter((row) => matchesStaffQuery(row, queryText)),
     [allRows, queryText]
   );
-  const active = useMemo(
-    () =>
-      allRows
-        .filter((row) => row.status === "approved")
-        .filter((row) => matchesStaffQuery(row, queryText)),
-    [allRows, queryText]
-  );
+  const active = useMemo(() => {
+    const rows = allRows
+      .filter((row) => row.status === "approved")
+      .filter((row) => matchesStaffQuery(row, queryText));
+    const rank = (role: StaffRole) =>
+      role === "admin" ? 0 : role === "manager" ? 1 : 2;
+    const dir = roleSort === "asc" ? 1 : -1;
+    return [...rows].sort((a, b) => {
+      const byRole = (rank(a.role) - rank(b.role)) * dir;
+      if (byRole !== 0) return byRole;
+      return (a.displayName || a.email).localeCompare(
+        b.displayName || b.email
+      );
+    });
+  }, [allRows, queryText, roleSort]);
   const other = useMemo(
     () =>
       allRows
@@ -636,8 +646,13 @@ export function AdminStaffPanel({
                   <span>Role</span>
                   <span>Actions</span>
                 </div>
-                {pending.map((row) => (
-                  <div key={row.uid} className="ops-staff-table-row">
+                {pending.map((row, index) => (
+                  <div
+                    key={row.uid}
+                    className={`ops-staff-table-row${
+                      index % 2 === 1 ? " is-stripe" : ""
+                    }`}
+                  >
                     <strong>{row.displayName || "—"}</strong>
                     <span>{row.email}</span>
                     <span className="ops-staff-portal">
@@ -708,9 +723,13 @@ export function AdminStaffPanel({
                   <span>Status</span>
                   <span>Actions</span>
                 </div>
-                {bannedFiltered.map((row) => (
-                  <div key={row.email} className="ops-staff-table-row">
-                    <strong>{row.email}</strong>
+                {bannedFiltered.map((row, index) => (
+                  <div
+                    key={row.email}
+                    className={`ops-staff-table-row${
+                      index % 2 === 1 ? " is-stripe" : ""
+                    }`}
+                  >                    <strong>{row.email}</strong>
                     <span>{row.bannedBy || "—"}</span>
                     <span>{row.reason || "—"}</span>
                     <span className="ops-status-pill">Banned</span>
@@ -744,18 +763,36 @@ export function AdminStaffPanel({
                 <div className="ops-staff-table-head">
                   <span>Name</span>
                   <span>Email</span>
-                  <span>Role</span>
+                  <button
+                    type="button"
+                    className="ops-staff-sort-btn"
+                    onClick={() =>
+                      setRoleSort((prev) => (prev === "asc" ? "desc" : "asc"))
+                    }
+                    aria-label={`Sort by role, currently ${
+                      roleSort === "asc"
+                        ? "Admin, Manager, Driver"
+                        : "Driver, Manager, Admin"
+                    }`}
+                  >
+                    Role
+                    <span className="ops-staff-sort-mark" aria-hidden>
+                      {roleSort === "asc" ? "↑" : "↓"}
+                    </span>
+                  </button>
                   <span>Status</span>
                   <span>Actions</span>
                 </div>
-                {active.map((row) => {
+                {active.map((row, index) => {
                   const locked = isProtectedOwner(row);
                   const canEditRole = mayChangeRoles && !locked;
                   const canRemove = canRemoveStaffMember(adminEmail, row);
                   return (
                     <div
                       key={row.uid}
-                      className="ops-staff-table-row is-employee"
+                      className={`ops-staff-table-row is-employee${
+                        index % 2 === 1 ? " is-stripe" : ""
+                      }`}
                     >
                       <strong className="ops-staff-name">
                         {row.displayName || "—"}
