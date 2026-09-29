@@ -1792,6 +1792,31 @@
   background: #fff;
   font-size: 13px;
 }
+.admin-page .ops-staff-table-row.is-stripe {
+  background: #e8f4fc;
+}
+.admin-page .ops-staff-sort-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  cursor: pointer;
+}
+.admin-page .ops-staff-sort-btn:hover {
+  color: #0f172a;
+}
+.admin-page .ops-staff-sort-mark {
+  font-size: 10px;
+  line-height: 1;
+  opacity: 0.85;
+}
 .admin-page .ops-staff-table-row strong {
   font-weight: 650;
   color: #0f172a;
