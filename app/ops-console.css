@@ -179,16 +179,33 @@
   font-weight: 750;
   cursor: pointer;
 }
+.admin-page .ops-shell.is-driver {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+  width: 100%;
+  height: 100%;
+  max-height: 100dvh;
+  overflow: hidden;
+}
 .admin-page .ops-frame.is-driver {
   flex: 1 1 auto;
-  grid-template-columns: 360px minmax(0, 1fr);
+  display: grid;
+  grid-template-columns: minmax(240px, 340px) minmax(0, 1fr);
   height: auto;
   max-height: none;
   min-height: 0;
+  min-width: 0;
   width: 100%;
   max-width: none;
   margin: 0;
   gap: 12px;
+}
+.admin-page .ops-frame.is-driver .queue-plane,
+.admin-page .ops-frame.is-driver .task-plane {
+  min-width: 0;
+  max-width: 100%;
 }
 
 .admin-page .ops-frame {
@@ -196,9 +213,10 @@
   max-width: 1500px;
   height: calc(100dvh - 40px);
   min-height: 0;
+  min-width: 0;
   margin: 0 auto;
   display: grid;
-  grid-template-columns: 230px 360px minmax(500px, 1fr);
+  grid-template-columns: 230px 360px minmax(0, 1fr);
   gap: 18px;
   align-items: stretch;
 }
@@ -1734,10 +1752,14 @@
 }
 .admin-page .ops-staff-plane {
   overflow: hidden;
+  min-width: 0;
+  container-type: inline-size;
+  container-name: staff;
 }
 .admin-page .ops-staff-sections {
   flex: 1 1 auto;
   min-height: 0;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 28px;
@@ -1768,12 +1790,19 @@
   border-radius: 12px;
   overflow: hidden;
   background: #fbfdff;
+  min-width: 0;
+  width: 100%;
 }
 .admin-page .ops-staff-table-head,
 .admin-page .ops-staff-table-row {
   display: grid;
-  grid-template-columns: minmax(100px, 1.1fr) minmax(140px, 1.4fr) minmax(80px, 0.8fr) minmax(110px, 0.9fr) minmax(160px, 1.1fr);
-  gap: 10px;
+  grid-template-columns:
+    minmax(0, 1.1fr)
+    minmax(0, 1.3fr)
+    minmax(88px, 0.7fr)
+    minmax(72px, 0.6fr)
+    minmax(0, 1.1fr);
+  gap: 8px;
   align-items: center;
   padding: 9px 12px;
 }
@@ -1820,6 +1849,16 @@
 .admin-page .ops-staff-table-row strong {
   font-weight: 650;
   color: #0f172a;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.admin-page .ops-staff-email {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .admin-page .ops-staff-portal {
   font-weight: 600;
@@ -1827,6 +1866,7 @@
 }
 .admin-page .ops-staff-role select {
   width: 100%;
+  max-width: 100%;
   min-height: 30px;
   height: 30px;
   padding: 0 8px;
@@ -1842,13 +1882,14 @@
   gap: 6px;
   justify-content: flex-end;
   align-items: center;
+  min-width: 0;
 }
 .admin-page .ops-staff-actions .ops-catalog-editor-btn {
-  flex: 0 0 auto;
+  flex: 0 1 auto;
   min-height: 30px;
   height: 30px;
   min-width: 0;
-  padding: 0 12px;
+  padding: 0 10px;
   border-radius: 7px;
   font: 700 12px/1 var(--ops-body);
 }
@@ -1921,19 +1962,88 @@
   letter-spacing: 0.02em;
   color: var(--ops-ink, #0f172a);
 }
-@media (max-width: 900px) {
+/* Card rows when the Staff plane itself is narrow (half-browser / slim OPS). */
+@container staff (max-width: 960px) {
+  .ops-staff-toolbar {
+    flex-wrap: wrap;
+  }
+  .ops-staff-tabs {
+    flex: 1 1 auto;
+    max-width: 100%;
+  }
+  .ops-staff-search {
+    flex: 1 1 200px;
+    max-width: none;
+    min-width: 0;
+  }
+  .ops-staff-table-head {
+    display: none;
+  }
+  .ops-staff-table-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px 12px;
+  }
+  .ops-staff-table-row strong {
+    grid-column: 1;
+    grid-row: 1;
+    white-space: normal;
+  }
+  .ops-staff-table-row.is-employee .ops-staff-name {
+    grid-column: 1;
+    grid-row: 1;
+    align-self: center;
+    min-width: 0;
+    padding-right: 8px;
+    white-space: normal;
+  }
+  .ops-staff-table-row.is-employee .ops-staff-status {
+    grid-column: 2;
+    grid-row: 1;
+    justify-self: end;
+    align-self: center;
+    white-space: nowrap;
+  }
+  .ops-staff-table-row.is-employee .ops-staff-email,
+  .ops-staff-table-row:not(.is-employee) > span:nth-child(2) {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    white-space: normal;
+    overflow: visible;
+    text-overflow: unset;
+  }
+  .ops-staff-table-row.is-employee .ops-staff-role-cell,
+  .ops-staff-table-row:not(.is-employee) .ops-staff-portal,
+  .ops-staff-table-row:not(.is-employee) .ops-staff-role {
+    grid-column: 1 / -1;
+    grid-row: 3;
+  }
+  .ops-staff-table-row.is-employee .ops-staff-role-cell:not(label) {
+    display: none;
+  }
+  .ops-staff-table-row.is-employee .ops-staff-actions,
+  .ops-staff-table-row:not(.is-employee) .ops-staff-actions {
+    grid-column: 1 / -1;
+    grid-row: 4;
+    justify-content: stretch;
+  }
+  .ops-staff-actions .ops-catalog-editor-btn {
+    flex: 1 1 auto;
+    min-height: 32px;
+    height: 32px;
+  }
+}
+@media (max-width: 1400px) {
   .admin-page .ops-staff-table-head {
     display: none;
   }
   .admin-page .ops-staff-table-row {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: minmax(0, 1fr) auto;
     gap: 8px 12px;
   }
   .admin-page .ops-staff-table-row strong {
-    grid-column: 1 / -1;
-  }
-  .admin-page .ops-staff-table-row.is-employee {
-    grid-template-columns: minmax(0, 1fr) auto;
+    grid-column: 1;
+    grid-row: 1;
+    white-space: normal;
   }
   .admin-page .ops-staff-table-row.is-employee .ops-staff-name {
     grid-column: 1;
@@ -1941,6 +2051,7 @@
     align-self: center;
     min-width: 0;
     padding-right: 8px;
+    white-space: normal;
   }
   .admin-page .ops-staff-table-row.is-employee .ops-staff-status {
     grid-column: 2;
@@ -1949,30 +2060,41 @@
     align-self: center;
     white-space: nowrap;
   }
-  .admin-page .ops-staff-table-row.is-employee .ops-staff-email {
+  .admin-page .ops-staff-table-row.is-employee .ops-staff-email,
+  .admin-page .ops-staff-table-row:not(.is-employee) > span:nth-child(2) {
     grid-column: 1 / -1;
     grid-row: 2;
+    white-space: normal;
+    overflow: visible;
+    text-overflow: unset;
   }
-  .admin-page .ops-staff-table-row.is-employee .ops-staff-role-cell {
+  .admin-page .ops-staff-table-row.is-employee .ops-staff-role-cell,
+  .admin-page .ops-staff-table-row:not(.is-employee) .ops-staff-portal,
+  .admin-page .ops-staff-table-row:not(.is-employee) .ops-staff-role {
     grid-column: 1 / -1;
     grid-row: 3;
   }
-  /* Role already shown in the top-right tag for locked owners */
   .admin-page .ops-staff-table-row.is-employee .ops-staff-role-cell:not(label) {
     display: none;
   }
-  .admin-page .ops-staff-table-row.is-employee .ops-staff-actions {
+  .admin-page .ops-staff-table-row.is-employee .ops-staff-actions,
+  .admin-page .ops-staff-table-row:not(.is-employee) .ops-staff-actions {
     grid-column: 1 / -1;
     grid-row: 4;
-  }
-  .admin-page .ops-staff-actions {
-    grid-column: 1 / -1;
     justify-content: stretch;
   }
   .admin-page .ops-staff-actions .ops-catalog-editor-btn {
     flex: 1 1 auto;
     min-height: 32px;
     height: 32px;
+  }
+  .admin-page .ops-staff-toolbar {
+    flex-wrap: wrap;
+  }
+  .admin-page .ops-staff-search {
+    flex: 1 1 200px;
+    max-width: none;
+    min-width: 0;
   }
 }
 .admin-page .ops-catalog-plane .ops-list-title {
@@ -4134,7 +4256,40 @@
 }
 
 @media (max-width: 1120px) {
-  .admin-page .ops-frame { grid-template-columns: 78px 330px minmax(460px,1fr); }
+  .admin-page .ops-frame { grid-template-columns: 78px minmax(0, 1fr); }
+  .admin-page .ops-frame:has(.queue-plane):has(.task-plane):not(.is-driver) {
+    grid-template-columns: 78px minmax(220px, 300px) minmax(0, 1fr);
+  }
+  .admin-page .ops-frame.is-driver {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr);
+  }
+  .admin-page .ops-frame.is-driver .queue-plane,
+  .admin-page .ops-frame.is-driver .task-plane {
+    min-width: 0;
+    width: 100%;
+    max-width: 100%;
+    height: 100%;
+  }
+  .admin-page .ops-frame.is-driver .ops-list-pane.is-hidden-mobile,
+  .admin-page .ops-frame.is-driver .ops-detail-pane.is-hidden-mobile {
+    display: none;
+  }
+  .admin-page .ops-frame.is-driver .ops-back {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 40px;
+    margin: 0 0 12px;
+    padding: 0;
+    color: var(--ops-primary);
+    background: transparent;
+    font-weight: 800;
+  }
+  .admin-page .ops-catalog-plane {
+    grid-column: 2 / -1;
+    padding: 18px 16px 20px;
+  }
   .admin-page .command-rail { padding-inline: 11px; }
   .admin-page .brand { padding-inline: 2px; }
   .admin-page .ops-foam-mark.is-rail { height: 26px; }
