@@ -11,7 +11,7 @@ import {
 } from "firebase/firestore";
 import type { User } from "firebase/auth";
 
-import { getFirebaseDb } from "@/lib/firebase";
+import { getFirebaseDb, ensureStaffBackendBound } from "@/lib/firebase";
 import { ADMIN_EMAILS, isAdminEmail } from "@/lib/site-config";
 
 export type StaffRole = "admin" | "manager" | "driver";
@@ -282,6 +282,8 @@ async function ensureStaffProfileOnce(
   createIfMissing: boolean,
   refreshPending: boolean
 ): Promise<StaffProfile | null> {
+  // Never write applicant rows through the public-site Firebase app.
+  ensureStaffBackendBound();
   const db = getFirebaseDb();
   const ref = doc(db, "staff", user.uid);
   const email = (user.email ?? "").trim().toLowerCase();
@@ -307,6 +309,8 @@ async function ensureStaffProfileOnce(
     snap = await getDoc(ref);
   }
 
+  let shouldRecreate = !snap.exists();
+
   if (snap.exists()) {
     const existing = mapStaffProfile(
       user.uid,
@@ -319,8 +323,9 @@ async function ensureStaffProfileOnce(
     ) {
       try {
         await deleteDoc(ref);
+        shouldRecreate = true;
       } catch {
-        // Fall through to recreate.
+        shouldRecreate = true;
       }
     } else if (bootstrapAdmin && existing.status !== "approved") {
       await updateDoc(ref, {
@@ -343,7 +348,9 @@ async function ensureStaffProfileOnce(
     } else {
       const softUpdate: Record<string, unknown> = {};
       if (existing.email !== email) softUpdate.email = email;
-      if (existing.displayName !== displayName) softUpdate.displayName = displayName;
+      if (existing.displayName !== displayName) {
+        softUpdate.displayName = displayName;
+      }
       if (
         refreshPending &&
         existing.status === "pending" &&
@@ -371,6 +378,10 @@ async function ensureStaffProfileOnce(
             : existing.requestedPortal,
       };
     }
+  }
+
+  if (!shouldRecreate) {
+    return null;
   }
 
   if (!createIfMissing && !bootstrapAdmin) {
@@ -408,7 +419,31 @@ async function ensureStaffProfileOnce(
     if (again.exists()) {
       return mapStaffProfile(user.uid, again.data() as Record<string, unknown>);
     }
-    throw error;
+    const code =
+      error && typeof error === "object" && "code" in error
+        ? String((error as { code: string }).code)
+        : "";
+    throw new Error(
+      code
+        ? `Could not create staff request (${code}).`
+        : "Could not create staff request."
+    );
+  }
+
+  // Confirm the row reached the server — local cache alone is not enough.
+  try {
+    const confirmed = await getDocFromServer(ref);
+    if (!confirmed.exists()) {
+      throw new Error("Staff request did not save. Try again.");
+    }
+    return mapStaffProfile(
+      user.uid,
+      confirmed.data() as Record<string, unknown>
+    );
+  } catch (error) {
+    if (error instanceof Error && error.message.includes("did not save")) {
+      throw error;
+    }
   }
 
   return {

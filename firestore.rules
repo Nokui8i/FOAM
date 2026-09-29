@@ -158,15 +158,26 @@ service cloud.firestore {
             )
           )
         )
-        // Regular staff may only refresh their own name/email (keep role/status locked)
+        // Regular staff may refresh name/email; pending applicants may also
+        // bump requestedPortal when re-applying from /ops or /driver.
         || (
           isOwner(uid)
           && request.resource.data.uid == resource.data.uid
           && request.resource.data.status == resource.data.status
           && request.resource.data.role == resource.data.role
-          && request.resource.data.requestedPortal == resource.data.requestedPortal
-          && request.resource.data.diff(resource.data).affectedKeys()
-            .hasOnly(['email', 'displayName', 'updatedAt'])
+          && (
+            (
+              resource.data.status == 'pending'
+              && request.resource.data.diff(resource.data).affectedKeys()
+                .hasOnly(['email', 'displayName', 'updatedAt', 'requestedPortal'])
+            )
+            || (
+              resource.data.status != 'pending'
+              && request.resource.data.requestedPortal == resource.data.requestedPortal
+              && request.resource.data.diff(resource.data).affectedKeys()
+                .hasOnly(['email', 'displayName', 'updatedAt'])
+            )
+          )
         )
       );
 

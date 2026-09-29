@@ -63,6 +63,11 @@ export function unbindStaffFirebaseBackend() {
   staffBackendBound = false;
 }
 
+/** Staff Auth/DB must stay selected for /ops and /driver writes. */
+export function ensureStaffBackendBound() {
+  staffBackendBound = true;
+}
+
 function assertConfig() {
   if (!firebaseConfig.apiKey || !firebaseConfig.projectId) {
     throw new Error("Firebase env vars are missing. Check .env.local");

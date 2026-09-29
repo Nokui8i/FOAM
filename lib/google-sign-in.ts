@@ -3,12 +3,14 @@ import {
   onAuthStateChanged,
   signInWithPopup,
   signInWithRedirect,
-  signOut,
   type Auth,
   type User,
 } from "firebase/auth";
 
-import { readyFirebaseAuth } from "@/lib/firebase";
+import {
+  ensureStaffBackendBound,
+  readyFirebaseAuth,
+} from "@/lib/firebase";
 
 function popupErrorCode(error: unknown): string {
   if (error && typeof error === "object" && "code" in error) {
@@ -44,21 +46,16 @@ function redirectWouldLoseState(auth: Auth) {
  * Prefer popup. Only fall back to redirect when the popup is truly blocked
  * AND redirect can keep sessionStorage on the same host. Never redirect on
  * iPhone — it lands on firebaseapp.com with a dead state.
+ *
+ * Do not signOut before opening the popup — that races COOP cleanup and often
+ * prevents Auth from settling. Callers that need a clean slate should signOut
+ * earlier, then wait a beat before calling this.
  */
 export async function signInWithGoogle(): Promise<User> {
+  ensureStaffBackendBound();
   const auth = await readyFirebaseAuth();
   const provider = new GoogleAuthProvider();
   provider.setCustomParameters({ prompt: "select_account" });
-
-  // Always start from a clean staff session so a leftover pending Auth user
-  // does not short-circuit the popup / request flow.
-  if (auth.currentUser) {
-    try {
-      await signOut(auth);
-    } catch {
-      /* continue into popup */
-    }
-  }
 
   return new Promise<User>((resolve, reject) => {
     let settled = false;
@@ -93,7 +90,7 @@ export async function signInWithGoogle(): Promise<User> {
           finish(auth.currentUser);
           return;
         }
-        await sleep(1200);
+        await sleep(1500);
         if (auth.currentUser) {
           finish(auth.currentUser);
           return;
@@ -108,70 +105,44 @@ export async function signInWithGoogle(): Promise<User> {
           return;
         }
 
-        const popupBlocked =
-          code === "auth/popup-blocked" ||
-          code === "auth/operation-not-supported-in-this-environment";
-
-        const canRedirect =
-          popupBlocked &&
+        // Popup blocked / COOP — redirect only when state can survive.
+        if (
           !isAppleMobileBrowser() &&
-          !redirectWouldLoseState(auth);
-
-        if (!canRedirect) {
-          fail(
-            popupBlocked
-              ? Object.assign(new Error("popup-unavailable-no-redirect"), {
-                  code: "auth/popup-blocked",
-                })
-              : error
-          );
-          return;
+          !redirectWouldLoseState(auth) &&
+          (code === "auth/popup-blocked" ||
+            code === "auth/operation-not-supported-in-this-environment" ||
+            code === "")
+        ) {
+          try {
+            await signInWithRedirect(auth, provider);
+            return;
+          } catch (redirectError) {
+            fail(redirectError);
+            return;
+          }
         }
 
-        try {
-          settled = true;
-          unsub();
-          await signInWithRedirect(auth, provider);
-          // Redirect navigates away.
-        } catch (redirectError) {
-          fail(redirectError);
-        }
+        fail(error);
       });
   });
 }
 
-export function googleSignInErrorMessage(error: unknown, fallback: string) {
+export function googleSignInErrorMessage(
+  error: unknown,
+  fallback: string
+): string {
   const code = popupErrorCode(error);
-  const message =
-    error && typeof error === "object" && "message" in error
-      ? String((error as { message: string }).message)
-      : "";
-  if (
-    /redirect_uri_mismatch/i.test(message) ||
-    /invalid.?request/i.test(message)
-  ) {
-    return "Google sign-in isn’t configured for this address yet. Try email, or try again in a moment.";
-  }
-  if (/missing initial state/i.test(message)) {
-    return "Google sign-in couldn’t finish in this browser. Close this tab, open the site again, and try Google — or use email.";
-  }
-  if (
-    code === "auth/popup-closed-by-user" ||
-    code === "auth/cancelled-popup-request"
-  ) {
-    return "Sign-in was cancelled. Tap again to continue.";
+  if (code === "auth/popup-closed-by-user") {
+    return "Google sign-in was cancelled. Try again.";
   }
   if (code === "auth/popup-blocked") {
-    return "Your browser blocked the Google window. Allow popups for this site, or sign in with email.";
+    return "Popup blocked. Allow popups for this site, or try again.";
   }
   if (code === "auth/network-request-failed") {
-    return "Network error. Check your connection and try again.";
+    return "Network error during Google sign-in. Try again.";
   }
   if (code === "auth/unauthorized-domain") {
-    return "This address isn’t authorized for Google sign-in yet.";
-  }
-  if (code === "auth/internal-error" || code === "auth/argument-error") {
-    return "Google sign-in hit a browser glitch. Refresh the page and try again.";
+    return "This domain is not authorized for Google sign-in.";
   }
   return fallback;
 }

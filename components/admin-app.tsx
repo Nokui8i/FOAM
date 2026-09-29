@@ -410,15 +410,22 @@ function AdminAppInner() {
         setStaffReady(true);
         return;
       }
+      // Login/signup handlers own create + gate + messaging.
+      if (bootstrappingAccess.current) {
+        sawStaffDoc = true;
+        lastStatusRef.current = loaded.status;
+        setStaffProfile(loaded);
+        setBannedAccess(false);
+        setStaffReady(true);
+        return;
+      }
       const prev = lastStatusRef.current;
       lastStatusRef.current = loaded.status;
       if (prev === "pending" && loaded.status === "approved") {
         await releaseToLogin(staffApprovedLoginMessage("ops"), true);
         return;
       }
-      const announce = announceGateRef.current;
-      announceGateRef.current = false;
-      const allowedIn = await gateLoadedProfile(loaded, userEmail, announce);
+      const allowedIn = await gateLoadedProfile(loaded, userEmail, false);
       if (!alive || !allowedIn) return;
       // Approved drivers stay signed in only long enough for the driver-only screen.
       sawStaffDoc = true;
@@ -705,12 +712,26 @@ function AdminAppInner() {
     try {
       bootstrappingAccess.current = true;
       announceGateRef.current = true;
+      const auth = await readyFirebaseAuth();
+      if (auth.currentUser) {
+        try {
+          await signOut(auth);
+          await new Promise((r) => window.setTimeout(r, 400));
+        } catch {
+          /* continue */
+        }
+      }
       const googleUser = await signInWithGoogle();
       try {
         const created = await ensureStaffProfile(googleUser, "ops", {
           createIfMissing: true,
           refreshPending: true,
         });
+        if (!created) {
+          setLoginError("Could not create your access request. Try again.");
+          void signOut(getFirebaseAuth());
+          return;
+        }
         const allowedIn = await gateLoadedProfile(
           created,
           googleUser.email,
@@ -727,9 +748,9 @@ function AdminAppInner() {
           void signOut(getFirebaseAuth());
           return;
         }
-        // Parallel create may have already written the row — recover before giving up.
         const recovered = await ensureStaffProfile(googleUser, "ops", {
-          createIfMissing: false,
+          createIfMissing: true,
+          refreshPending: true,
         }).catch(() => null);
         if (recovered) {
           const allowedIn = await gateLoadedProfile(
@@ -743,9 +764,12 @@ function AdminAppInner() {
           setStaffReady(true);
           return;
         }
-        setLoginError(
-          "Signed in, but could not create your access request. Try again."
-        );
+        const detail =
+          error instanceof Error && error.message
+            ? error.message
+            : "Could not create your access request. Try again.";
+        setLoginError(detail);
+        void signOut(getFirebaseAuth());
       }
     } catch (error) {
       announceGateRef.current = false;
