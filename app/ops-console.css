@@ -31,13 +31,15 @@
 .admin-page:has(.ops-shell),
 .admin-page:has(.ops-login) { max-width: none; height: 100dvh; max-height: 100dvh; overflow: hidden; }
 
-/* Shell — locked viewport; only the detail column scrolls */
+/* Shell — locked viewport; fills the window at any size */
 .admin-page .ops-shell {
+  display: flex;
+  flex-direction: column;
   width: 100%;
   height: 100dvh;
   max-height: 100dvh;
   min-height: 0;
-  padding: 20px;
+  padding: clamp(0px, 0.9vw, 14px);
   overflow: hidden;
   background:
     radial-gradient(ellipse at 8% 0%, rgba(255,255,255,.9), transparent 42%),
@@ -209,15 +211,19 @@
 }
 
 .admin-page .ops-frame {
+  flex: 1 1 auto;
   width: 100%;
-  max-width: 1500px;
-  height: calc(100dvh - 40px);
+  max-width: none;
+  height: auto;
   min-height: 0;
   min-width: 0;
-  margin: 0 auto;
+  margin: 0;
   display: grid;
-  grid-template-columns: 230px 360px minmax(0, 1fr);
-  gap: 18px;
+  grid-template-columns:
+    minmax(200px, 230px)
+    minmax(260px, 360px)
+    minmax(0, 1fr);
+  gap: clamp(10px, 1.2vw, 18px);
   align-items: stretch;
 }
 
@@ -2078,7 +2084,7 @@
   color: var(--ops-ink, #0f172a);
 }
 /* Card rows when the Staff plane itself is narrow (half-browser / slim OPS). */
-@container staff (max-width: 960px) {
+@container staff (max-width: 820px) {
   .ops-staff-toolbar {
     flex-wrap: wrap;
   }
@@ -2147,71 +2153,8 @@
     height: 32px;
   }
 }
-@media (max-width: 1400px) {
-  .admin-page .ops-staff-table-head {
-    display: none;
-  }
-  .admin-page .ops-staff-table-row {
-    grid-template-columns: minmax(0, 1fr) auto;
-    gap: 8px 12px;
-  }
-  .admin-page .ops-staff-table-row strong {
-    grid-column: 1;
-    grid-row: 1;
-    white-space: normal;
-  }
-  .admin-page .ops-staff-table-row.is-employee .ops-staff-name {
-    grid-column: 1;
-    grid-row: 1;
-    align-self: center;
-    min-width: 0;
-    padding-right: 8px;
-    white-space: normal;
-  }
-  .admin-page .ops-staff-table-row.is-employee .ops-staff-status {
-    grid-column: 2;
-    grid-row: 1;
-    justify-self: end;
-    align-self: center;
-    white-space: nowrap;
-  }
-  .admin-page .ops-staff-table-row.is-employee .ops-staff-email,
-  .admin-page .ops-staff-table-row:not(.is-employee) > span:nth-child(2) {
-    grid-column: 1 / -1;
-    grid-row: 2;
-    white-space: normal;
-    overflow: visible;
-    text-overflow: unset;
-  }
-  .admin-page .ops-staff-table-row.is-employee .ops-staff-role-cell,
-  .admin-page .ops-staff-table-row:not(.is-employee) .ops-staff-portal,
-  .admin-page .ops-staff-table-row:not(.is-employee) .ops-staff-role {
-    grid-column: 1 / -1;
-    grid-row: 3;
-  }
-  .admin-page .ops-staff-table-row.is-employee .ops-staff-role-cell:not(label) {
-    display: none;
-  }
-  .admin-page .ops-staff-table-row.is-employee .ops-staff-actions,
-  .admin-page .ops-staff-table-row:not(.is-employee) .ops-staff-actions {
-    grid-column: 1 / -1;
-    grid-row: 4;
-    justify-content: stretch;
-  }
-  .admin-page .ops-staff-actions .ops-catalog-editor-btn {
-    flex: 1 1 auto;
-    min-height: 32px;
-    height: 32px;
-  }
-  .admin-page .ops-staff-toolbar {
-    flex-wrap: wrap;
-  }
-  .admin-page .ops-staff-search {
-    flex: 1 1 200px;
-    max-width: none;
-    min-width: 0;
-  }
-}
+/* Staff row layout follows the Staff plane width (container), not the viewport —
+   so a half-sized browser still keeps the table when the panel is wide enough. */
 .admin-page .ops-catalog-plane .ops-list-title {
   font-size: clamp(30px, 2.6vw, 36px);
 }
@@ -4377,10 +4320,20 @@
   50% { transform: translateY(-18px) scale(1.08); opacity: .9; }
 }
 
+@media (max-width: 1280px) {
+  .admin-page .ops-frame {
+    grid-template-columns:
+      minmax(180px, 210px)
+      minmax(240px, 320px)
+      minmax(0, 1fr);
+    gap: 12px;
+  }
+}
+
 @media (max-width: 1120px) {
   .admin-page .ops-frame { grid-template-columns: 78px minmax(0, 1fr); }
   .admin-page .ops-frame:has(.queue-plane):has(.task-plane):not(.is-driver) {
-    grid-template-columns: 78px minmax(220px, 300px) minmax(0, 1fr);
+    grid-template-columns: 78px minmax(200px, 280px) minmax(0, 1fr);
   }
   .admin-page .ops-frame.is-driver {
     grid-template-columns: minmax(0, 1fr);
