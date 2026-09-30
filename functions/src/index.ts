@@ -2,17 +2,11 @@ import { initializeApp } from "firebase-admin/app";
 import { getAuth } from "firebase-admin/auth";
 import { FieldValue, getFirestore } from "firebase-admin/firestore";
 import { onCall, onRequest, HttpsError } from "firebase-functions/v2/https";
-import { defineString } from "firebase-functions/params";
 import { setGlobalOptions } from "firebase-functions/v2";
 import Stripe from "stripe";
 
 initializeApp();
-setGlobalOptions({ region: "us-central1" });
-
-const stripeSecretKey = defineString("STRIPE_SECRET_KEY");
-const stripeWebhookSecret = defineString("STRIPE_WEBHOOK_SECRET", {
-  default: "",
-});
+setGlobalOptions({ region: "us-central1", timeoutSeconds: 60 });
 
 const OWNER_EMAILS = new Set([
   "paylocksmith@gmail.com",
@@ -20,15 +14,19 @@ const OWNER_EMAILS = new Set([
   "liran4004@gmail.com",
 ]);
 
+let stripeSingleton: Stripe | null = null;
+
 function stripeClient() {
-  const key = stripeSecretKey.value();
+  if (stripeSingleton) return stripeSingleton;
+  const key = (process.env.STRIPE_SECRET_KEY || "").trim();
   if (!key) {
     throw new HttpsError(
       "failed-precondition",
       "Stripe is not configured. Set STRIPE_SECRET_KEY."
     );
   }
-  return new Stripe(key);
+  stripeSingleton = new Stripe(key);
+  return stripeSingleton;
 }
 
 async function assertStaff(uid: string) {
@@ -183,7 +181,7 @@ export const confirmCardSaved = onCall(async (request) => {
   };
 });
 
-/** Customer: remove saved card reference (does not delete Stripe customer). */
+/** Customer: remove saved card reference. */
 export const removeSavedCard = onCall(async (request) => {
   if (!request.auth?.uid) {
     throw new HttpsError("unauthenticated", "Sign in required.");
@@ -222,284 +220,264 @@ export const removeSavedCard = onCall(async (request) => {
 
 type DryItem = { name?: string; qty?: number; price?: number };
 
-function dryCleanTotal(items: DryItem[]) {
-  return items.reduce((sum, item) => {
-    const qty = Number(item.qty) || 0;
-    const price = Number(item.price) || 0;
-    return sum + qty * price;
-  }, 0);
-}
-
 /**
  * Staff: charge card on file after weigh, then mark order paid + at laundry.
- * Server confirms payment with Stripe — client cannot mark paid alone.
  */
-export const chargeOrder = onCall(
-  {
-    timeoutSeconds: 60,
-  },
-  async (request) => {
-    if (!request.auth?.uid) {
-      throw new HttpsError("unauthenticated", "Sign in required.");
-    }
-
-    const staff = await assertStaff(request.auth.uid);
-    const orderId =
-      typeof request.data?.orderId === "string" ? request.data.orderId : "";
-    if (!orderId) {
-      throw new HttpsError("invalid-argument", "orderId required.");
-    }
-
-    const weightLbs = Number(request.data?.weightLbs ?? 0);
-    const dryCleanItems: DryItem[] = Array.isArray(request.data?.dryCleanItems)
-      ? request.data.dryCleanItems
-      : [];
-    const finalTotal = Number(request.data?.finalTotal);
-    if (!Number.isFinite(finalTotal) || finalTotal < 0.5) {
-      throw new HttpsError("invalid-argument", "Invalid charge amount.");
-    }
-
-    const db = getFirestore();
-    const orderRef = db.doc(`orders/${orderId}`);
-    const orderSnap = await orderRef.get();
-    if (!orderSnap.exists) {
-      throw new HttpsError("not-found", "Order not found.");
-    }
-    const order = orderSnap.data() || {};
-
-    if (typeof order.finalTotal === "number" && order.paymentStatus === "paid") {
-      throw new HttpsError("failed-precondition", "Order already charged.");
-    }
-
-    const customerUid = typeof order.uid === "string" ? order.uid : "";
-    if (!customerUid) {
-      throw new HttpsError(
-        "failed-precondition",
-        "Guest order has no card on file. Ask the customer to sign in and save a card in Account → Payments."
-      );
-    }
-
-    const userSnap = await db.doc(`users/${customerUid}`).get();
-    if (!userSnap.exists) {
-      throw new HttpsError(
-        "failed-precondition",
-        "Customer profile missing. Customer must save a card first."
-      );
-    }
-    const user = userSnap.data() || {};
-    const customerId = String(user.stripeCustomerId || "");
-    const paymentMethodId = String(user.stripePaymentMethodId || "");
-    if (!customerId || !paymentMethodId) {
-      throw new HttpsError(
-        "failed-precondition",
-        "No card on file. Customer must add a card in Account → Payments."
-      );
-    }
-
-    const amountCents = Math.round(finalTotal * 100);
-    const stripe = stripeClient();
-
-    let paymentIntent: Stripe.PaymentIntent;
-    try {
-      paymentIntent = await stripe.paymentIntents.create({
-        amount: amountCents,
-        currency: "usd",
-        customer: customerId,
-        payment_method: paymentMethodId,
-        off_session: true,
-        confirm: true,
-        description: `FOAM order ${orderId}`,
-        metadata: {
-          orderId,
-          firebaseUid: customerUid,
-          chargedBy: staff.email,
-        },
-      });
-    } catch (err) {
-      const message =
-        err instanceof Error ? err.message : "Stripe charge failed.";
-      await orderRef.set(
-        {
-          paymentStatus: "failed",
-          paymentError: message,
-          updatedAt: FieldValue.serverTimestamp(),
-        },
-        { merge: true }
-      );
-      throw new HttpsError("aborted", message);
-    }
-
-    if (
-      paymentIntent.status !== "succeeded" &&
-      paymentIntent.status !== "processing"
-    ) {
-      await orderRef.set(
-        {
-          paymentStatus: "failed",
-          paymentError: `Stripe status: ${paymentIntent.status}`,
-          stripePaymentIntentId: paymentIntent.id,
-          updatedAt: FieldValue.serverTimestamp(),
-        },
-        { merge: true }
-      );
-      throw new HttpsError(
-        "aborted",
-        `Payment not completed (${paymentIntent.status}).`
-      );
-    }
-
-    const paid = paymentIntent.status === "succeeded";
-    const patch: Record<string, unknown> = {
-      ...(Number.isFinite(weightLbs) && weightLbs > 0 ? { weightLbs } : {}),
-      dryCleanItems,
-      finalTotal,
-      status: "washing",
-      "pricing.finalTotalPending": false,
-      paymentStatus: paid ? "paid" : "pending",
-      stripePaymentIntentId: paymentIntent.id,
-      paymentError: FieldValue.delete(),
-      paidAt: paid ? FieldValue.serverTimestamp() : null,
-      chargedBy: staff.email,
-      statusUpdatedAt: FieldValue.serverTimestamp(),
-      lastUpdatedBy: staff.email,
-      updatedAt: FieldValue.serverTimestamp(),
-    };
-
-    if (typeof request.data?.promoCodeUsed === "string") {
-      const promoOff = Number(request.data?.promoDiscountAmount ?? 0);
-      const promoLabel =
-        typeof request.data?.promoLabel === "string"
-          ? request.data.promoLabel
-          : "";
-      if (request.data.promoCodeUsed && promoOff > 0) {
-        patch["pricing.promoApplied"] = true;
-        patch["pricing.promoDiscountAmount"] = promoOff;
-        patch["pricing.promoLabel"] = promoLabel;
-      }
-    }
-
-    await orderRef.set(patch, { merge: true });
-
-    const trackKey = typeof order.trackKey === "string" ? order.trackKey : "";
-    if (trackKey) {
-      await db
-        .doc(`orderTracks/${trackKey}`)
-        .set(
-          {
-            status: "washing",
-            finalTotal,
-            ...(Number.isFinite(weightLbs) && weightLbs > 0
-              ? { weightLbs }
-              : {}),
-            updatedAt: FieldValue.serverTimestamp(),
-          },
-          { merge: true }
-        )
-        .catch(() => undefined);
-    }
-
-    return {
-      ok: true,
-      paymentStatus: paid ? "paid" : "pending",
-      paymentIntentId: paymentIntent.id,
-      finalTotal,
-      dryCleanTotal: dryCleanTotal(dryCleanItems),
-    };
+export const chargeOrder = onCall(async (request) => {
+  if (!request.auth?.uid) {
+    throw new HttpsError("unauthenticated", "Sign in required.");
   }
-);
+
+  const staff = await assertStaff(request.auth.uid);
+  const orderId =
+    typeof request.data?.orderId === "string" ? request.data.orderId : "";
+  if (!orderId) {
+    throw new HttpsError("invalid-argument", "orderId required.");
+  }
+
+  const weightLbs = Number(request.data?.weightLbs ?? 0);
+  const dryCleanItems: DryItem[] = Array.isArray(request.data?.dryCleanItems)
+    ? request.data.dryCleanItems
+    : [];
+  const finalTotal = Number(request.data?.finalTotal);
+  if (!Number.isFinite(finalTotal) || finalTotal < 0.5) {
+    throw new HttpsError("invalid-argument", "Invalid charge amount.");
+  }
+
+  const db = getFirestore();
+  const orderRef = db.doc(`orders/${orderId}`);
+  const orderSnap = await orderRef.get();
+  if (!orderSnap.exists) {
+    throw new HttpsError("not-found", "Order not found.");
+  }
+  const order = orderSnap.data() || {};
+
+  if (typeof order.finalTotal === "number" && order.paymentStatus === "paid") {
+    throw new HttpsError("failed-precondition", "Order already charged.");
+  }
+
+  const customerUid = typeof order.uid === "string" ? order.uid : "";
+  if (!customerUid) {
+    throw new HttpsError(
+      "failed-precondition",
+      "Guest order has no card on file. Ask the customer to sign in and save a card in Account → Payments."
+    );
+  }
+
+  const userSnap = await db.doc(`users/${customerUid}`).get();
+  if (!userSnap.exists) {
+    throw new HttpsError(
+      "failed-precondition",
+      "Customer profile missing. Customer must save a card first."
+    );
+  }
+  const user = userSnap.data() || {};
+  const customerId = String(user.stripeCustomerId || "");
+  const paymentMethodId = String(user.stripePaymentMethodId || "");
+  if (!customerId || !paymentMethodId) {
+    throw new HttpsError(
+      "failed-precondition",
+      "No card on file. Customer must add a card in Account → Payments."
+    );
+  }
+
+  const amountCents = Math.round(finalTotal * 100);
+  const stripe = stripeClient();
+
+  let paymentIntent: Stripe.PaymentIntent;
+  try {
+    paymentIntent = await stripe.paymentIntents.create({
+      amount: amountCents,
+      currency: "usd",
+      customer: customerId,
+      payment_method: paymentMethodId,
+      off_session: true,
+      confirm: true,
+      description: `FOAM order ${orderId}`,
+      metadata: {
+        orderId,
+        firebaseUid: customerUid,
+        chargedBy: staff.email,
+      },
+    });
+  } catch (err) {
+    const message =
+      err instanceof Error ? err.message : "Stripe charge failed.";
+    await orderRef.set(
+      {
+        paymentStatus: "failed",
+        paymentError: message,
+        updatedAt: FieldValue.serverTimestamp(),
+      },
+      { merge: true }
+    );
+    throw new HttpsError("aborted", message);
+  }
+
+  if (
+    paymentIntent.status !== "succeeded" &&
+    paymentIntent.status !== "processing"
+  ) {
+    await orderRef.set(
+      {
+        paymentStatus: "failed",
+        paymentError: `Stripe status: ${paymentIntent.status}`,
+        stripePaymentIntentId: paymentIntent.id,
+        updatedAt: FieldValue.serverTimestamp(),
+      },
+      { merge: true }
+    );
+    throw new HttpsError(
+      "aborted",
+      `Payment not completed (${paymentIntent.status}).`
+    );
+  }
+
+  const paid = paymentIntent.status === "succeeded";
+  const patch: Record<string, unknown> = {
+    ...(Number.isFinite(weightLbs) && weightLbs > 0 ? { weightLbs } : {}),
+    dryCleanItems,
+    finalTotal,
+    status: "washing",
+    "pricing.finalTotalPending": false,
+    paymentStatus: paid ? "paid" : "pending",
+    stripePaymentIntentId: paymentIntent.id,
+    paymentError: FieldValue.delete(),
+    paidAt: paid ? FieldValue.serverTimestamp() : null,
+    chargedBy: staff.email,
+    statusUpdatedAt: FieldValue.serverTimestamp(),
+    lastUpdatedBy: staff.email,
+    updatedAt: FieldValue.serverTimestamp(),
+  };
+
+  if (typeof request.data?.promoCodeUsed === "string") {
+    const promoOff = Number(request.data?.promoDiscountAmount ?? 0);
+    const promoLabel =
+      typeof request.data?.promoLabel === "string"
+        ? request.data.promoLabel
+        : "";
+    if (request.data.promoCodeUsed && promoOff > 0) {
+      patch["pricing.promoApplied"] = true;
+      patch["pricing.promoDiscountAmount"] = promoOff;
+      patch["pricing.promoLabel"] = promoLabel;
+    }
+  }
+
+  await orderRef.set(patch, { merge: true });
+
+  const trackKey = typeof order.trackKey === "string" ? order.trackKey : "";
+  if (trackKey) {
+    await db
+      .doc(`orderTracks/${trackKey}`)
+      .set(
+        {
+          status: "washing",
+          finalTotal,
+          ...(Number.isFinite(weightLbs) && weightLbs > 0 ? { weightLbs } : {}),
+          updatedAt: FieldValue.serverTimestamp(),
+        },
+        { merge: true }
+      )
+      .catch(() => undefined);
+  }
+
+  return {
+    ok: true,
+    paymentStatus: paid ? "paid" : "pending",
+    paymentIntentId: paymentIntent.id,
+    finalTotal,
+  };
+});
 
 /** Stripe → Firebase: confirm paid / failed asynchronously. */
-export const stripeWebhook = onRequest(
-  { cors: false },
-  async (req, res) => {
-    if (req.method !== "POST") {
-      res.status(405).send("Method not allowed");
-      return;
-    }
-
-    const stripe = stripeClient();
-    const whSecret = stripeWebhookSecret.value();
-    let event: Stripe.Event;
-
-    try {
-      if (whSecret) {
-        const sig = req.headers["stripe-signature"];
-        if (!sig || Array.isArray(sig)) {
-          res.status(400).send("Missing signature");
-          return;
-        }
-        event = stripe.webhooks.constructEvent(
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          (req as any).rawBody || req.body,
-          sig,
-          whSecret
-        );
-      } else {
-        event = req.body as Stripe.Event;
-      }
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "Webhook error";
-      res.status(400).send(`Webhook Error: ${message}`);
-      return;
-    }
-
-    const db = getFirestore();
-
-    if (
-      event.type === "payment_intent.succeeded" ||
-      event.type === "payment_intent.payment_failed"
-    ) {
-      const pi = event.data.object as Stripe.PaymentIntent;
-      const orderId = pi.metadata?.orderId;
-      if (orderId) {
-        const paid = event.type === "payment_intent.succeeded";
-        await db.doc(`orders/${orderId}`).set(
-          {
-            paymentStatus: paid ? "paid" : "failed",
-            stripePaymentIntentId: pi.id,
-            ...(paid
-              ? {
-                  paidAt: FieldValue.serverTimestamp(),
-                  paymentError: FieldValue.delete(),
-                }
-              : {
-                  paymentError:
-                    pi.last_payment_error?.message || "Payment failed",
-                }),
-            updatedAt: FieldValue.serverTimestamp(),
-          },
-          { merge: true }
-        );
-      }
-    }
-
-    if (event.type === "setup_intent.succeeded") {
-      const si = event.data.object as Stripe.SetupIntent;
-      const uid = si.metadata?.firebaseUid;
-      if (uid && si.payment_method) {
-        const pmId =
-          typeof si.payment_method === "string"
-            ? si.payment_method
-            : si.payment_method.id;
-        const pm = await stripe.paymentMethods.retrieve(pmId);
-        const customerId =
-          typeof si.customer === "string" ? si.customer : si.customer?.id || "";
-        await db.doc(`users/${uid}`).set(
-          {
-            stripeCustomerId: customerId,
-            stripePaymentMethodId: pmId,
-            cardBrand: pm.card?.brand || "",
-            cardLast4: pm.card?.last4 || "",
-            cardExpMonth: pm.card?.exp_month || null,
-            cardExpYear: pm.card?.exp_year || null,
-            paymentUpdatedAt: FieldValue.serverTimestamp(),
-            updatedAt: FieldValue.serverTimestamp(),
-          },
-          { merge: true }
-        );
-      }
-    }
-
-    res.json({ received: true });
+export const stripeWebhook = onRequest({ cors: false }, async (req, res) => {
+  if (req.method !== "POST") {
+    res.status(405).send("Method not allowed");
+    return;
   }
-);
+
+  const stripe = stripeClient();
+  const whSecret = (process.env.STRIPE_WEBHOOK_SECRET || "").trim();
+  let event: Stripe.Event;
+
+  try {
+    if (whSecret) {
+      const sig = req.headers["stripe-signature"];
+      if (!sig || Array.isArray(sig)) {
+        res.status(400).send("Missing signature");
+        return;
+      }
+      event = stripe.webhooks.constructEvent(
+        // Firebase provides rawBody on Cloud Functions requests
+        (req as unknown as { rawBody: Buffer }).rawBody || req.body,
+        sig,
+        whSecret
+      );
+    } else {
+      event = req.body as Stripe.Event;
+    }
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Webhook error";
+    res.status(400).send(`Webhook Error: ${message}`);
+    return;
+  }
+
+  const db = getFirestore();
+
+  if (
+    event.type === "payment_intent.succeeded" ||
+    event.type === "payment_intent.payment_failed"
+  ) {
+    const pi = event.data.object as Stripe.PaymentIntent;
+    const orderId = pi.metadata?.orderId;
+    if (orderId) {
+      const paid = event.type === "payment_intent.succeeded";
+      await db.doc(`orders/${orderId}`).set(
+        {
+          paymentStatus: paid ? "paid" : "failed",
+          stripePaymentIntentId: pi.id,
+          ...(paid
+            ? {
+                paidAt: FieldValue.serverTimestamp(),
+                paymentError: FieldValue.delete(),
+              }
+            : {
+                paymentError:
+                  pi.last_payment_error?.message || "Payment failed",
+              }),
+          updatedAt: FieldValue.serverTimestamp(),
+        },
+        { merge: true }
+      );
+    }
+  }
+
+  if (event.type === "setup_intent.succeeded") {
+    const si = event.data.object as Stripe.SetupIntent;
+    const uid = si.metadata?.firebaseUid;
+    if (uid && si.payment_method) {
+      const pmId =
+        typeof si.payment_method === "string"
+          ? si.payment_method
+          : si.payment_method.id;
+      const pm = await stripe.paymentMethods.retrieve(pmId);
+      const customerId =
+        typeof si.customer === "string" ? si.customer : si.customer?.id || "";
+      await db.doc(`users/${uid}`).set(
+        {
+          stripeCustomerId: customerId,
+          stripePaymentMethodId: pmId,
+          cardBrand: pm.card?.brand || "",
+          cardLast4: pm.card?.last4 || "",
+          cardExpMonth: pm.card?.exp_month || null,
+          cardExpYear: pm.card?.exp_year || null,
+          paymentUpdatedAt: FieldValue.serverTimestamp(),
+          updatedAt: FieldValue.serverTimestamp(),
+        },
+        { merge: true }
+      );
+    }
+  }
+
+  res.json({ received: true });
+});
