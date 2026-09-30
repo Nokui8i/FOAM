@@ -6,7 +6,6 @@ import {
   CalendarDays,
   ChevronLeft,
   ChevronRight,
-  Clock3,
   Plus,
   Trash2,
   X,
@@ -285,26 +284,18 @@ export function AdminSchedulePanel({
   return (
     <section className="ops-catalog-plane ops-schedule-plane">
       <header className="ops-catalog-plane-head">
-        <div>
+        <div className="ops-catalog-plane-title-row">
           <h1 className="ops-list-title">Schedule</h1>
-        </div>
-        <div className="ops-schedule-head-actions">
-          <div className="ops-catalog-plane-chip" aria-current="page">
-            <span className="ops-catalog-plane-chip-icon" aria-hidden>
-              <Clock3 size={16} />
-            </span>
-            <span className="ops-catalog-plane-chip-copy">
-              <strong>Pickup windows</strong>
-            </span>
+          <div className="ops-schedule-head-actions">
+            <button
+              type="button"
+              className="ops-schedule-save"
+              disabled={saving}
+              onClick={() => void saveAll()}
+            >
+              {saving ? "Saving…" : "Save"}
+            </button>
           </div>
-          <button
-            type="button"
-            className="ops-schedule-save"
-            disabled={saving}
-            onClick={() => void saveAll()}
-          >
-            {saving ? "Saving…" : "Save"}
-          </button>
         </div>
       </header>
 
@@ -317,67 +308,69 @@ export function AdminSchedulePanel({
       <div className="ops-schedule-layout">
         <section className="ops-schedule-card">
           <div className="ops-schedule-card-head">
-            <h2>Time windows (all days)</h2>
+            <h2>Windows</h2>
             <button type="button" className="ops-promos-link" onClick={addSlot}>
               <Plus size={14} aria-hidden />
-              Add window
+              Add
             </button>
           </div>
 
           <div className="ops-schedule-windows">
             {sortedSlots.map((slot) => (
               <div key={slot.id} className="ops-schedule-window">
-                <label className="ops-schedule-toggle">
+                <label
+                  className="ops-schedule-toggle is-compact"
+                  title={slot.enabled ? "Open" : "Closed"}
+                >
                   <input
                     type="checkbox"
                     checked={slot.enabled}
+                    aria-label={`${slot.label} ${slot.enabled ? "open" : "closed"}`}
                     onChange={(e) =>
                       patchSlot(slot.id, { enabled: e.target.checked })
                     }
                   />
-                  <span>{slot.enabled ? "Open" : "Closed"}</span>
                 </label>
-                <label className="ops-promos-field">
-                  <span>Start</span>
-                  <input
-                    type="time"
-                    value={timeInputFromMinutes(slot.startMinutes)}
-                    onChange={(e) =>
-                      patchSlot(slot.id, {
-                        startMinutes: minutesFromTimeInput(e.target.value),
-                      })
-                    }
-                  />
-                </label>
-                <label className="ops-promos-field">
-                  <span>End</span>
-                  <input
-                    type="time"
-                    value={timeInputFromMinutes(slot.endMinutes)}
-                    onChange={(e) =>
-                      patchSlot(slot.id, {
-                        endMinutes: minutesFromTimeInput(e.target.value),
-                      })
-                    }
-                  />
-                </label>
-                <label className="ops-promos-field">
-                  <span>Capacity</span>
-                  <input
-                    type="number"
-                    min={1}
-                    max={200}
-                    value={slot.capacity}
-                    onChange={(e) =>
-                      patchSlot(slot.id, {
-                        capacity: Math.max(1, Number(e.target.value) || 1),
-                      })
-                    }
-                  />
-                </label>
-                <div className="ops-schedule-window-label">
-                  <strong>{slot.label}</strong>
-                </div>
+                <input
+                  className="ops-schedule-time"
+                  type="time"
+                  aria-label={`${slot.label} start`}
+                  value={timeInputFromMinutes(slot.startMinutes)}
+                  onChange={(e) =>
+                    patchSlot(slot.id, {
+                      startMinutes: minutesFromTimeInput(e.target.value),
+                    })
+                  }
+                />
+                <span className="ops-schedule-window-dash" aria-hidden>
+                  –
+                </span>
+                <input
+                  className="ops-schedule-time"
+                  type="time"
+                  aria-label={`${slot.label} end`}
+                  value={timeInputFromMinutes(slot.endMinutes)}
+                  onChange={(e) =>
+                    patchSlot(slot.id, {
+                      endMinutes: minutesFromTimeInput(e.target.value),
+                    })
+                  }
+                />
+                <input
+                  className="ops-schedule-cap"
+                  type="number"
+                  min={1}
+                  max={200}
+                  inputMode="numeric"
+                  aria-label={`${slot.label} capacity`}
+                  title="Capacity"
+                  value={slot.capacity}
+                  onChange={(e) =>
+                    patchSlot(slot.id, {
+                      capacity: Math.max(1, Number(e.target.value) || 1),
+                    })
+                  }
+                />
                 <button
                   type="button"
                   className="ops-promos-link is-danger"
@@ -393,7 +386,7 @@ export function AdminSchedulePanel({
 
         <section className="ops-schedule-card">
           <div className="ops-schedule-card-head">
-            <h2>Close a day</h2>
+            <h2>Day</h2>
             <button
               type="button"
               className={cn(
@@ -406,43 +399,44 @@ export function AdminSchedulePanel({
               aria-label={`Pick date, currently ${formatDayLabel(dayIso)}`}
               onClick={() => setShowCalendar((v) => !v)}
             >
-              <CalendarDays size={18} aria-hidden />
+              <CalendarDays size={16} aria-hidden />
               <span>{formatDayLabel(dayIso)}</span>
             </button>
           </div>
 
-          {dayOrderTotal > 0 ? (
-            <div className="ops-schedule-booked" role="status">
-              <AlertTriangle size={16} aria-hidden />
-              <strong>
-                {dayOrderTotal} order{dayOrderTotal === 1 ? "" : "s"} already
-                booked on {formatDayLabel(dayIso)}
-              </strong>
-            </div>
-          ) : null}
-
-          <label className="ops-schedule-toggle is-day">
-            <input
-              type="checkbox"
-              checked={!dayOverride.closed}
-              onChange={(e) =>
-                setDayOverride((current) => ({
-                  ...current,
-                  closed: !e.target.checked,
-                }))
-              }
-            />
-            <span>
-              {dayOverride.closed ? "Whole day closed" : "Day open"}
-            </span>
-          </label>
-
           <div
             className={cn(
-              "ops-schedule-day-slots",
-              dayOverride.closed && "is-disabled"
+              "ops-schedule-day-list",
+              dayOverride.closed && "is-day-closed"
             )}
           >
+            {dayOrderTotal > 0 ? (
+              <div className="ops-schedule-day-row is-alert" role="status">
+                <AlertTriangle size={14} aria-hidden />
+                <strong>
+                  {dayOrderTotal} order{dayOrderTotal === 1 ? "" : "s"} booked
+                </strong>
+              </div>
+            ) : null}
+
+            <label className="ops-schedule-day-row is-master">
+              <span className="ops-schedule-day-copy">
+                <strong>
+                  {dayOverride.closed ? "Whole day closed" : "Day open"}
+                </strong>
+              </span>
+              <input
+                type="checkbox"
+                checked={!dayOverride.closed}
+                onChange={(e) =>
+                  setDayOverride((current) => ({
+                    ...current,
+                    closed: !e.target.checked,
+                  }))
+                }
+              />
+            </label>
+
             {daySlotRows.map((row) => {
               const closed =
                 dayOverride.slots[row.label]?.closed === true ||
@@ -451,8 +445,9 @@ export function AdminSchedulePanel({
                 <div
                   key={row.id}
                   className={cn(
-                    "ops-schedule-day-row is-simple",
-                    row.booked > 0 && "has-bookings"
+                    "ops-schedule-day-row",
+                    row.booked > 0 && "has-bookings",
+                    dayOverride.closed && "is-muted"
                   )}
                 >
                   <div className="ops-schedule-day-copy">
@@ -462,16 +457,16 @@ export function AdminSchedulePanel({
                     ) : null}
                   </div>
                   {!row.orphan ? (
-                    <label className="ops-schedule-toggle">
+                    <label className="ops-schedule-toggle is-compact">
                       <input
                         type="checkbox"
                         checked={!closed && row.enabled}
                         disabled={dayOverride.closed || !row.enabled}
+                        aria-label={`${row.label} ${closed ? "closed" : "open"}`}
                         onChange={(e) =>
                           setDaySlotClosed(row.label, !e.target.checked)
                         }
                       />
-                      <span>{closed ? "Closed" : "Open"}</span>
                     </label>
                   ) : (
                     <span className="ops-schedule-orphan-tag">Booked</span>

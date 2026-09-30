@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Percent, Ticket, Trash2, X } from "lucide-react";
+import { Percent, Ticket, Trash2 } from "lucide-react";
 
 import { useOpsPageReadyWhen } from "@/components/ops-boot";
 import {
@@ -93,6 +93,7 @@ export function AdminPromosPanel({
     setEditingCode(null);
     setForm(emptyForm);
     setError("");
+    setOkMsg("");
   }
 
   async function onSave() {
@@ -152,19 +153,19 @@ export function AdminPromosPanel({
   return (
     <section className="ops-catalog-plane ops-promos-plane">
       <header className="ops-catalog-plane-head">
-        <div>
+        <div className="ops-catalog-plane-title-row">
           <h1 className="ops-list-title">Promos</h1>
-        </div>
-        <div className="ops-catalog-plane-chip" aria-current="page">
-          <span className="ops-catalog-plane-chip-icon" aria-hidden>
-            <Ticket size={16} />
-          </span>
-          <span className="ops-catalog-plane-chip-copy">
-            <strong>Promo codes</strong>
-            <small>
-              {rows.length} {rows.length === 1 ? "code" : "codes"}
-            </small>
-          </span>
+          <div className="ops-catalog-plane-chip" aria-current="page">
+            <span className="ops-catalog-plane-chip-icon" aria-hidden>
+              <Ticket size={16} />
+            </span>
+            <span className="ops-catalog-plane-chip-copy">
+              <strong>Promo codes</strong>
+              <small>
+                {rows.length} {rows.length === 1 ? "code" : "codes"}
+              </small>
+            </span>
+          </div>
         </div>
       </header>
 
@@ -180,7 +181,6 @@ export function AdminPromosPanel({
             <h2>{editingCode ? `Edit ${editingCode}` : "New promo"}</h2>
             {editingCode ? (
               <button type="button" className="ops-promos-link" onClick={resetForm}>
-                <X size={14} aria-hidden />
                 Clear
               </button>
             ) : null}

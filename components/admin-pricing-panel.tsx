@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { CircleDollarSign, Repeat2, Truck, Wallet } from "lucide-react";
 
 import {
   DEFAULT_LAUNDRY_RATES,
@@ -14,6 +13,20 @@ import { useOpsPageReadyWhen } from "@/components/ops-boot";
 import { cn } from "@/lib/utils";
 
 type MobileView = "list" | "detail";
+
+const PRICING_ICONS = {
+  weekly: "/repeat-pickup-icon.png?v=5",
+  ondemand: "/pricing-ondemand-icon.png?v=5",
+  fee: "/pricing-service-fee-icon.png?v=5",
+  minimum: "/pricing-minimum-icon.png?v=5",
+} as const;
+
+function PricingCardIcon({ src }: { src: string }) {
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img className="ops-pricing-card-icon" src={src} alt="" width={36} height={36} />
+  );
+}
 
 export function AdminPricingPanel({
   adminEmail,
@@ -74,29 +87,18 @@ export function AdminPricingPanel({
   return (
     <section className="ops-catalog-plane ops-pricing-plane">
       <header className="ops-catalog-plane-head">
-        <div>
+        <div className="ops-catalog-plane-title-row">
           <h1 className="ops-list-title">Pricing</h1>
-          <p className="ops-catalog-plane-lead">
-            Live rates for homepage cards, booking, and weekly automation.
-          </p>
-        </div>
-        <div className="ops-schedule-head-actions">
-          <div className="ops-catalog-plane-chip" aria-current="page">
-            <span className="ops-catalog-plane-chip-icon" aria-hidden>
-              <CircleDollarSign size={16} />
-            </span>
-            <span className="ops-catalog-plane-chip-copy">
-              <strong>Laundry rates</strong>
-            </span>
+          <div className="ops-schedule-head-actions">
+            <button
+              type="button"
+              className="ops-schedule-save"
+              disabled={saving || !dirty}
+              onClick={() => void save()}
+            >
+              {saving ? "Saving…" : "Save"}
+            </button>
           </div>
-          <button
-            type="button"
-            className="ops-schedule-save"
-            disabled={saving || !dirty}
-            onClick={() => void save()}
-          >
-            {saving ? "Saving…" : "Save"}
-          </button>
         </div>
       </header>
 
@@ -109,9 +111,7 @@ export function AdminPricingPanel({
       <div className="ops-pricing-grid">
         <article className="ops-pricing-card is-weekly">
           <div className="ops-pricing-card-head">
-            <span className="ops-pricing-card-icon" aria-hidden>
-              <Repeat2 size={18} />
-            </span>
+            <PricingCardIcon src={PRICING_ICONS.weekly} />
             <div>
               <h2>Weekly / automation</h2>
               <p>
@@ -142,9 +142,7 @@ export function AdminPricingPanel({
 
         <article className="ops-pricing-card is-ondemand">
           <div className="ops-pricing-card-head">
-            <span className="ops-pricing-card-icon" aria-hidden>
-              <Wallet size={18} />
-            </span>
+            <PricingCardIcon src={PRICING_ICONS.ondemand} />
             <div>
               <h2>On-demand (regular)</h2>
               <p>
@@ -175,9 +173,7 @@ export function AdminPricingPanel({
 
         <article className="ops-pricing-card is-fee">
           <div className="ops-pricing-card-head">
-            <span className="ops-pricing-card-icon" aria-hidden>
-              <Truck size={18} />
-            </span>
+            <PricingCardIcon src={PRICING_ICONS.fee} />
             <div>
               <h2>Service fee</h2>
               <p>
@@ -208,9 +204,7 @@ export function AdminPricingPanel({
 
         <article className="ops-pricing-card is-min">
           <div className="ops-pricing-card-head">
-            <span className="ops-pricing-card-icon" aria-hidden>
-              <CircleDollarSign size={18} />
-            </span>
+            <PricingCardIcon src={PRICING_ICONS.minimum} />
             <div>
               <h2>Minimum order</h2>
               <p>
@@ -238,20 +232,6 @@ export function AdminPricingPanel({
           </p>
         </article>
       </div>
-
-      <aside className="ops-pricing-note" aria-label="How rates apply">
-        <strong>What this updates</strong>
-        <ul>
-          <li>
-            Homepage pricing boxes (desktop + mobile) — live from Firestore.
-          </li>
-          <li>Booking / order pricing calculations for new charges.</li>
-          <li>
-            Weekly automation next-order pricing uses the weekly $/lb (+ fee /
-            minimum rules).
-          </li>
-        </ul>
-      </aside>
     </section>
   );
 }

@@ -15,7 +15,7 @@ import {
   setDoc,
   where,
 } from "firebase/firestore";
-import { ArrowLeft, Check, ChevronDown, ChevronLeft, ChevronRight, Minus, Plus, Repeat, Shirt, Sparkles, X } from "lucide-react";
+import { ArrowLeft, Check, ChevronDown, ChevronLeft, ChevronRight, Minus, Plus, X } from "lucide-react";
 
 import { OptionSheet } from "@/components/option-sheet";
 import { AddressAutocomplete } from "@/components/address-autocomplete";
@@ -736,7 +736,7 @@ function BookingAppInner() {
           <div className="book-stack">
             <ServiceCard
               checked={draft.laundry}
-              icon={<Shirt size={20} />}
+              iconSrc="/LAUNDRY.png"
               title="Laundry"
               subtitle="Pickup, wash, fold & delivery"
               onToggle={() => patch({ laundry: !draft.laundry })}
@@ -767,7 +767,7 @@ function BookingAppInner() {
 
             <ServiceCard
               checked={draft.dryCleaning}
-              icon={<Sparkles size={20} />}
+              iconSrc={encodeURI("/DRY CLEANING.png")}
               title="Dry Cleaning"
               subtitle="Pickup & delivery per item"
               onToggle={() => patch({ dryCleaning: !draft.dryCleaning })}
@@ -881,9 +881,14 @@ function BookingAppInner() {
               )}
               onClick={toggleRepeatPickup}
             >
-              <span className="book-repeat-banner-icon" aria-hidden>
-                <Repeat size={18} />
-              </span>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                className="book-repeat-banner-icon"
+                src="/repeat-pickup-icon.png?v=5"
+                alt=""
+                width={36}
+                height={36}
+              />
               <span className="book-repeat-banner-copy">
                 <strong>Make this a repeat pickup</strong>
                 <span className="book-repeat-lines">
@@ -1273,14 +1278,14 @@ function pickerOptions(key: keyof BookingDraft): readonly string[] {
 
 function ServiceCard({
   checked,
-  icon,
+  iconSrc,
   title,
   subtitle,
   onToggle,
   children,
 }: {
   checked: boolean;
-  icon: ReactNode;
+  iconSrc: string;
   title: string;
   subtitle: string;
   onToggle: () => void;
@@ -1292,7 +1297,14 @@ function ServiceCard({
       onClick={onToggle}
       className={cn("book-service", checked && "is-active")}
     >
-      <span className="book-service-icon">{icon}</span>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        className="book-service-icon"
+        src={iconSrc}
+        alt=""
+        width={48}
+        height={48}
+      />
       <span className="book-service-copy">
         <strong>{title}</strong>
         <small>{subtitle}</small>

@@ -7,6 +7,15 @@ import {
 
 import { getFirebaseDb } from "@/lib/firebase";
 
+export type ContactReply = {
+  id: string;
+  body: string;
+  createdAt: string;
+  createdBy: string;
+  channel: "internal" | "email";
+  emailStatus?: "pending" | "sent" | "failed" | null;
+};
+
 export type ContactMessage = {
   id: string;
   name: string;
@@ -17,6 +26,7 @@ export type ContactMessage = {
   status: "new" | "done";
   read: boolean;
   createdAt: Timestamp | null;
+  replies?: ContactReply[];
 };
 
 export type ContactMessageInput = {

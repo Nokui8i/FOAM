@@ -1,8 +1,6 @@
 "use client";
 
-import { ArrowRight, Menu, X } from "lucide-react";
-
-import { BOOKING_PATH } from "@/lib/site-config";
+import { Menu, X } from "lucide-react";
 
 const TOGGLE_ID = "foam-mobile-nav";
 
@@ -81,19 +79,6 @@ export function MobileNavDrawer() {
               </a>
             ))}
           </nav>
-
-          <a
-            href={BOOKING_PATH}
-            className="mn-cta-btn"
-            onClick={() => {
-              const toggle = document.getElementById(
-                TOGGLE_ID
-              ) as HTMLInputElement | null;
-              if (toggle) toggle.checked = false;
-            }}
-          >
-            Schedule Pickup <ArrowRight size={16} aria-hidden />
-          </a>
         </aside>
       </div>
     </>

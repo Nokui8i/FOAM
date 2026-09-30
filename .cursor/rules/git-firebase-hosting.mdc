@@ -1,0 +1,27 @@
+---
+description: Ship all FOAM work via GitHub + Firebase Hosting — not localhost demos
+alwaysApply: true
+---
+
+# Git + Firebase is the delivery path
+
+FOAM is reviewed and used on the **live Firebase Hosting site**, not via localhost.
+
+## Required after feature/UI work
+
+1. **Git** — commit relevant changes on the working branch and push to `origin` (`https://github.com/Nokui8i/FOAM`).
+2. **Build** — run `npm run build` (static export to `out/`).
+3. **Deploy** — `npx firebase deploy --only hosting --project foam-laundry-app`.
+4. **Verify** on the live URL: `https://foam-laundry-app.web.app` (and relevant paths like `/`, `/ops`).
+
+## Do not
+
+- Stop at `npm run dev` / localhost as the deliverable for the user.
+- Treat localhost screenshots as “done” when the user expects the site online.
+- Deploy a separate side host for design-reference repos unless explicitly asked.
+
+## Notes
+
+- Design-only repos (e.g. Lovable / `foam-operations-hub`) are **UI references** to port into this FOAM repo; they are not the production host.
+- If the user says not to publish yet, skip deploy — but still prepare Git commits when they ask to save work.
+- Prefer the current feature branch for push/deploy unless told to merge to `master`.

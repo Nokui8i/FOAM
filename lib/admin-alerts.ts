@@ -44,8 +44,46 @@ export function reminderSortKey(a: PickupReminderAlert, b: PickupReminderAlert) 
 
 export function buildReminderMessage(alert: PickupReminderAlert) {
   const first = alert.name.trim().split(/\s+/)[0] || "there";
-  const weeklyBit = alert.weekly
-    ? " This is your weekly FOAM pickup."
+  const when = [
+    alert.pickupDate,
+    alert.pickupSlot ? `(${alert.pickupSlot})` : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+  const weeklyBit = alert.weekly || alert.automatedWeekly
+    ? " This is your automated weekly FOAM pickup."
     : "";
-  return `Hi ${first}, this is FOAM — friendly reminder that your laundry pickup is scheduled for ${alert.pickupDate}${alert.pickupSlot ? ` (${alert.pickupSlot})` : ""}.${weeklyBit} Please leave your bags ready. Reply if you need to skip or change anything.`;
+  return `Hi ${first}, this is FOAM — your laundry pickup is coming up on ${when} at ${alert.address || "your address"}.${weeklyBit} Please confirm you’re ready, or reply if you need to skip or change anything.`;
+}
+
+/** Short staff-facing summary for Notifications list cards. */
+export function buildNotificationSummary(alert: PickupReminderAlert) {
+  const daysLabel =
+    alert.daysUntil === 1 ? "1 day" : `${alert.daysUntil} days`;
+  if (alert.weekly || alert.automatedWeekly) {
+    return `Automated order in ${daysLabel}`;
+  }
+  return `Order in ${daysLabel}`;
+}
+
+/** Full staff instruction shown on the notification detail. */
+export function buildStaffNotificationNote(alert: PickupReminderAlert) {
+  const daysLabel =
+    alert.daysUntil === 1 ? "1 day" : `${alert.daysUntil} days`;
+  const address = alert.address.trim() || "No address on file";
+  const auto =
+    alert.weekly || alert.automatedWeekly
+      ? `An automated order came in for ${daysLabel} from now.`
+      : `An order came in for ${daysLabel} from now.`;
+  const lines = [
+    auto,
+    `Address: ${address}`,
+    "Please call to verify and inform the customer.",
+  ];
+  if (alert.weekly || alert.automatedWeekly || alert.hasDiscount) {
+    lines.push(
+      "Explain that if the order is cancelled the 10% discount is cancelled."
+    );
+  }
+  return lines.join("\n");
 }
