@@ -73,13 +73,35 @@ service cloud.firestore {
         ]);
     }
 
+    function paymentFieldsTouched() {
+      return request.resource.data.diff(resource.data).affectedKeys().hasAny([
+        'stripeCustomerId',
+        'stripePaymentMethodId',
+        'cardBrand',
+        'cardLast4',
+        'cardExpMonth',
+        'cardExpYear',
+        'paymentUpdatedAt'
+      ]);
+    }
+
     match /users/{uid} {
-      allow read: if isOwner(uid) || isAdmin();
+      allow read: if isOwner(uid) || isAdmin() || isDriver();
       allow create: if isOwner(uid)
         && request.resource.data.uid == uid
         && request.resource.data.email is string
-        && request.resource.data.name is string;
-      allow update: if isOwner(uid) || isAdmin();
+        && request.resource.data.name is string
+        && !request.resource.data.keys().hasAny([
+          'stripeCustomerId',
+          'stripePaymentMethodId',
+          'cardBrand',
+          'cardLast4',
+          'cardExpMonth',
+          'cardExpYear'
+        ]);
+      // Stripe card fields are written only by Cloud Functions (Admin SDK).
+      allow update: if isAdmin()
+        || (isOwner(uid) && !paymentFieldsTouched());
       allow delete: if isAdmin();
     }
 

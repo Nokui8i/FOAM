@@ -24,6 +24,7 @@ import { OptionSheet } from "@/components/option-sheet";
 import { BrandSplash } from "@/components/brand-splash";
 import { useAuth } from "@/components/auth-provider";
 import { GoogleSignInButton } from "@/components/google-sign-in-button";
+import { SaveCardPanel } from "@/components/save-card-panel";
 import { useQueryReplace } from "@/lib/use-query-replace";
 import { cn } from "@/lib/utils";
 import {
@@ -221,6 +222,12 @@ function AccountProfile({
       careNotes: profile.careNotes,
       laundryPrefs,
       weeklyRepeatEnabled: profile.weeklyRepeatEnabled,
+      stripeCustomerId: profile.stripeCustomerId,
+      stripePaymentMethodId: profile.stripePaymentMethodId,
+      cardBrand: profile.cardBrand,
+      cardLast4: profile.cardLast4,
+      cardExpMonth: profile.cardExpMonth,
+      cardExpYear: profile.cardExpYear,
     };
 
     try {
@@ -263,6 +270,12 @@ function AccountProfile({
         careNotes: profile.careNotes,
         laundryPrefs: profile.laundryPrefs,
         weeklyRepeatEnabled: false,
+        stripeCustomerId: profile.stripeCustomerId,
+        stripePaymentMethodId: profile.stripePaymentMethodId,
+        cardBrand: profile.cardBrand,
+        cardLast4: profile.cardLast4,
+        cardExpMonth: profile.cardExpMonth,
+        cardExpYear: profile.cardExpYear,
       };
       await saveUserProfile(uid, next);
       setProfile({ uid, ...next });
@@ -700,7 +713,21 @@ function AccountProfile({
 
             {activeTab === "Orders" ? <AccountOrders uid={uid} /> : null}
 
-            {activeTab === "Payments" ? <PaymentsPanel /> : null}
+            {activeTab === "Payments" ? (
+              <PaymentsPanel
+                profile={profile}
+                onCardChange={(card) =>
+                  setProfile({
+                    ...profile,
+                    cardBrand: card.brand,
+                    cardLast4: card.last4,
+                    cardExpMonth: card.expMonth,
+                    cardExpYear: card.expYear,
+                    stripePaymentMethodId: card.last4 ? "saved" : "",
+                  })
+                }
+              />
+            ) : null}
           </div>
         </section>
       </div>
@@ -709,7 +736,46 @@ function AccountProfile({
 }
 
 
-function PaymentsPanel() {
+function PaymentsPanel({
+  profile,
+  onCardChange,
+}: {
+  profile: UserProfile;
+  onCardChange: (card: {
+    brand: string;
+    last4: string;
+    expMonth: number | null;
+    expYear: number | null;
+  }) => void;
+}) {
+  const [adding, setAdding] = useState(false);
+  const [removing, setRemoving] = useState(false);
+  const [error, setError] = useState("");
+  const hasCard = Boolean(profile.cardLast4);
+
+  async function onRemove() {
+    setRemoving(true);
+    setError("");
+    try {
+      const { removeSavedCard, stripeCallableErrorMessage } = await import(
+        "@/lib/stripe-api"
+      );
+      await removeSavedCard();
+      onCardChange({
+        brand: "",
+        last4: "",
+        expMonth: null,
+        expYear: null,
+      });
+      setAdding(false);
+    } catch (err) {
+      const { stripeCallableErrorMessage } = await import("@/lib/stripe-api");
+      setError(stripeCallableErrorMessage(err));
+    } finally {
+      setRemoving(false);
+    }
+  }
+
   return (
     <section
       id="panel-payments"
@@ -719,10 +785,51 @@ function PaymentsPanel() {
     >
       <PanelIntro title="Payments" />
 
-      <div className="account-ops-note">
-        No payments yet. Invoices will show here after your first completed
-        order.
-      </div>
+      {hasCard && !adding ? (
+        <div className="account-ops-stack gap-3">
+          <div className="account-ops-note">
+            Card on file:{" "}
+            <strong>
+              {(profile.cardBrand || "Card").toUpperCase()} ····{" "}
+              {profile.cardLast4}
+            </strong>
+            {profile.cardExpMonth && profile.cardExpYear
+              ? ` · Expires ${profile.cardExpMonth}/${profile.cardExpYear}`
+              : null}
+          </div>
+          <p className="account-ops-note">
+            Charged after laundry is weighed and processed — never over
+            WhatsApp or text.
+          </p>
+          <div className="account-ops-save-row">
+            <button
+              type="button"
+              className="account-ops-btn"
+              onClick={() => setAdding(true)}
+            >
+              Replace card
+            </button>
+            <button
+              type="button"
+              className="account-ops-btn"
+              disabled={removing}
+              onClick={() => void onRemove()}
+            >
+              {removing ? "Removing…" : "Remove card"}
+            </button>
+          </div>
+        </div>
+      ) : (
+        <SaveCardPanel
+          customerName={profile.name}
+          onSaved={(card) => {
+            onCardChange(card);
+            setAdding(false);
+          }}
+        />
+      )}
+
+      {error ? <p className="account-ops-error">{error}</p> : null}
     </section>
   );
 }

@@ -155,6 +155,13 @@ export type UserProfile = {
   laundryPrefs: LaundryPrefs | null;
   /** Weekly automated pickups — cancel anytime from Account. */
   weeklyRepeatEnabled: boolean;
+  /** Stripe card on file (written by Cloud Functions only). */
+  stripeCustomerId: string;
+  stripePaymentMethodId: string;
+  cardBrand: string;
+  cardLast4: string;
+  cardExpMonth: number | null;
+  cardExpYear: number | null;
 };
 
 export function defaultProfile(uid: string, email: string): UserProfile {
@@ -177,6 +184,12 @@ export function defaultProfile(uid: string, email: string): UserProfile {
     careNotes: "",
     laundryPrefs: null,
     weeklyRepeatEnabled: false,
+    stripeCustomerId: "",
+    stripePaymentMethodId: "",
+    cardBrand: "",
+    cardLast4: "",
+    cardExpMonth: null,
+    cardExpYear: null,
   };
 }
 
@@ -204,6 +217,14 @@ export async function getUserProfile(uid: string): Promise<UserProfile | null> {
     careNotes: String(data.careNotes ?? ""),
     laundryPrefs: parseLaundryPrefs(data.laundryPrefs),
     weeklyRepeatEnabled: Boolean(data.weeklyRepeatEnabled),
+    stripeCustomerId: String(data.stripeCustomerId ?? ""),
+    stripePaymentMethodId: String(data.stripePaymentMethodId ?? ""),
+    cardBrand: String(data.cardBrand ?? ""),
+    cardLast4: String(data.cardLast4 ?? ""),
+    cardExpMonth:
+      typeof data.cardExpMonth === "number" ? data.cardExpMonth : null,
+    cardExpYear:
+      typeof data.cardExpYear === "number" ? data.cardExpYear : null,
   };
 }
 
@@ -224,7 +245,16 @@ function parseLaundryPrefs(raw: unknown): LaundryPrefs | null {
 
 export async function saveUserProfile(
   uid: string,
-  input: Omit<UserProfile, "uid">
+  input: Omit<
+    UserProfile,
+    | "uid"
+    | "stripeCustomerId"
+    | "stripePaymentMethodId"
+    | "cardBrand"
+    | "cardLast4"
+    | "cardExpMonth"
+    | "cardExpYear"
+  >
 ) {
   await setDoc(
     doc(getFirebaseDb(), "users", uid),

@@ -79,13 +79,18 @@ export function getFirebaseApp() {
   return getApps().length ? getApp() : initializeApp(firebaseConfig);
 }
 
-function getStaffFirebaseApp(): FirebaseApp {
+export function getStaffFirebaseApp(): FirebaseApp {
   assertConfig();
   try {
     return getApp(STAFF_APP_NAME);
   } catch {
     return initializeApp(firebaseConfig, STAFF_APP_NAME);
   }
+}
+
+/** True while /ops or /driver has bound the isolated staff backend. */
+export function isStaffBackendBound() {
+  return staffBackendBound;
 }
 
 function initAuth(

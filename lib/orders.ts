@@ -398,6 +398,8 @@ export type FoamOrder = {
   weightLbs?: number | null;
   dryCleanItems?: DryCleanItem[];
   finalTotal?: number | null;
+  paymentStatus?: "unpaid" | "pending" | "paid" | "failed" | string;
+  stripePaymentIntentId?: string | null;
   opsNotes?: string;
   opsIssue?: string;
   refundStatus?: RefundStatus | string;

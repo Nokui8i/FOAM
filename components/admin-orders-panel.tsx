@@ -64,6 +64,10 @@ import { getFirebaseAuth, getFirebaseDb } from "@/lib/firebase";
 import { uploadOrderPhoto } from "@/lib/order-photos";
 import { releasePickupSlot } from "@/lib/pickup-availability";
 import {
+  chargeOrder,
+  stripeCallableErrorMessage,
+} from "@/lib/stripe-api";
+import {
   subscribeAllStaff,
   type StaffProfile,
 } from "@/lib/staff-access";
@@ -364,6 +368,12 @@ function mapOrder(id: string, data: Record<string, unknown>): FoamOrder {
     promoCode: String(data.promoCode ?? pricing?.promoCode ?? ""),
     weightLbs: typeof data.weightLbs === "number" ? data.weightLbs : null,
     finalTotal: typeof data.finalTotal === "number" ? data.finalTotal : null,
+    paymentStatus:
+      typeof data.paymentStatus === "string" ? data.paymentStatus : undefined,
+    stripePaymentIntentId:
+      typeof data.stripePaymentIntentId === "string"
+        ? data.stripePaymentIntentId
+        : null,
     dryCleanItems: Array.isArray(data.dryCleanItems)
       ? (data.dryCleanItems as DryCleanItem[]).filter(
           (item) =>
@@ -1332,51 +1342,57 @@ export function AdminOrdersPanel({
     const finalTotal =
       Math.round((subtotal - promoOff + tip) * 100) / 100;
 
-    await patchOrder(
-      {
-        ...(hasLaundry ? { weightLbs: lbs } : {}),
+    setSaving(true);
+    setError("");
+    setOkMsg("");
+    try {
+      await chargeOrder({
+        orderId: selected.id,
+        weightLbs: hasLaundry ? lbs : undefined,
         dryCleanItems: dryItems,
         finalTotal,
-        status: "washing",
-        "pricing.finalTotalPending": false,
-        ...(promoCodeUsed
-          ? {
-              "pricing.promoApplied": true,
-              "pricing.promoDiscountAmount": promoOff,
-              "pricing.promoLabel": promoLabel,
-            }
-          : {}),
-      },
-      promoOff > 0
-        ? `Charged · $${finalTotal.toFixed(2)} · ${promoLabel} · At laundry`
-        : `Charged · $${finalTotal.toFixed(2)} · At laundry`
-    );
+        promoCodeUsed: promoCodeUsed || undefined,
+        promoDiscountAmount: promoOff > 0 ? promoOff : undefined,
+        promoLabel: promoLabel || undefined,
+      });
 
-    if (promoCodeUsed && promoOff > 0) {
-      await recordPromoUse(promoCodeUsed);
-    }
-
-    if (selected.pickup.repeat || selected.pickup.repeatRequested) {
-      try {
-        const next = await ensureNextWeeklyOrder(
-          { ...selected, status: "washing" },
-          { linkFromAdmin: true }
-        );
-        if (next.created && next.nextDate) {
-          setOkMsg(
-            `Charged · $${finalTotal.toFixed(2)} · next weekly queued ${next.nextDate}`
-          );
-        }
-      } catch (err) {
-        setError(
-          `Charged, but failed to queue next weekly pickup: ${
-            err instanceof Error ? err.message : "unknown error"
-          }. Refresh Ops to reconcile.`
-        );
+      if (promoCodeUsed && promoOff > 0) {
+        await recordPromoUse(promoCodeUsed);
       }
-    }
 
-    setFilter("progress", { keepSelection: true });
+      let ok =
+        promoOff > 0
+          ? `Charged · $${finalTotal.toFixed(2)} · ${promoLabel} · At laundry`
+          : `Charged · $${finalTotal.toFixed(2)} · At laundry`;
+
+      if (selected.pickup.repeat || selected.pickup.repeatRequested) {
+        try {
+          const next = await ensureNextWeeklyOrder(
+            { ...selected, status: "washing", finalTotal },
+            { linkFromAdmin: true }
+          );
+          if (next.created && next.nextDate) {
+            ok = `Charged · $${finalTotal.toFixed(2)} · next weekly queued ${next.nextDate}`;
+          }
+        } catch (err) {
+          setError(
+            `Charged, but failed to queue next weekly pickup: ${
+              err instanceof Error ? err.message : "unknown error"
+            }. Refresh Ops to reconcile.`
+          );
+          setOkMsg(ok);
+          setFilter("progress", { keepSelection: true });
+          return;
+        }
+      }
+
+      setOkMsg(ok);
+      setFilter("progress", { keepSelection: true });
+    } catch (err) {
+      setError(stripeCallableErrorMessage(err));
+    } finally {
+      setSaving(false);
+    }
   }
 
   const previewBreakdown = useMemo(() => {
