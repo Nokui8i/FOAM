@@ -12,6 +12,7 @@ import "./globals.css";
 
 import { MobileNavDrawer } from "@/components/mobile-nav";
 import { AuthProvider } from "@/components/auth-provider";
+import { CapacitorNativeBoot } from "@/components/capacitor-native-boot";
 
 const SCROLL_RESTORATION_SCRIPT = `(function(){try{if('scrollRestoration' in history){history.scrollRestoration='manual';}function r(){if(!location.hash){window.scrollTo(0,0);}}r();window.addEventListener('pageshow',r);}catch(e){}})();`;
 
@@ -59,6 +60,7 @@ export default function RootLayout({
         ) : null}
       </head>
       <body className="antialiased">
+        <CapacitorNativeBoot />
         <AuthProvider>
           <MobileNavDrawer />
           {children}
