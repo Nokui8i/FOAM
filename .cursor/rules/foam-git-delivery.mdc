@@ -1,0 +1,42 @@
+---
+description: No automatic git commits, pushes, or Firebase/production deployments
+alwaysApply: true
+---
+
+# FOAM git & delivery safety
+
+## Never automatic
+
+Without an **explicit request in the current conversation**, do **not**:
+
+- `git commit`
+- `git push` (any form)
+- force push
+- `firebase deploy` (any target)
+- deploy Hosting, Functions, Firestore rules, or indexes
+- change production infrastructure as a side effect of coding
+- treat deployment as an invisible final step
+
+User-rule git safety still applies: commit/push only when asked; no destructive git.
+
+## Web “done”
+
+Firebase Hosting deploy happens **only** when the user explicitly asks.
+
+Do **not** define completion as “pushed + hosted” unless they requested that.
+
+## Mobile “done”
+
+Mobile work must **not** define done as a Firebase Hosting deployment.
+
+Completion means:
+
+- code implemented
+- tests pass (when present)
+- local/dev build works
+- emulator/device verification completed
+- EAS Build **only** when explicitly requested
+
+App Store / Google Play submission is **never** automatic.
+
+Prefer Expo Development Builds for day-to-day mobile work.

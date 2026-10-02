@@ -306,7 +306,9 @@ async function ensureStaffProfileOnce(
   try {
     snap = await getDocFromServer(ref);
   } catch {
-    snap = await getDoc(ref);
+    throw new Error(
+      "Could not reach Firestore to check staff access. Check network and try again."
+    );
   }
 
   let shouldRecreate = !snap.exists();
@@ -430,7 +432,7 @@ async function ensureStaffProfileOnce(
     );
   }
 
-  // Confirm the row reached the server — local cache alone is not enough.
+  // Confirm the row reached the server — never claim pending from cache alone.
   try {
     const confirmed = await getDocFromServer(ref);
     if (!confirmed.exists()) {
@@ -444,17 +446,19 @@ async function ensureStaffProfileOnce(
     if (error instanceof Error && error.message.includes("did not save")) {
       throw error;
     }
+    try {
+      const again = await getDocFromServer(ref);
+      if (again.exists()) {
+        return mapStaffProfile(
+          user.uid,
+          again.data() as Record<string, unknown>
+        );
+      }
+    } catch {
+      /* fall through */
+    }
+    throw new Error("Staff request did not save. Try again.");
   }
-
-  return {
-    uid: user.uid,
-    email,
-    displayName,
-    role,
-    status,
-    requestedPortal: portal,
-    reviewedBy: bootstrapAdmin ? "bootstrap" : null,
-  };
 }
 
 export function subscribeStaffProfile(
@@ -642,6 +646,16 @@ export async function removeStaffMember(
 /** Company owners — fixed allowlist; full Staff HR powers. */
 export function isCompanyOwner(email?: string | null) {
   return isAdminEmail(email);
+}
+
+/** Owners, admins, and managers may issue Stripe refunds (never drivers). */
+export function canIssueRefunds(
+  profile: StaffProfile | null,
+  email?: string | null
+) {
+  if (isCompanyOwner(email)) return true;
+  if (!profile || profile.status !== "approved") return false;
+  return profile.role === "admin" || profile.role === "manager";
 }
 
 /** Can open Staff page: owners, approved admins, approved managers. */

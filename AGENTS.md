@@ -1,3 +1,12 @@
+These instructions apply to the existing Next.js web application and related web tooling only.
+
+They do not govern React Native / Expo code under:
+
+- `mobile/`
+- `packages/foam-staff-core/`
+
+For React Native / Expo work, follow the applicable FOAM project rules under `.cursor/rules/`.
+
 <!-- BEGIN:nextjs-agent-rules -->
 
 # This is NOT the Next.js you know

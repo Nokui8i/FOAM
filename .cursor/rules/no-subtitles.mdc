@@ -1,16 +1,24 @@
 ---
-description: Never add subtitles, subtext, helper lines, or explanatory lead paragraphs under headings
-alwaysApply: true
+description: Web UI — never add subtitles or helper lines under headings
+globs: app/**/*,components/**/*,preview-sections/**/*
+alwaysApply: false
 ---
 
-# No subtitles / subtext
+# No subtitles / subtext (Next.js web UI only)
+
+This rule applies to the **Next.js web** application surfaces matched by the globs above.
+
+It does **not** apply to React Native / Expo screens, and must not be treated as a global mobile UI requirement.
 
 Do **not** add secondary copy under titles, section headings, or panel names.
 
 Forbidden patterns include:
+
 - Subtitles / subtext / helper lines under an `h1` / `h2` / section title
 - Lead paragraphs like “Contact and pickup address — reused on…”
 - Explanatory one-liners under “Personal details”, “Preferences”, etc.
 - Marketing-style supporting sentences that only restate the heading
 
 Use the heading alone. Put needed explanation inside the control, note box, empty state, or field label — not as a subtitle under the title.
+
+Marketing/landing “hero supporting sentence” design preferences must not override this web product rule, and must not become requirements for mobile UI.

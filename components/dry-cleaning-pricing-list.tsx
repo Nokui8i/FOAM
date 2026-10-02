@@ -14,7 +14,7 @@ import {
 const MINIMUM_ROWS = [
   {
     name: "Dry Cleaning (Add on)",
-    price: "$25 minimum when added to your laundry order",
+    price: "Priced per item — no separate minimum with laundry",
   },
   {
     name: "Dry Cleaning Only",

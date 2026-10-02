@@ -1,13 +1,18 @@
 ---
-description: Booking form progress must never be saved or restored
+description: Web /book booking form progress must never be saved or restored
 alwaysApply: true
 ---
 
-# Booking form — no draft persistence
+# Booking form — no draft persistence (Next.js web only)
+
+This rule applies **only** to the Next.js web `/book` flow.
+
+It does **not** apply to React Native / Expo apps unless a future booking product rule is added for mobile.
 
 Leaving `/book` always means start over from the beginning.
 
 Do **not**:
+
 - Save booking draft to `sessionStorage` / `localStorage`
 - Restore a previous step or form values when reopening `/book`
 - Sync an in-progress booking draft from the account page

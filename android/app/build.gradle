@@ -1,10 +1,10 @@
 apply plugin: 'com.android.application'
 
 android {
-    namespace = "app.foam.laundry"
+    namespace = "app.foam.ops"
     compileSdk = rootProject.ext.compileSdkVersion
     defaultConfig {
-        applicationId "app.foam.laundry"
+        applicationId "app.foam.ops"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1

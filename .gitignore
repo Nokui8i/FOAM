@@ -38,6 +38,8 @@ yarn-error.log*
 functions/.env
 functions/.env.*
 !functions/.env.example
+!mobile/driver/.env.example
+!mobile/ops/.env.example
 
 # vercel
 .vercel

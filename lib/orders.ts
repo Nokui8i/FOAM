@@ -1,5 +1,6 @@
 import {
   DELIVERY_FEE_USD,
+  DRY_CLEAN_ONLY_MIN_USD,
   MIN_ORDER_USD,
   RATE_STANDARD_PER_LB_USD,
   RATE_WEEKLY_PER_LB_USD,
@@ -153,6 +154,50 @@ export function isOrderCharged(order: {
     order.status === "out_for_delivery" ||
     order.status === "delivered"
   );
+}
+
+/** Card charge failed — managers need to close / cancel if unpaid. */
+export function isPaymentFailed(order: {
+  paymentStatus?: string | null;
+  status?: OrderStatus;
+}): boolean {
+  if (order.status === "cancelled" || order.status === "delivered") return false;
+  return order.paymentStatus === "failed";
+}
+
+/** List / detail badge for ops. Payment fail overrides stage label. */
+export function orderOpsBadge(order: {
+  status: OrderStatus;
+  paymentStatus?: string | null;
+}): { label: string; className: string } {
+  if (isPaymentFailed(order)) {
+    return { label: "Payment failed", className: "is-payment-fail" };
+  }
+  return {
+    label: orderListBadge(order.status),
+    className: listBadgeClassName(order.status),
+  };
+}
+
+function listBadgeClassName(status: OrderStatus) {
+  switch (status) {
+    case "new":
+      return "is-waiting";
+    case "confirmed":
+      return "is-en-route";
+    case "picked_up":
+    case "weighed":
+    case "washing":
+      return "is-progress";
+    case "out_for_delivery":
+      return "is-en-route";
+    case "delivered":
+      return "is-ready";
+    case "cancelled":
+      return "is-cancelled";
+    default:
+      return "is-waiting";
+  }
 }
 
 /** Visual pipeline (ops + customer). */
@@ -348,6 +393,29 @@ export function dryCleanItemsTotal(items?: DryCleanItem[] | null): number {
   return Math.round(sum * 100) / 100;
 }
 
+/** Dry-clean floor — only when the order is dry cleaning alone (no laundry). */
+export function dryCleanMinimumUsd(hasLaundry: boolean) {
+  return hasLaundry ? 0 : DRY_CLEAN_ONLY_MIN_USD;
+}
+
+/**
+ * Apply $50 dry-cleaning minimum only for dry-clean-only orders.
+ * With laundry, dry items are charged at catalog totals (no extra floor).
+ */
+export function applyDryCleanMinimum(opts: {
+  dryTotal: number;
+  hasLaundry: boolean;
+  hasDryCleaning: boolean;
+}): number {
+  const involved = opts.hasDryCleaning || opts.dryTotal > 0;
+  if (!involved) return 0;
+  if (opts.hasLaundry) {
+    return Math.round(opts.dryTotal * 100) / 100;
+  }
+  const min = DRY_CLEAN_ONLY_MIN_USD;
+  return Math.round(Math.max(opts.dryTotal, min) * 100) / 100;
+}
+
 export type FoamOrder = {
   id: string;
   status: OrderStatus;
@@ -399,6 +467,7 @@ export type FoamOrder = {
   dryCleanItems?: DryCleanItem[];
   finalTotal?: number | null;
   paymentStatus?: "unpaid" | "pending" | "paid" | "failed" | string;
+  paymentError?: string;
   stripePaymentIntentId?: string | null;
   opsNotes?: string;
   opsIssue?: string;

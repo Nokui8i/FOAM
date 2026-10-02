@@ -1,8 +1,9 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <resources>
     <color name="colorPrimary">#050505</color>
     <color name="colorPrimaryDark">#050505</color>
     <color name="colorAccent">#8FE5FF</color>
-    <color name="splashBackground">#050505</color>
-    <color name="statusBar">#FFFFFF</color>
+    <color name="splashBackground">#FFFFFF</color>
+    <color name="splashSky">#FFFFFF</color>
+    <color name="statusBar">#050505</color>
 </resources>

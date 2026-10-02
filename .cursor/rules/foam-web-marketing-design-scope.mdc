@@ -1,0 +1,18 @@
+---
+description: Scope marketing design guidance to web landing only — not mobile/native
+alwaysApply: true
+---
+
+# Frontend design scope (FOAM)
+
+Any marketing/landing-page design preferences (hero composition, brand-first landing viewport, full-bleed hero, anti-generic-landing patterns, etc.) apply **only** to the existing FOAM **web marketing / landing-page** UI.
+
+They must **not** govern:
+
+- React Native or Expo
+- FOAM Driver or FOAM OPS (web consoles or native)
+- native navigation
+- native mobile components
+- mobile UX patterns
+
+For product UI (booking, account, ops, driver) and for all mobile work, follow existing FOAM product/project rules and platform-appropriate patterns instead of landing-page marketing rules.

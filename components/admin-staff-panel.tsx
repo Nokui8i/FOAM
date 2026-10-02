@@ -110,9 +110,12 @@ export function AdminStaffPanel({
     let next = mergeStaffWithBootstrap(serverRows);
     for (const [uid, patch] of patchesRef.current) {
       if (patch === "removed") {
-        next = next.filter((r) => r.uid !== uid);
-        if (!serverRows.some((r) => r.uid === uid)) {
+        // If the uid reappears on the server (e.g. deleted employee re-requests
+        // access), clear the stale optimistic remove so Pending can show again.
+        if (serverRows.some((r) => r.uid === uid)) {
           patchesRef.current.delete(uid);
+        } else {
+          next = next.filter((r) => r.uid !== uid);
         }
         continue;
       }

@@ -2,62 +2,84 @@ const sharp = require("sharp");
 const fs = require("fs");
 const path = require("path");
 
-const BG = "#050505";
-const ACCENT = "#8fe5ff";
 const outDir = path.join(__dirname, "..", "assets");
+const publicDir = path.join(__dirname, "..", "public");
+
+const iconCandidates = [
+  path.join(outDir, "ops-icon-source.png"),
+  path.join(publicDir, "foam-ops-app-icon.png"),
+  path.join(publicDir, "ChatGPT Image Oct 1, 2026, 11_27_16 AM.png"),
+];
+
+const splashCandidates = [
+  path.join(outDir, "ops-splash-source.png"),
+  path.join(publicDir, "foam-ops-splash.png"),
+  path.join(publicDir, "ChatGPT Image Oct 1, 2026, 11_39_35 AM.png"),
+];
 
 fs.mkdirSync(outDir, { recursive: true });
 
-const iconSvg = Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 64 64">
-  <rect width="64" height="64" rx="14" fill="${BG}"/>
-  <circle cx="47" cy="17" r="8" fill="${ACCENT}"/>
-  <path d="M18 16h25v8H28v7h13v8H28v13H18V16Z" fill="#fff"/>
-</svg>`);
-
-const iconOnlySvg = Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 64 64">
-  <circle cx="47" cy="17" r="8" fill="${ACCENT}"/>
-  <path d="M18 16h25v8H28v7h13v8H28v13H18V16Z" fill="#fff"/>
-</svg>`);
-
-const bgSvg = Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 64 64">
-  <rect width="64" height="64" fill="${BG}"/>
-</svg>`);
+function firstExisting(paths) {
+  return paths.find((p) => fs.existsSync(p));
+}
 
 async function main() {
-  await sharp(iconSvg).png().toFile(path.join(outDir, "logo.png"));
-  await sharp(iconSvg).png().toFile(path.join(outDir, "icon.png"));
-  await sharp(iconSvg).png().toFile(path.join(outDir, "logo-dark.png"));
-  await sharp(iconOnlySvg).png().toFile(path.join(outDir, "icon-only.png"));
-  await sharp(iconOnlySvg).png().toFile(path.join(outDir, "icon-foreground.png"));
-  await sharp(bgSvg).png().toFile(path.join(outDir, "icon-background.png"));
+  const iconSrc = firstExisting(iconCandidates);
+  const splashSrc = firstExisting(splashCandidates);
+  if (!iconSrc) throw new Error("OPS icon source missing");
+  if (!splashSrc) throw new Error("OPS splash source missing");
 
-  const logoPath = path.join(__dirname, "..", "public", "foam-ops-logo-on-dark.png");
-  const logo = await sharp(logoPath)
-    .resize(1600, 1600, {
-      fit: "inside",
-      background: { r: 0, g: 0, b: 0, alpha: 0 },
-    })
+  const iconStable = path.join(outDir, "ops-icon-source.png");
+  const splashStable = path.join(outDir, "ops-splash-source.png");
+  if (path.resolve(iconSrc) !== path.resolve(iconStable)) {
+    fs.copyFileSync(iconSrc, iconStable);
+  }
+  if (path.resolve(splashSrc) !== path.resolve(splashStable)) {
+    fs.copyFileSync(splashSrc, splashStable);
+  }
+  fs.copyFileSync(iconStable, path.join(publicDir, "foam-ops-app-icon.png"));
+  fs.copyFileSync(splashStable, path.join(publicDir, "foam-ops-splash.png"));
+
+  const size = 1024;
+  const square = await sharp(iconStable)
+    .resize(size, size, { fit: "cover", position: "centre" })
     .png()
     .toBuffer();
 
-  const meta = await sharp(logo).metadata();
-  const w = meta.width || 1600;
-  const h = meta.height || 400;
-  const canvas = 2732;
-  const left = Math.round((canvas - w) / 2);
-  const top = Math.round((canvas - h) / 2);
+  for (const name of [
+    "logo.png",
+    "icon.png",
+    "logo-dark.png",
+    "icon-only.png",
+    "icon-foreground.png",
+  ]) {
+    await sharp(square).toFile(path.join(outDir, name));
+  }
 
-  const splash = sharp({
+  await sharp({
     create: {
-      width: canvas,
-      height: canvas,
+      width: size,
+      height: size,
       channels: 3,
-      background: BG,
+      background: "#1a8cff",
     },
-  }).composite([{ input: logo, left, top }]);
+  })
+    .png()
+    .toFile(path.join(outDir, "icon-background.png"));
 
-  await splash.clone().png().toFile(path.join(outDir, "splash.png"));
-  await splash.clone().png().toFile(path.join(outDir, "splash-dark.png"));
+  // Splash: exact art centered on black (phone letterbox).
+  // 2048 keeps APK smaller while still looking sharp on phones.
+  const canvas = 2048;
+  const fitted = await sharp(splashStable)
+    .resize(canvas, canvas, {
+      fit: "contain",
+      background: { r: 0, g: 0, b: 0, alpha: 1 },
+    })
+    .png({ compressionLevel: 9 })
+    .toBuffer();
+
+  await sharp(fitted).toFile(path.join(outDir, "splash.png"));
+  await sharp(fitted).toFile(path.join(outDir, "splash-dark.png"));
 
   for (const f of fs.readdirSync(outDir)) {
     const s = fs.statSync(path.join(outDir, f));

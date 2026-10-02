@@ -1,0 +1,35 @@
+---
+description: Mobile client checks are UX only — real auth stays server/rules
+alwaysApply: true
+---
+
+# FOAM mobile security
+
+## Real authorization
+
+Client-side checks are UX only.
+
+Enforce authorization with:
+
+- Firebase Security Rules
+- Cloud Functions
+- existing server-side authorization mechanisms
+
+Never treat these as the security boundary:
+
+- hidden UI buttons
+- client state / local storage / local role flags
+- navigation guards alone
+
+## Privileges & credentials
+
+- Never put privileged credentials in the mobile app
+- Do not weaken Firebase rules to make mobile easier
+- Do not bypass existing staff authorization
+- Staff roles/access must follow the existing FOAM authorization model
+
+If mobile work needs a backend authorization change: **STOP** and request explicit approval.
+
+## Logging
+
+Never log: passwords, tokens, private keys, authentication credentials, or sensitive customer information unnecessarily.

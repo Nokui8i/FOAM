@@ -28,14 +28,20 @@
 
 /* Close under the fixed header — header stays the top boundary */
 .account-ops-page .account-section {
-  padding-top: 4.85rem;
+  padding-top: 3.75rem;
   padding-bottom: 1rem;
 }
 
 @media (min-width: 640px) {
   .account-ops-page .account-section {
-    padding-top: 5rem;
+    padding-top: 3.75rem;
     padding-bottom: 1rem;
+  }
+}
+
+@media (min-width: 768px) {
+  .account-ops-page .account-section {
+    padding-top: 4.25rem;
   }
 }
 
@@ -76,9 +82,15 @@
     flex: 1 1 auto;
     min-height: 0;
     height: 100%;
-    padding-top: 4.85rem;
+    padding-top: 3.75rem;
     padding-bottom: 0;
     overflow: hidden;
+  }
+
+  @media (min-width: 768px) {
+    .account-ops-page:has(.account-ops-frame) .account-section {
+      padding-top: 4.25rem;
+    }
   }
 
   .account-ops-page:has(.account-ops-frame) .account-section > .site-shell {
@@ -113,6 +125,32 @@
     border: 0;
     border-radius: 0;
     box-shadow: none;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .account-ops-page:has(.account-ops-frame) .account-ops-plane-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+    padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .account-ops-page:has(.account-ops-frame) .account-ops-plane-body.is-orders {
+    overflow: hidden;
+    padding-bottom: 0;
+  }
+
+  .account-ops-page:has(.account-ops-frame) .account-ops-save-card-form {
+    padding-bottom: 8px;
+  }
+
+  .account-ops-page:has(.account-ops-frame) .account-ops-save-card-btn {
+    margin-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
   }
 }
 
@@ -555,7 +593,7 @@
 
 .account-ops-btn.is-primary {
   color: #fff;
-  background: var(--ops-sky);
+  background: var(--ops-sky, #00a8d8);
   box-shadow: 0 8px 18px -10px rgba(0, 168, 216, 0.7);
 }
 
@@ -1459,6 +1497,20 @@ button.account-ops-control {
   gap: 14px;
 }
 
+.account-ops-save-card-form {
+  display: grid;
+  gap: 16px;
+}
+
+.account-ops-save-card-btn {
+  margin-top: 18px;
+  margin-bottom: 8px;
+  width: fit-content;
+  min-width: 140px;
+  color: #fff;
+  background: var(--ops-sky, #00a8d8);
+}
+
 .account-ops-payments-demo-flag {
   margin-top: 0;
 }
@@ -1555,13 +1607,18 @@ button.account-ops-control {
 
 .account-ops-pay-invoices li {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
   padding: 12px 14px;
   border: 1px solid var(--ops-border);
   border-radius: 12px;
   background: #fff;
+}
+
+.account-ops-pay-invoice-main {
+  min-width: 0;
+  flex: 1;
 }
 
 .account-ops-pay-invoices li strong {
@@ -1571,11 +1628,31 @@ button.account-ops-control {
   font-weight: 750;
 }
 
-.account-ops-pay-invoices li span {
+.account-ops-pay-invoice-main > span {
   display: block;
   margin-top: 3px;
   color: var(--ops-muted);
   font-size: 12px;
+}
+
+.account-ops-pay-invoice-details {
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 3px;
+}
+
+.account-ops-pay-invoice-details li {
+  display: block;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--ops-muted);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.35;
 }
 
 .account-ops-pay-invoice-right {

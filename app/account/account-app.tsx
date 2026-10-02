@@ -715,6 +715,7 @@ function AccountProfile({
 
             {activeTab === "Payments" ? (
               <PaymentsPanel
+                uid={uid}
                 profile={profile}
                 onCardChange={(card) =>
                   setProfile({
@@ -738,9 +739,11 @@ function AccountProfile({
 
 function PaymentsPanel({
   profile,
+  uid,
   onCardChange,
 }: {
   profile: UserProfile;
+  uid: string;
   onCardChange: (card: {
     brand: string;
     last4: string;
@@ -751,7 +754,174 @@ function PaymentsPanel({
   const [adding, setAdding] = useState(false);
   const [removing, setRemoving] = useState(false);
   const [error, setError] = useState("");
+  const [invoices, setInvoices] = useState<
+    {
+      id: string;
+      label: string;
+      when: string;
+      amount: string;
+      status: string;
+      details: string[];
+    }[]
+  >([]);
   const hasCard = Boolean(profile.cardLast4);
+  const brandLabel = (profile.cardBrand || "Card").replace(/^./, (c) =>
+    c.toUpperCase()
+  );
+  const expLabel =
+    profile.cardExpMonth && profile.cardExpYear
+      ? `Exp ${String(profile.cardExpMonth).padStart(2, "0")}/${String(
+          profile.cardExpYear
+        ).slice(-2)}`
+      : "";
+
+  useEffect(() => {
+    let alive = true;
+    let unsub = () => {};
+
+    async function loadInvoices() {
+      try {
+        const {
+          collection,
+          limit,
+          onSnapshot,
+          orderBy,
+          query,
+          where,
+        } = await import("firebase/firestore");
+        const { getFirebaseDb } = await import("@/lib/firebase");
+        const { orderDisplayId, dryCleanItemsTotal } = await import(
+          "@/lib/orders"
+        );
+        const q = query(
+          collection(getFirebaseDb(), "orders"),
+          where("uid", "==", uid),
+          orderBy("createdAt", "desc"),
+          limit(40)
+        );
+        unsub = onSnapshot(
+          q,
+          (snap) => {
+            if (!alive) return;
+            const rows = snap.docs
+              .map((docSnap) => {
+                const data = docSnap.data();
+                const paid =
+                  data.paymentStatus === "paid" ||
+                  typeof data.finalTotal === "number";
+                if (!paid) return null;
+                const total =
+                  typeof data.finalTotal === "number" ? data.finalTotal : null;
+                const paidAt = data.paidAt?.toDate?.() as Date | undefined;
+                const createdAt = data.createdAt?.toDate?.() as
+                  | Date
+                  | undefined;
+                const whenDate = paidAt || createdAt;
+                const pickupDate = String(data.pickup?.date ?? "");
+                const weightLbs =
+                  typeof data.weightLbs === "number" ? data.weightLbs : null;
+                const tip =
+                  typeof data.tip === "number"
+                    ? data.tip
+                    : typeof data.pricing?.tip === "number"
+                      ? data.pricing.tip
+                      : 0;
+                const dryRaw = Array.isArray(data.dryCleanItems)
+                  ? (data.dryCleanItems as { name?: string; price?: number }[])
+                  : [];
+                const dryGroups = new Map<
+                  string,
+                  { name: string; price: number; qty: number }
+                >();
+                for (const item of dryRaw) {
+                  const name = String(item?.name || "").trim();
+                  const price = Number(item?.price) || 0;
+                  if (!name) continue;
+                  const existing = dryGroups.get(name);
+                  if (existing) existing.qty += 1;
+                  else dryGroups.set(name, { name, price, qty: 1 });
+                }
+                const dryTotal = dryCleanItemsTotal(
+                  dryRaw.map((item) => ({
+                    name: String(item?.name || ""),
+                    price: Number(item?.price) || 0,
+                  }))
+                );
+                const details: string[] = [];
+                details.push(`Order ${orderDisplayId(docSnap.id)}`);
+                if (weightLbs != null && weightLbs > 0) {
+                  details.push(`Laundry · ${weightLbs} lb`);
+                }
+                for (const group of dryGroups.values()) {
+                  const lineTotal = Math.round(group.price * group.qty * 100) / 100;
+                  details.push(
+                    group.qty > 1
+                      ? `Dry clean · ${group.name} × ${group.qty} · $${lineTotal.toFixed(2)}`
+                      : `Dry clean · ${group.name} · $${group.price.toFixed(2)}`
+                  );
+                }
+                if (dryGroups.size === 0 && dryTotal > 0) {
+                  details.push(`Dry clean · $${dryTotal.toFixed(2)}`);
+                }
+                if (tip > 0) {
+                  details.push(`Tip · $${tip.toFixed(2)}`);
+                }
+                const promoLabel =
+                  typeof data.pricing?.promoLabel === "string"
+                    ? data.pricing.promoLabel.trim()
+                    : "";
+                const promoOff =
+                  typeof data.pricing?.promoDiscountAmount === "number"
+                    ? data.pricing.promoDiscountAmount
+                    : 0;
+                if (promoLabel && promoOff > 0) {
+                  details.push(`${promoLabel} · −$${promoOff.toFixed(2)}`);
+                }
+
+                return {
+                  id: docSnap.id,
+                  label: pickupDate
+                    ? `${pickupDate} pickup`
+                    : `Order ${orderDisplayId(docSnap.id)}`,
+                  when: whenDate
+                    ? whenDate.toLocaleDateString("en-US", {
+                        month: "short",
+                        day: "numeric",
+                        year: "numeric",
+                      })
+                    : "",
+                  amount: total != null ? `$${total.toFixed(2)}` : "—",
+                  status:
+                    data.paymentStatus === "paid"
+                      ? "Paid"
+                      : data.paymentStatus === "failed"
+                        ? "Failed"
+                        : "Charged",
+                  details,
+                  sortAt: whenDate?.getTime() ?? 0,
+                };
+              })
+              .filter((row): row is NonNullable<typeof row> => row != null)
+              .sort((a, b) => b.sortAt - a.sortAt)
+              .slice(0, 8)
+              .map(({ sortAt: _sortAt, ...row }) => row);
+            setInvoices(rows);
+          },
+          () => {
+            if (alive) setInvoices([]);
+          }
+        );
+      } catch {
+        if (alive) setInvoices([]);
+      }
+    }
+
+    void loadInvoices();
+    return () => {
+      alive = false;
+      unsub();
+    };
+  }, [uid]);
 
   async function onRemove() {
     setRemoving(true);
@@ -785,49 +955,102 @@ function PaymentsPanel({
     >
       <PanelIntro title="Payments" />
 
-      {hasCard && !adding ? (
-        <div className="account-ops-stack gap-3">
-          <div className="account-ops-note">
-            Card on file:{" "}
-            <strong>
-              {(profile.cardBrand || "Card").toUpperCase()} ····{" "}
-              {profile.cardLast4}
-            </strong>
-            {profile.cardExpMonth && profile.cardExpYear
-              ? ` · Expires ${profile.cardExpMonth}/${profile.cardExpYear}`
-              : null}
-          </div>
-          <p className="account-ops-note">
-            Charged after laundry is weighed and processed — never over
-            WhatsApp or text.
-          </p>
-          <div className="account-ops-save-row">
-            <button
-              type="button"
-              className="account-ops-btn"
-              onClick={() => setAdding(true)}
-            >
-              Replace card
-            </button>
-            <button
-              type="button"
-              className="account-ops-btn"
-              disabled={removing}
-              onClick={() => void onRemove()}
-            >
-              {removing ? "Removing…" : "Remove card"}
-            </button>
-          </div>
-        </div>
-      ) : (
+      <div className="account-ops-note">
+        Card details are stored securely by Stripe — FOAM never sees or saves
+        your full card number.
+      </div>
+
+      {adding ? (
         <SaveCardPanel
           customerName={profile.name}
+          autoStart
           onSaved={(card) => {
             onCardChange(card);
             setAdding(false);
           }}
         />
+      ) : (
+        <div className="account-ops-pay-card">
+          <div className="account-ops-pay-card-top">
+            <span className="account-ops-pay-card-brand">
+              <CreditCard size={18} aria-hidden />
+              {hasCard ? "Card on file" : "No card yet"}
+            </span>
+            {hasCard ? (
+              <span className="account-ops-pay-card-chip">Default</span>
+            ) : null}
+          </div>
+          <p className="account-ops-pay-card-number">
+            {hasCard
+              ? `•••• •••• •••• ${profile.cardLast4}`
+              : "•••• •••• •••• ••••"}
+          </p>
+          <div className="account-ops-pay-card-meta">
+            <span>{hasCard ? brandLabel : "FOAM"}</span>
+            {hasCard && expLabel ? <span>{expLabel}</span> : null}
+          </div>
+          <div className="account-ops-pay-card-actions">
+            {hasCard ? (
+              <>
+                <button
+                  type="button"
+                  className="account-ops-btn is-ghost"
+                  onClick={() => setAdding(true)}
+                >
+                  Update card
+                </button>
+                <button
+                  type="button"
+                  className="account-ops-btn is-ghost"
+                  disabled={removing}
+                  onClick={() => void onRemove()}
+                >
+                  {removing ? "Removing…" : "Remove"}
+                </button>
+              </>
+            ) : (
+              <button
+                type="button"
+                className="account-ops-btn is-ghost"
+                onClick={() => setAdding(true)}
+              >
+                Add card
+              </button>
+            )}
+          </div>
+        </div>
       )}
+
+      <div className="account-ops-pay-invoices">
+        <h3>Recent invoices</h3>
+        {invoices.length === 0 ? (
+          <div className="account-ops-note">
+            No payments yet. Invoices will show here after your card is charged.
+          </div>
+        ) : (
+          <ul>
+            {invoices.map((row) => (
+              <li key={row.id}>
+                <div className="account-ops-pay-invoice-main">
+                  <strong>{row.label}</strong>
+                  <span>{row.when}</span>
+                  {row.details.length > 0 ? (
+                    <ul className="account-ops-pay-invoice-details">
+                      {row.details.map((line) => (
+                        <li key={line}>{line}</li>
+                      ))}
+                    </ul>
+                  ) : null}
+                </div>
+                <div className="account-ops-pay-invoice-right">
+                  <b>{row.amount}</b>
+                  <em>{row.status}</em>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
 
       {error ? <p className="account-ops-error">{error}</p> : null}
     </section>

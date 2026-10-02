@@ -1130,8 +1130,16 @@
   font-size: 12px;
   font-weight: 750;
 }
-.admin-page .ops-assign-select {
+.admin-page .ops-assign-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   flex: 1 1 180px;
+  min-width: 0;
+  max-width: 320px;
+}
+.admin-page .ops-assign-select {
+  flex: 1 1 auto;
   min-width: 0;
   max-width: 280px;
   min-height: 36px;
@@ -1145,6 +1153,37 @@
 }
 .admin-page .ops-assign-select:disabled {
   opacity: 0.65;
+}
+.admin-page .ops-assign-confirm {
+  flex: 0 0 auto;
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  color: var(--ops-primary, #0b8ec8);
+  background: transparent;
+  box-shadow: none;
+  cursor: pointer;
+}
+.admin-page .ops-assign-confirm:hover:not(:disabled) {
+  color: #0876a8;
+}
+.admin-page .ops-assign-confirm:disabled {
+  opacity: 0.45;
+  cursor: wait;
+}
+.admin-page .ops-assign-confirmed {
+  flex: 0 0 auto;
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  color: var(--ops-primary, #0b8ec8);
+  background: transparent;
 }
 .admin-page .ops-assign-readonly {
   margin: 10px 0 0;
@@ -1180,6 +1219,236 @@
 .admin-page .ops-status-pill.is-done,
 .admin-page .ops-status-pill.is-ready { color: var(--ops-success); background: #e8f5f2; }
 .admin-page .ops-status-pill.is-open { color: var(--ops-danger); background: #fbecea; }
+.admin-page .ops-status-pill.is-payment-fail,
+.admin-page .ops-status-pill.is-cancelled {
+  color: #b91c1c;
+  background: #fde8e8;
+}
+.admin-page .ops-row.is-payment-fail {
+  border-color: color-mix(in srgb, #dc2626 35%, var(--ops-border));
+  background: color-mix(in srgb, #dc2626 4%, #fff);
+}
+.admin-page .ops-row.is-payment-fail.is-active {
+  border-color: #dc2626;
+  box-shadow: 0 0 0 1px color-mix(in srgb, #dc2626 28%, transparent);
+}
+.admin-page .ops-payment-fail-banner {
+  display: grid;
+  gap: 4px;
+  margin: 0 0 12px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: color-mix(in srgb, #dc2626 10%, #fff);
+  color: #991b1b;
+  font-size: 13px;
+  line-height: 1.4;
+  font-weight: 650;
+}
+.admin-page .ops-payment-fail-banner strong {
+  font-size: 14px;
+  font-weight: 800;
+}
+.admin-page .ops-refund-controls {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  margin: 12px auto 0;
+  width: fit-content;
+  max-width: 100%;
+}
+.admin-page .future-stage.is-history .ops-refund-controls,
+.admin-page .locked-stage .ops-refund-controls {
+  margin-top: 14px;
+}
+.admin-page .ops-refund-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: auto;
+  min-height: 42px;
+  height: 42px;
+  padding: 0 16px;
+  border: 1px solid color-mix(in srgb, #dc2626 28%, #e8c5c5);
+  border-radius: 10px;
+  background: color-mix(in srgb, #dc2626 8%, #fff);
+  color: #b91c1c;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: none;
+  white-space: nowrap;
+}
+.admin-page .ops-refund-btn:hover:not(:disabled) {
+  background: color-mix(in srgb, #dc2626 14%, #fff);
+  border-color: color-mix(in srgb, #dc2626 42%, #e8c5c5);
+}
+.admin-page .ops-refund-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.admin-page .ops-topup-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: auto;
+  min-height: 42px;
+  height: 42px;
+  padding: 0 16px;
+  border: 1px solid color-mix(in srgb, var(--ops-primary) 35%, var(--ops-border));
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--ops-primary) 8%, #fff);
+  color: var(--ops-primary);
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: none;
+  white-space: nowrap;
+}
+.admin-page .ops-topup-btn:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--ops-primary) 14%, #fff);
+}
+.admin-page .ops-topup-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.admin-page .ops-adjust-pay-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+}
+.admin-page .ops-refund-amount-field {
+  display: grid;
+  gap: 6px;
+  margin: 12px 0 8px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ops-ink, #10233f);
+}
+.admin-page .ops-refund-amount-field input {
+  width: 100%;
+  height: 44px;
+  border-radius: 10px;
+  border: 1px solid var(--ops-border, #d5deea);
+  padding: 0 12px;
+  font-size: 16px;
+  font-weight: 700;
+  background: #fff;
+}
+.admin-page .ops-refund-amount-quick {
+  margin: 0 0 8px;
+}
+.admin-page .ops-confirm-btn.is-ghost {
+  width: auto;
+  padding: 8px 12px;
+  background: #eef3f8;
+  color: #1e3a5f;
+  border: 0;
+  font-size: 13px;
+}
+.admin-page .ops-confirm-btn.is-ghost:hover:not(:disabled) {
+  background: #e2ebf4;
+}
+.admin-page .ops-refund-done {
+  margin: 0;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: #e8f5f2;
+  color: var(--ops-success);
+  font-size: 12.5px;
+  font-weight: 750;
+  line-height: 1.2;
+  width: fit-content;
+  max-width: 100%;
+  text-align: center;
+}
+
+.admin-page .ops-delivery-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  max-width: 420px;
+  margin-inline: auto;
+  text-align: center;
+}
+.admin-page .ops-delivery-panel .ops-soft-section-head {
+  margin: 0;
+  justify-content: center;
+  width: 100%;
+}
+.admin-page .ops-delivery-panel .ops-delivery-photo-btn {
+  width: auto;
+  max-width: 100%;
+  min-height: 42px;
+  padding: 0 16px;
+  align-self: center;
+}
+.admin-page .ops-delivery-panel .ops-soft-dropzone input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+  opacity: 0;
+  inset: auto;
+  font-size: 0;
+}
+.admin-page .ops-delivery-panel .ops-soft-dropzone {
+  overflow: hidden;
+}
+.admin-page .ops-delivery-panel .ops-action-row.is-pair.is-fit {
+  width: auto;
+  max-width: 100%;
+  margin-top: 0;
+  gap: 8px;
+  justify-content: center;
+}
+.admin-page .ops-delivery-panel .ops-action-row.is-pair.is-fit .ops-stage-back,
+.admin-page .ops-delivery-panel .ops-action-row.is-pair.is-fit .ops-btn-lg {
+  flex: 0 0 auto !important;
+  width: auto !important;
+  min-width: 0 !important;
+  max-width: none !important;
+  min-height: 42px !important;
+  height: 42px !important;
+  padding: 0 16px !important;
+  white-space: nowrap;
+}
+.admin-page .ops-delivery-panel .ops-refund-controls {
+  margin-top: 2px;
+}
+
+.admin-page .locked-stage .stage-copy {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+.admin-page .locked-stage .calm-lock {
+  margin-left: auto;
+  margin-right: auto;
+}
+.admin-page .future-stage.is-history {
+  justify-items: center;
+}
+.admin-page .future-stage.is-history .stage-copy {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  width: 100%;
+}
 .admin-page .ops-row-icon { display: none; }
 .admin-page .ops-row-menu {
   position: absolute;
@@ -3689,12 +3958,16 @@
 .admin-page .ops-stage-card:has(> .ops-soft-section-head),
 .admin-page .ops-stage-card:has(> .ops-stage-stats),
 .admin-page .ops-stage-card:has(> .ops-complete-card),
-.admin-page .ops-stage-card:has(> .ops-cancelled-note) {
+.admin-page .ops-stage-card:has(> .ops-cancelled-note),
+.admin-page .ops-stage-card:has(> .ops-delivery-panel) {
   margin-top: 13px;
   padding: 24px;
   border-radius: 13px;
   background: var(--ops-wash);
   box-shadow: inset 0 1px 3px rgba(22,50,74,.07);
+}
+.admin-page .ops-stage-card > .ops-delivery-panel {
+  margin-inline: auto;
 }
 .admin-page .ops-stage-stats { display: flex; gap: 40px; }
 .admin-page .ops-stage-stats.is-complete {
@@ -4067,7 +4340,9 @@
   backdrop-filter: blur(2px);
 }
 .admin-page .ops-confirm-modal {
-  width: min(420px, 100%);
+  width: min(440px, 100%);
+  max-height: min(90vh, 42rem);
+  overflow: auto;
   padding: 22px 22px 18px;
   border-radius: 14px;
   background: #fff;
@@ -4101,9 +4376,27 @@
   font-size: 13px !important;
   font-weight: 600 !important;
 }
+.admin-page .ops-confirm-error {
+  margin-top: 10px !important;
+  padding: 10px 12px !important;
+  border-radius: 10px !important;
+  background: color-mix(in srgb, #dc2626 10%, #fff) !important;
+  color: #b91c1c !important;
+  font-weight: 750 !important;
+}
+.admin-page .ops-onspot-form {
+  display: grid;
+  gap: 12px;
+  text-align: left;
+}
+.admin-page .ops-onspot-form .ops-confirm-actions {
+  margin-top: 4px;
+  flex-wrap: wrap;
+}
 .admin-page .ops-confirm-actions {
   display: flex;
   justify-content: flex-end;
+  flex-wrap: wrap;
   gap: 10px;
   margin-top: 18px;
 }
@@ -5064,6 +5357,33 @@
     max-width: none !important;
     white-space: nowrap !important;
     padding: 0 16px !important;
+  }
+  .admin-page .ops-delivery-panel {
+    max-width: 100%;
+  }
+  .admin-page .ops-delivery-panel .ops-action-row.is-pair.is-fit .ops-stage-back,
+  .admin-page .ops-delivery-panel .ops-action-row.is-pair.is-fit .ops-btn-lg {
+    flex: 0 0 auto !important;
+    width: auto !important;
+    min-height: 40px !important;
+    height: 40px !important;
+    font-size: 13px !important;
+    padding: 0 14px !important;
+  }
+  .admin-page .ops-delivery-panel .ops-delivery-photo-btn {
+    min-height: 40px;
+    font-size: 12.5px;
+    padding: 0 14px;
+  }
+  .admin-page .ops-refund-btn {
+    min-height: 40px;
+    height: 40px;
+    font-size: 13px;
+    padding: 0 14px;
+  }
+  .admin-page .locked-stage .stage-copy {
+    align-items: center;
+    text-align: center;
   }
   .admin-page .ops-inquiry-head { flex-direction: column; }
   .admin-page .ops-inquiry-head .ops-icon-row { width: 100%; align-self: auto; }

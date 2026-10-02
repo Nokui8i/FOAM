@@ -3326,6 +3326,13 @@
 @layer components {
   .book-page {
     background: var(--color-background);
+    /* So account-ops Save card / primary buttons paint on /book */
+    --ops-sky: #00a8d8;
+    --ops-primary: #0b8ec8;
+    --ops-ink: #142033;
+    --ops-border: #dbe4ee;
+    --ops-surface: #eef3f8;
+    --ops-body: var(--font-sans);
   }
 
   .book-section {
@@ -4508,6 +4515,7 @@
     padding: 1.25rem 1.15rem 1.15rem;
     border: 1px solid var(--color-border);
     text-align: center;
+    color: #000;
   }
 
   .book-guest-gate-badge {
@@ -4517,7 +4525,7 @@
     font-size: 0.72rem;
     font-weight: 750;
     letter-spacing: 0.14em;
-    color: var(--color-muted-foreground);
+    color: #000;
   }
 
   .book-guest-gate-title {
@@ -4526,6 +4534,7 @@
     font-size: 1.35rem;
     font-weight: 750;
     letter-spacing: -0.03em;
+    color: #000;
   }
 
   .book-guest-gate-body {
@@ -4536,22 +4545,28 @@
     text-align: left;
     font-size: 0.9rem;
     line-height: 1.45;
-    color: var(--color-muted-foreground);
+    color: #000;
   }
 
   .book-guest-gate-body p {
     margin: 0;
+    color: #000;
   }
 
   .book-guest-gate-body b {
     font-weight: 750;
-    color: var(--color-foreground);
+    color: #000;
   }
 
   .book-guest-gate-actions {
     display: flex;
     flex-direction: column;
     gap: 0.55rem;
+  }
+
+  .book-guest-gate-actions .book-guest-gate-btn-outline {
+    color: #000;
+    border-color: #000;
   }
 
   .book-address-wrap {
@@ -4932,6 +4947,27 @@
     font-size: 0.74rem;
     color: var(--color-muted-foreground);
   }
+}
+
+/* Unlayered — must beat inherited black on guest-gate + missing --ops-sky on /book */
+.book-guest-gate-actions .book-guest-gate-btn-primary,
+.book-guest-gate-actions .book-guest-gate-btn-primary * {
+  color: #fff !important;
+}
+
+.book-guest-gate-actions .book-guest-gate-btn-outline,
+.book-guest-gate-actions .book-guest-gate-btn-outline * {
+  color: #000 !important;
+}
+
+.book-billing-save .account-ops-btn.is-primary,
+.book-billing-save .account-ops-save-card-btn {
+  color: #fff !important;
+  background: #00a8d8 !important;
+  border: 0 !important;
+  box-shadow: 0 8px 18px -10px rgba(0, 168, 216, 0.7);
+  width: 100%;
+  min-height: 44px;
 }
 
 /* Google Places dropdown sits on document.body — must receive clicks above the form */

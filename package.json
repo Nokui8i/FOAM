@@ -2,17 +2,32 @@
   "name": "foam-project",
   "version": "0.1.0",
   "private": true,
+  "workspaces": [
+    "mobile/driver",
+    "mobile/ops",
+    "packages/foam-staff-core"
+  ],
+  "installConfig": {
+    "hoistingLimits": "workspaces"
+  },
   "scripts": {
     "dev": "next dev --hostname 0.0.0.0 --port 3000",
     "build": "next build && node scripts/fix-rsc-aliases.cjs",
     "start": "next start",
     "lint": "eslint",
+    "mobile:driver": "npm run start --workspace=@foam/driver",
+    "mobile:ops": "npm run start --workspace=@foam/ops",
+    "mobile:driver:typecheck": "npm run typecheck --workspace=@foam/driver",
+    "mobile:ops:typecheck": "npm run typecheck --workspace=@foam/ops",
     "cap:assets": "node scripts/generate-native-assets.cjs && npx @capacitor/assets generate --iconBackgroundColor '#050505' --iconBackgroundColorDark '#050505' --splashBackgroundColor '#050505' --splashBackgroundColorDark '#050505'",
-    "cap:sync": "npm run build && npx cap sync",
-    "cap:android": "npx cap open android",
+    "cap:sync": "npm run build && npx cap sync && node scripts/fix-capacitor-android-settings.cjs && node scripts/sync-android-driver.cjs",
+    "cap:android": "cmd /c \"cd /d C:\\FOAM && npx cap open android\"",
+    "cap:android:ops": "cmd /c \"cd /d C:\\FOAM && npx cap open android\"",
+    "cap:android:driver": "cmd /c \"\"C:\\Program Files\\Android\\Android Studio\\bin\\studio64.exe\" C:\\FOAM\\android-driver\"",
     "cap:ios": "npx cap open ios"
   },
   "dependencies": {
+    "@capacitor-firebase/authentication": "^8.5.2",
     "@capacitor/android": "^8.5.2",
     "@capacitor/app": "^8.1.1",
     "@capacitor/cli": "^8.5.2",

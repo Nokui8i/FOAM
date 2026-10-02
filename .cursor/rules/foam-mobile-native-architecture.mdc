@@ -1,0 +1,49 @@
+---
+description: New FOAM mobile apps are native React Native + Expo — not WebView/web UI
+alwaysApply: true
+---
+
+# FOAM mobile native architecture
+
+## Apps
+
+| App | Stack | Identifier |
+|---|---|---|
+| FOAM Driver | React Native + Expo + TypeScript | `app.foam.driver` |
+| FOAM OPS | React Native + Expo + TypeScript | `app.foam.ops` |
+
+These must be **real native** apps.
+
+## Do not use (primary UI / architecture)
+
+- WebView as primary UI
+- Capacitor as the new architecture
+- iframe / hosted website inside the app
+- Next.js pages as mobile screens
+- DOM-based UI or browser-only UI libraries
+- HTML as the application UI
+- Tailwind web classes as the mobile UI architecture
+
+Use native React Native components and Expo-supported native APIs.
+
+## Required native capabilities (as features need them)
+
+- native navigation, lifecycle, permissions
+- native error / loading / offline-reconnect handling
+- camera, location, notifications where required
+- secure local storage and platform-aware behavior where required
+
+## Resilience — remain usable when
+
+- network is slow or temporarily gone
+- an upload fails
+- permissions are denied
+- the app is backgrounded, killed, or reopened
+- Firebase temporarily fails
+- the user taps an action multiple times
+
+## Sharing with web
+
+Never blindly share web UI with mobile.
+
+Shared code only: TypeScript types, domain models, validation, business logic, pure utilities, data contracts, carefully isolated Firebase/service abstractions.

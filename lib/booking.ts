@@ -1,7 +1,13 @@
 import type { UserProfile } from "@/lib/user-profile";
 import { resolveLaundryPrefs } from "@/lib/user-profile";
 
-export const BOOKING_STEPS = ["services", "schedule", "address", "confirm"] as const;
+export const BOOKING_STEPS = [
+  "services",
+  "schedule",
+  "address",
+  "confirm",
+  "billing",
+] as const;
 export type BookingStep = (typeof BOOKING_STEPS)[number];
 
 export const FOLD_ITEM_OPTIONS = ["Folded", "Hanger (Provide Own)"] as const;
@@ -59,6 +65,8 @@ export const TIME_SLOT_END_MINUTES: Record<TimeSlot, number> = {
 
 export const MIN_ORDER_USD = 50;
 export const DELIVERY_FEE_USD = 5;
+/** Dry cleaning alone (no laundry) — same $50 service floor. */
+export const DRY_CLEAN_ONLY_MIN_USD = 50;
 /** Wash & fold — weekly automation (signed-in repeat pickup). */
 export const RATE_WEEKLY_PER_LB_USD = 2.35;
 /** Wash & fold — one-time / on-demand. */

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 
 import { SiteHeader } from "@/components/site-header";
 import { BookingApp } from "@/components/booking-app";
+import "@/app/account-ops.css";
 
 export const metadata: Metadata = {
   title: "Schedule a Pickup | FOAM",

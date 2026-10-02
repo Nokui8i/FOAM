@@ -1,6 +1,9 @@
+import { Capacitor } from "@capacitor/core";
+import { FirebaseAuthentication } from "@capacitor-firebase/authentication";
 import {
   GoogleAuthProvider,
   onAuthStateChanged,
+  signInWithCredential,
   signInWithPopup,
   signInWithRedirect,
   type Auth,
@@ -41,17 +44,39 @@ function redirectWouldLoseState(auth: Auth) {
 }
 
 /**
- * Google sign-in that survives Cross-Origin-Opener-Policy popup glitches.
+ * Native Google account picker inside OPS / Driver Capacitor apps.
+ * Never opens Chrome Custom Tabs / the browser OAuth flow.
+ */
+async function signInWithGoogleNative(): Promise<User> {
+  ensureStaffBackendBound();
+  const auth = await readyFirebaseAuth();
+
+  const result = await FirebaseAuthentication.signInWithGoogle({
+    skipNativeAuth: true,
+  });
+  const idToken = result.credential?.idToken;
+  if (!idToken) {
+    throw Object.assign(new Error("Google sign-in did not return an ID token."), {
+      code: "auth/missing-id-token",
+    });
+  }
+
+  const credential = GoogleAuthProvider.credential(
+    idToken,
+    result.credential?.accessToken
+  );
+  const signedIn = await signInWithCredential(auth, credential);
+  return signedIn.user;
+}
+
+/**
+ * Browser Google sign-in (customer site / desktop).
  *
  * Prefer popup. Only fall back to redirect when the popup is truly blocked
  * AND redirect can keep sessionStorage on the same host. Never redirect on
  * iPhone — it lands on firebaseapp.com with a dead state.
- *
- * Do not signOut before opening the popup — that races COOP cleanup and often
- * prevents Auth from settling. Callers that need a clean slate should signOut
- * earlier, then wait a beat before calling this.
  */
-export async function signInWithGoogle(): Promise<User> {
+async function signInWithGoogleWeb(): Promise<User> {
   ensureStaffBackendBound();
   const auth = await readyFirebaseAuth();
   const provider = new GoogleAuthProvider();
@@ -127,12 +152,27 @@ export async function signInWithGoogle(): Promise<User> {
   });
 }
 
+/**
+ * Google sign-in for staff consoles.
+ * Capacitor apps use the native account sheet; browsers keep the web flow.
+ */
+export async function signInWithGoogle(): Promise<User> {
+  if (Capacitor.isNativePlatform()) {
+    return signInWithGoogleNative();
+  }
+  return signInWithGoogleWeb();
+}
+
 export function googleSignInErrorMessage(
   error: unknown,
   fallback: string
 ): string {
   const code = popupErrorCode(error);
-  if (code === "auth/popup-closed-by-user") {
+  if (
+    code === "auth/popup-closed-by-user" ||
+    code === "auth/cancelled-popup-request" ||
+    /cancel|cancelled|canceled/i.test(String((error as { message?: string })?.message ?? ""))
+  ) {
     return "Google sign-in was cancelled. Try again.";
   }
   if (code === "auth/popup-blocked") {
@@ -143,6 +183,9 @@ export function googleSignInErrorMessage(
   }
   if (code === "auth/unauthorized-domain") {
     return "This domain is not authorized for Google sign-in.";
+  }
+  if (code === "auth/missing-id-token") {
+    return "Google sign-in failed in the app. Try again.";
   }
   return fallback;
 }

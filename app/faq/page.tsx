@@ -23,7 +23,7 @@ const FAQ_CATEGORIES: { category: string; items: FaqItem[] }[] = [
         answer: [
           "Laundry ONLY — $50 minimum order.",
           "Dry Clean ONLY — $50 minimum order.",
-          "Laundry & Dry Clean — $50 minimum for laundry and $25 minimum on dry-cleaned items.",
+          "Laundry & Dry Clean — $50 minimum for laundry; dry cleaning is priced per item.",
         ],
       },
       {

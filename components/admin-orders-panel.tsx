@@ -63,8 +63,12 @@ import {
 import { getFirebaseAuth, getFirebaseDb } from "@/lib/firebase";
 import { uploadOrderPhoto } from "@/lib/order-photos";
 import { releasePickupSlot } from "@/lib/pickup-availability";
+import { OnSpotChargePanel } from "@/components/on-spot-charge-panel";
 import {
   chargeOrder,
+  chargeOrderMore,
+  createOnSpotPaymentIntent,
+  refundOrder,
   stripeCallableErrorMessage,
 } from "@/lib/stripe-api";
 import {
@@ -83,6 +87,8 @@ import {
   ORDER_STATUS_LABELS,
   computeFinalTotal,
   dryCleanItemsTotal,
+  applyDryCleanMinimum,
+  dryCleanMinimumUsd,
   formatOrderAddress,
   compareOrdersByPickupSchedule,
   isCancelledOrder,
@@ -102,6 +108,8 @@ import {
   orderStageBackLabel,
   orderStatusPrevious,
   isOrderCharged,
+  isPaymentFailed,
+  orderOpsBadge,
   servicesSummary,
   type DryCleanItem,
   type FoamOrder,
@@ -292,25 +300,13 @@ function formatOrderedAt(createdAt: FoamOrder["createdAt"]) {
   }
 }
 
-function listBadgeClass(status: OrderStatus) {
-  switch (status) {
-    case "new":
-      return "is-waiting";
-    case "confirmed":
-      return "is-en-route";
-    case "picked_up":
-    case "weighed":
-    case "washing":
-      return "is-progress";
-    case "out_for_delivery":
-      return "is-en-route";
-    case "delivered":
-      return "is-ready";
-    case "cancelled":
-      return "is-cancelled";
-    default:
-      return "is-waiting";
-  }
+function paymentFailFirst(
+  a: { paymentStatus?: string | null; status: OrderStatus },
+  b: { paymentStatus?: string | null; status: OrderStatus }
+) {
+  const af = isPaymentFailed(a) ? 0 : 1;
+  const bf = isPaymentFailed(b) ? 0 : 1;
+  return af - bf;
 }
 
 function mapsUrl(order: FoamOrder) {
@@ -370,6 +366,8 @@ function mapOrder(id: string, data: Record<string, unknown>): FoamOrder {
     finalTotal: typeof data.finalTotal === "number" ? data.finalTotal : null,
     paymentStatus:
       typeof data.paymentStatus === "string" ? data.paymentStatus : undefined,
+    paymentError:
+      typeof data.paymentError === "string" ? data.paymentError : undefined,
     stripePaymentIntentId:
       typeof data.stripePaymentIntentId === "string"
         ? data.stripePaymentIntentId
@@ -410,12 +408,28 @@ function mapOrder(id: string, data: Record<string, unknown>): FoamOrder {
   };
 }
 
+function refundRemainingUsd(order: {
+  finalTotal?: number | null;
+  refundAmount?: number | null;
+}) {
+  const charged =
+    typeof order.finalTotal === "number" && Number.isFinite(order.finalTotal)
+      ? order.finalTotal
+      : 0;
+  const refunded =
+    typeof order.refundAmount === "number" && Number.isFinite(order.refundAmount)
+      ? order.refundAmount
+      : 0;
+  return Math.max(0, Math.round((charged - refunded) * 100) / 100);
+}
+
 export function AdminOrdersPanel({
   mode = "today",
   adminEmail,
   mobileView,
   onMobileViewChange,
   viewer = "ops",
+  canRefund = false,
 }: {
   mode?: OrdersMode;
   adminEmail: string;
@@ -423,8 +437,11 @@ export function AdminOrdersPanel({
   onMobileViewChange: (view: MobileView) => void;
   /** Drivers never see customer email — only phone / WhatsApp / address. */
   viewer?: "ops" | "driver";
+  /** Owners / admins / managers only — never drivers. */
+  canRefund?: boolean;
 }) {
   const isDriverViewer = viewer === "driver";
+  const showRefundUi = canRefund && !isDriverViewer;
   const { searchParams, replaceQuery } = useQueryReplace();
   const [rows, setRows] = useState<FoamOrder[]>([]);
   const [listReady, setListReady] = useState(false);
@@ -447,14 +464,36 @@ export function AdminOrdersPanel({
   const [showHistoryCalendar, setShowHistoryCalendar] = useState(false);
   const [rowMenuId, setRowMenuId] = useState<string | null>(null);
   const [unreadTick, setUnreadTick] = useState(0);
+  const [refundAmountInput, setRefundAmountInput] = useState("");
+  const [topUpAmountInput, setTopUpAmountInput] = useState("");
   const [confirmAction, setConfirmAction] = useState<
     | { kind: "cancel"; order: FoamOrder }
     | { kind: "delete"; order: FoamOrder }
     | { kind: "back"; label: string; prev: OrderStatus }
+    | { kind: "dry-empty" }
+    | { kind: "refund"; order: FoamOrder }
+    | { kind: "topup"; order: FoamOrder }
+    | {
+        kind: "charge";
+        weightLbs: number;
+        dryCleanItems: DryCleanItem[];
+        finalTotal: number;
+        promoCodeUsed: string;
+        promoDiscountAmount: number;
+        promoLabel: string;
+        hasLaundry: boolean;
+        error?: string;
+        onSpot?: {
+          clientSecret: string;
+          paymentIntentId: string;
+        };
+        onSpotBusy?: boolean;
+      }
     | null
   >(null);
   const [drivers, setDrivers] = useState<StaffProfile[]>([]);
   const [assigningId, setAssigningId] = useState("");
+  const [pendingDriverUid, setPendingDriverUid] = useState<string | null>(null);
   const catalogRef = useRef<HTMLDivElement>(null);
   const rowMenuRef = useRef<HTMLDivElement>(null);
 
@@ -620,8 +659,10 @@ export function AdminOrdersPanel({
 
   async function assignDriver(orderId: string, driverUid: string) {
     if (isDriverViewer) return;
+    if (assigningId) return;
     setError("");
     setOkMsg("");
+    setPendingDriverUid(null);
     setAssigningId(orderId);
     try {
       const driver = drivers.find((row) => row.uid === driverUid) ?? null;
@@ -635,6 +676,7 @@ export function AdminOrdersPanel({
         setOkMsg("Driver unassigned.");
       } else if (!driver) {
         setError("Pick a driver from the list.");
+        setPendingDriverUid(driverUid);
       } else {
         await updateDoc(doc(getFirebaseDb(), "orders", orderId), {
           assignedDriverUid: driver.uid,
@@ -646,6 +688,7 @@ export function AdminOrdersPanel({
       }
     } catch {
       setError("Could not update driver assignment.");
+      setPendingDriverUid(driverUid);
     } finally {
       setAssigningId("");
     }
@@ -744,6 +787,7 @@ export function AdminOrdersPanel({
         orderDisplayId(row.id),
         ORDER_STATUS_LABELS[row.status],
         orderListBadge(row.status),
+        isPaymentFailed(row) ? "payment failed" : "",
       ]
         .join(" ")
         .toLowerCase();
@@ -752,6 +796,8 @@ export function AdminOrdersPanel({
 
     if (mode === "history") {
       return [...matched].sort((a, b) => {
+        const failCmp = paymentFailFirst(a, b);
+        if (failCmp !== 0) return failCmp;
         const dateCmp = (b.pickup.date || "").localeCompare(a.pickup.date || "");
         if (dateCmp !== 0) return dateCmp;
         return compareOrdersByPickupSchedule(b, a);
@@ -759,9 +805,13 @@ export function AdminOrdersPanel({
     }
 
     if (mode === "future" || filter === "waiting" || filter === "ready") {
-      return [...matched].sort(compareOrdersByPickupSchedule);
+      return [...matched].sort((a, b) => {
+        const failCmp = paymentFailFirst(a, b);
+        if (failCmp !== 0) return failCmp;
+        return compareOrdersByPickupSchedule(a, b);
+      });
     }
-    return matched;
+    return [...matched].sort(paymentFailFirst);
   }, [
     rows,
     filter,
@@ -813,6 +863,10 @@ export function AdminOrdersPanel({
     if (!selectedId || isDriverViewer || !adminEmail) return;
     markOrderSeen(adminEmail, selectedId);
   }, [selectedId, adminEmail, isDriverViewer]);
+
+  useEffect(() => {
+    setPendingDriverUid(null);
+  }, [selectedId]);
 
   useEffect(() => {
     if (!selected) return;
@@ -916,6 +970,125 @@ export function AdminOrdersPanel({
     } finally {
       setDeleting(false);
     }
+  }
+
+  async function confirmRefundOrder(order: FoamOrder) {
+    if (order.paymentStatus !== "paid") {
+      setConfirmAction(null);
+      setError("This order was never charged on Stripe. Nothing to refund.");
+      return;
+    }
+    const remaining = refundRemainingUsd(order);
+    const parsed = Number.parseFloat(refundAmountInput.replace(/,/g, ""));
+    const amount =
+      Number.isFinite(parsed) && parsed > 0
+        ? Math.round(parsed * 100) / 100
+        : remaining;
+    if (amount < 0.01) {
+      setError("Enter a refund amount of at least $0.01.");
+      return;
+    }
+    if (amount > remaining + 0.001) {
+      setError(`Refund cannot exceed remaining $${remaining.toFixed(2)}.`);
+      return;
+    }
+    setSaving(true);
+    setError("");
+    setOkMsg("");
+    try {
+      const result = await refundOrder({ orderId: order.id, amount });
+      setConfirmAction(null);
+      const left =
+        typeof result.remaining === "number" ? result.remaining : remaining - result.amount;
+      setOkMsg(
+        left > 0.009
+          ? `Refunded · $${result.amount.toFixed(2)} · $${left.toFixed(2)} left`
+          : `Refunded · $${result.amount.toFixed(2)}`
+      );
+    } catch (err) {
+      setError(stripeCallableErrorMessage(err));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function openRefundConfirm(order: FoamOrder) {
+    setError("");
+    setOkMsg("");
+    setRefundAmountInput(refundRemainingUsd(order).toFixed(2));
+    setConfirmAction({ kind: "refund", order });
+  }
+
+  function openTopUpConfirm(order: FoamOrder) {
+    setError("");
+    setOkMsg("");
+    setTopUpAmountInput("5.00");
+    setConfirmAction({ kind: "topup", order });
+  }
+
+  async function confirmTopUpOrder(order: FoamOrder) {
+    if (order.paymentStatus !== "paid") {
+      setConfirmAction(null);
+      setError("Order must be paid before charging more.");
+      return;
+    }
+    const parsed = Number.parseFloat(topUpAmountInput.replace(/,/g, ""));
+    const amount = Number.isFinite(parsed) ? Math.round(parsed * 100) / 100 : 0;
+    if (amount < 0.5) {
+      setError("Additional charge must be at least $0.50.");
+      return;
+    }
+    setSaving(true);
+    setError("");
+    setOkMsg("");
+    try {
+      const result = await chargeOrderMore({ orderId: order.id, amount });
+      setConfirmAction(null);
+      setOkMsg(
+        `Charged more · $${result.amount.toFixed(2)} · total $${result.finalTotal.toFixed(2)}`
+      );
+    } catch (err) {
+      setError(stripeCallableErrorMessage(err));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function renderRefundControls(order: FoamOrder) {
+    if (!showRefundUi || order.paymentStatus !== "paid") return null;
+    const remaining = refundRemainingUsd(order);
+    const refunded =
+      typeof order.refundAmount === "number" ? order.refundAmount : 0;
+    return (
+      <div className="ops-refund-controls">
+        <div className="ops-adjust-pay-row">
+          {remaining >= 0.01 ? (
+            <button
+              type="button"
+              className="ops-refund-btn"
+              disabled={saving}
+              onClick={() => openRefundConfirm(order)}
+            >
+              Refund payment
+            </button>
+          ) : null}
+          <button
+            type="button"
+            className="ops-topup-btn"
+            disabled={saving}
+            onClick={() => openTopUpConfirm(order)}
+          >
+            Charge more
+          </button>
+        </div>
+        {refunded >= 0.01 ? (
+          <p className="ops-refund-done">
+            Refunded · ${refunded.toFixed(2)}
+            {remaining >= 0.01 ? ` · $${remaining.toFixed(2)} left` : ""}
+          </p>
+        ) : null}
+      </div>
+    );
   }
 
   function requestDeleteOrder(order: FoamOrder) {
@@ -1149,7 +1322,11 @@ export function AdminOrdersPanel({
         : 0,
       hasLaundry,
     });
-    const dryTotal = dryCleanItemsTotal(dryItems);
+    const dryTotal = applyDryCleanMinimum({
+      dryTotal: dryCleanItemsTotal(dryItems),
+      hasLaundry,
+      hasDryCleaning: Boolean(selected.services.dryCleaning),
+    });
     const finalTotal = Math.round((laundryPortion + dryTotal) * 100) / 100;
 
     await patchOrder(
@@ -1252,7 +1429,9 @@ export function AdminOrdersPanel({
     }
   }
 
-  async function chargeAndCollect() {
+  async function requestChargeAndCollect(opts?: {
+    allowEmptyDry?: boolean;
+  }) {
     if (!selected) return;
     const hasLaundry = selected.services.laundry;
     let lbs = 0;
@@ -1268,11 +1447,14 @@ export function AdminOrdersPanel({
       }
     }
 
-    if (selected.services.dryCleaning && dryItems.length === 0) {
-      const ok = window.confirm(
-        "This order includes dry cleaning, but no dry-cleaning items were added.\n\nContinue without dry-cleaning items?"
-      );
-      if (!ok) return;
+    if (
+      selected.services.dryCleaning &&
+      dryItems.length === 0 &&
+      !opts?.allowEmptyDry
+    ) {
+      setError("");
+      setConfirmAction({ kind: "dry-empty" });
+      return;
     }
 
     const laundryPortion = computeFinalTotal({
@@ -1287,7 +1469,11 @@ export function AdminOrdersPanel({
         : 0,
       hasLaundry,
     });
-    const dryTotal = dryCleanItemsTotal(dryItems);
+    const dryTotal = applyDryCleanMinimum({
+      dryTotal: dryCleanItemsTotal(dryItems),
+      hasLaundry,
+      hasDryCleaning: Boolean(selected.services.dryCleaning),
+    });
     const tip = selected.tip ?? selected.pricing?.tip ?? 0;
     const fee = selected.pricing?.deliveryFee ?? DELIVERY_FEE_USD;
     const subtotal = Math.round((laundryPortion + dryTotal) * 100) / 100;
@@ -1342,54 +1528,165 @@ export function AdminOrdersPanel({
     const finalTotal =
       Math.round((subtotal - promoOff + tip) * 100) / 100;
 
+    setError("");
+    setConfirmAction({
+      kind: "charge",
+      weightLbs: hasLaundry ? lbs : 0,
+      dryCleanItems: dryItems,
+      finalTotal,
+      promoCodeUsed,
+      promoDiscountAmount: promoOff,
+      promoLabel,
+      hasLaundry,
+    });
+  }
+
+  async function afterChargeSuccess(action: {
+    finalTotal: number;
+    promoCodeUsed: string;
+    promoDiscountAmount: number;
+    promoLabel: string;
+    onSpot?: boolean;
+  }) {
+    if (!selected) return;
+    const finalTotal = action.finalTotal;
+    const promoCodeUsed = action.promoCodeUsed;
+    const promoOff = action.promoDiscountAmount;
+    const promoLabel = action.promoLabel;
+
+    if (promoCodeUsed && promoOff > 0) {
+      await recordPromoUse(promoCodeUsed);
+    }
+
+    let ok =
+      promoOff > 0
+        ? `Charged · $${finalTotal.toFixed(2)} · ${promoLabel} · At laundry`
+        : `Charged · $${finalTotal.toFixed(2)} · At laundry`;
+    if (action.onSpot) {
+      ok = `${ok} · different card`;
+    }
+
+    if (selected.pickup.repeat || selected.pickup.repeatRequested) {
+      try {
+        const next = await ensureNextWeeklyOrder(
+          { ...selected, status: "washing", finalTotal },
+          { linkFromAdmin: true }
+        );
+        if (next.created && next.nextDate) {
+          ok = `Charged · $${finalTotal.toFixed(2)} · next weekly queued ${next.nextDate}`;
+        }
+      } catch (err) {
+        setError(
+          `Charged, but failed to queue next weekly pickup: ${
+            err instanceof Error ? err.message : "unknown error"
+          }. Refresh Ops to reconcile.`
+        );
+        setOkMsg(ok);
+        setFilter("progress", { keepSelection: true });
+        return;
+      }
+    }
+
+    setOkMsg(ok);
+    setFilter("progress", { keepSelection: true });
+  }
+
+  async function confirmChargeAndCollect(action: {
+    weightLbs: number;
+    dryCleanItems: DryCleanItem[];
+    finalTotal: number;
+    promoCodeUsed: string;
+    promoDiscountAmount: number;
+    promoLabel: string;
+    hasLaundry: boolean;
+    error?: string;
+  }) {
+    if (!selected) return;
     setSaving(true);
     setError("");
     setOkMsg("");
+    setConfirmAction({
+      ...action,
+      kind: "charge",
+      error: undefined,
+      onSpot: undefined,
+    });
     try {
       await chargeOrder({
         orderId: selected.id,
-        weightLbs: hasLaundry ? lbs : undefined,
-        dryCleanItems: dryItems,
-        finalTotal,
-        promoCodeUsed: promoCodeUsed || undefined,
-        promoDiscountAmount: promoOff > 0 ? promoOff : undefined,
-        promoLabel: promoLabel || undefined,
+        weightLbs: action.hasLaundry ? action.weightLbs : undefined,
+        dryCleanItems: action.dryCleanItems,
+        finalTotal: action.finalTotal,
+        promoCodeUsed: action.promoCodeUsed || undefined,
+        promoDiscountAmount:
+          action.promoDiscountAmount > 0
+            ? action.promoDiscountAmount
+            : undefined,
+        promoLabel: action.promoLabel || undefined,
       });
 
-      if (promoCodeUsed && promoOff > 0) {
-        await recordPromoUse(promoCodeUsed);
-      }
-
-      let ok =
-        promoOff > 0
-          ? `Charged · $${finalTotal.toFixed(2)} · ${promoLabel} · At laundry`
-          : `Charged · $${finalTotal.toFixed(2)} · At laundry`;
-
-      if (selected.pickup.repeat || selected.pickup.repeatRequested) {
-        try {
-          const next = await ensureNextWeeklyOrder(
-            { ...selected, status: "washing", finalTotal },
-            { linkFromAdmin: true }
-          );
-          if (next.created && next.nextDate) {
-            ok = `Charged · $${finalTotal.toFixed(2)} · next weekly queued ${next.nextDate}`;
-          }
-        } catch (err) {
-          setError(
-            `Charged, but failed to queue next weekly pickup: ${
-              err instanceof Error ? err.message : "unknown error"
-            }. Refresh Ops to reconcile.`
-          );
-          setOkMsg(ok);
-          setFilter("progress", { keepSelection: true });
-          return;
-        }
-      }
-
-      setOkMsg(ok);
-      setFilter("progress", { keepSelection: true });
+      setConfirmAction(null);
+      await afterChargeSuccess(action);
     } catch (err) {
-      setError(stripeCallableErrorMessage(err));
+      const message = stripeCallableErrorMessage(err);
+      setConfirmAction({ ...action, kind: "charge", error: message });
+      setError(message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function startOnSpotCharge(action: {
+    weightLbs: number;
+    dryCleanItems: DryCleanItem[];
+    finalTotal: number;
+    promoCodeUsed: string;
+    promoDiscountAmount: number;
+    promoLabel: string;
+    hasLaundry: boolean;
+    error?: string;
+  }) {
+    if (!selected) return;
+    setSaving(true);
+    setError("");
+    setConfirmAction({
+      ...action,
+      kind: "charge",
+      onSpotBusy: true,
+      error: action.error,
+    });
+    try {
+      const intent = await createOnSpotPaymentIntent({
+        orderId: selected.id,
+        weightLbs: action.hasLaundry ? action.weightLbs : undefined,
+        dryCleanItems: action.dryCleanItems,
+        finalTotal: action.finalTotal,
+        promoCodeUsed: action.promoCodeUsed || undefined,
+        promoDiscountAmount:
+          action.promoDiscountAmount > 0
+            ? action.promoDiscountAmount
+            : undefined,
+        promoLabel: action.promoLabel || undefined,
+      });
+      setConfirmAction({
+        ...action,
+        kind: "charge",
+        error: undefined,
+        onSpotBusy: false,
+        onSpot: {
+          clientSecret: intent.clientSecret,
+          paymentIntentId: intent.paymentIntentId,
+        },
+      });
+    } catch (err) {
+      const message = stripeCallableErrorMessage(err);
+      setConfirmAction({
+        ...action,
+        kind: "charge",
+        onSpotBusy: false,
+        error: message,
+      });
+      setError(message);
     } finally {
       setSaving(false);
     }
@@ -1424,7 +1721,20 @@ export function AdminOrdersPanel({
       laundryRaw = Math.round(laundryRaw * 100) / 100;
     }
 
-    const dryTotal = dryCleanItemsTotal(dryItems);
+    const dryRaw = dryCleanItemsTotal(dryItems);
+    const hasDryCleaning =
+      Boolean(selected.services.dryCleaning) || dryRaw > 0;
+    const dryMin = dryCleanMinimumUsd(hasLaundry);
+    const dryTotal = applyDryCleanMinimum({
+      dryTotal: dryRaw,
+      hasLaundry,
+      hasDryCleaning,
+    });
+    // Dry-only: show pending $50 min until items are added.
+    // With laundry: no separate dry min — only item totals.
+    const dryPending = !hasLaundry && hasDryCleaning && dryRaw <= 0;
+    const dryAtMinimum =
+      !hasLaundry && hasDryCleaning && (dryPending || dryRaw < dryMin);
     // Min $50 is on laundry alone; service fee is added on top.
     const laundryPlusFee = computeFinalTotal({
       weightLbs: hasLaundry ? lbs : 0,
@@ -1470,8 +1780,17 @@ export function AdminOrdersPanel({
       lines.push({ label: "Service fee (pickup)", amount: fee });
     }
 
-    if (dryTotal > 0) {
-      lines.push({ label: "Dry cleaning", amount: dryTotal });
+    if (hasDryCleaning) {
+      if (dryAtMinimum || dryPending) {
+        lines.push({
+          label: dryPending
+            ? `Dry cleaning (min $${dryMin})`
+            : `Dry cleaning (minimum)`,
+          amount: dryMin,
+        });
+      } else if (dryRaw > 0) {
+        lines.push({ label: "Dry cleaning", amount: dryRaw });
+      }
     }
 
     const subtotalBeforePromo =
@@ -2086,7 +2405,7 @@ export function AdminOrdersPanel({
                     flex: "0 0 120px",
                   }}
                   disabled={saving || uploadingPhoto}
-                  onClick={() => void chargeAndCollect()}
+                  onClick={() => void requestChargeAndCollect()}
                 >
                   Continue
                   <ArrowRight size={15} aria-hidden />
@@ -2135,6 +2454,7 @@ export function AdminOrdersPanel({
             {addressLabel ? (
               <p className="ops-history-address">{addressLabel}</p>
             ) : null}
+            {renderRefundControls(selected)}
           </div>
         </section>
       );
@@ -2218,6 +2538,7 @@ export function AdminOrdersPanel({
                 <LockKeyhole size={16} />
                 Billing is locked after charge
               </div>
+              {renderRefundControls(selected)}
             </div>
             {showWashBlock ? (
               <div className="ops-wash-prefs">
@@ -2273,16 +2594,16 @@ export function AdminOrdersPanel({
 
     if (stage === 2) {
       return (
-        <>
-          <div className="ops-soft-section-head" style={{ marginBottom: "0.65rem" }}>
+        <div className="ops-delivery-panel">
+          <div className="ops-soft-section-head">
             <span className="ops-soft-icon" aria-hidden>
               <Camera size={16} />
             </span>
             <h4>Drop-off photo</h4>
           </div>
           {deliveryPhotos.length === 0 ? (
-            <label className="ops-soft-dropzone">
-              <Camera size={22} aria-hidden />
+            <label className="ops-soft-dropzone ops-delivery-photo-btn">
+              <Camera size={18} aria-hidden />
               <span>
                 {uploadingPhoto
                   ? "Uploading…"
@@ -2324,7 +2645,7 @@ export function AdminOrdersPanel({
               </div>
             </div>
           )}
-          <div className="ops-action-row is-pair" style={{ marginTop: "0.85rem" }}>
+          <div className="ops-action-row is-pair is-fit">
             {stageBackLabel ? (
               <button
                 type="button"
@@ -2346,7 +2667,8 @@ export function AdminOrdersPanel({
               Confirm delivered
             </button>
           </div>
-        </>
+          {renderRefundControls(selected)}
+        </div>
       );
     }
 
@@ -2578,7 +2900,8 @@ export function AdminOrdersPanel({
                       selectedId === row.id && "is-active",
                       canDeleteRow && "has-menu",
                       menuOpen && "is-menu-open",
-                      unread && "is-unread"
+                      unread && "is-unread",
+                      isPaymentFailed(row) && "is-payment-fail"
                     )}
                   >
                     <button
@@ -2594,14 +2917,19 @@ export function AdminOrdersPanel({
                       ) : null}
                       <span className="ops-row-top">
                         <span className="ops-row-name">{row.contact.name}</span>
-                        <span
-                          className={cn(
-                            "ops-status-pill",
-                            listBadgeClass(row.status)
-                          )}
-                        >
-                          {orderListBadge(row.status)}
-                        </span>
+                        {(() => {
+                          const badge = orderOpsBadge(row);
+                          return (
+                            <span
+                              className={cn(
+                                "ops-status-pill",
+                                badge.className
+                              )}
+                            >
+                              {badge.label}
+                            </span>
+                          );
+                        })()}
                       </span>
                       <span className="ops-row-when">
                         {formatPickupDate(row.pickup.date)},{" "}
@@ -2714,6 +3042,17 @@ export function AdminOrdersPanel({
                 Back
               </Button>
 
+              {isPaymentFailed(selected) ? (
+                <div className="ops-payment-fail-banner" role="alert">
+                  <strong>Payment failed</strong>
+                  <span>
+                    Call the customer for a different card. If they cannot pay,
+                    tell them the order will be closed, then update managers so
+                    they can close this order.
+                  </span>
+                </div>
+              ) : null}
+
               <div className="ops-detail-top">
                 <div className="ops-detail-top-main">
                   <p className="ops-breadcrumb">
@@ -2754,37 +3093,75 @@ export function AdminOrdersPanel({
                     })()}
                   </div>
                   {!isDriverViewer ? (
-                    <label className="ops-assign-row">
+                    <div className="ops-assign-row">
                       <span className="ops-assign-label">
                         <Truck size={14} aria-hidden />
                         Driver
                       </span>
-                      <select
-                        className="ops-assign-select"
-                        value={selected.assignedDriverUid || ""}
-                        disabled={assigningId === selected.id || saving}
-                        onChange={(e) =>
-                          void assignDriver(selected.id, e.target.value)
-                        }
-                        aria-label="Assign driver"
-                      >
-                        <option value="">Unassigned</option>
-                        {selected.assignedDriverUid &&
-                        !drivers.some(
-                          (d) => d.uid === selected.assignedDriverUid
-                        ) ? (
-                          <option value={selected.assignedDriverUid}>
-                            {selected.assignedDriverName ||
-                              selected.assignedDriverUid}
-                          </option>
+                      <span className="ops-assign-controls">
+                        <select
+                          className="ops-assign-select"
+                          value={
+                            pendingDriverUid !== null
+                              ? pendingDriverUid
+                              : selected.assignedDriverUid || ""
+                          }
+                          disabled={assigningId === selected.id || saving}
+                          onChange={(e) => {
+                            const next = e.target.value;
+                            const current = selected.assignedDriverUid || "";
+                            if (next === current) {
+                              setPendingDriverUid(null);
+                              return;
+                            }
+                            setPendingDriverUid(next);
+                          }}
+                          aria-label="Assign driver"
+                        >
+                          <option value="">Unassigned</option>
+                          {selected.assignedDriverUid &&
+                          !drivers.some(
+                            (d) => d.uid === selected.assignedDriverUid
+                          ) ? (
+                            <option value={selected.assignedDriverUid}>
+                              {selected.assignedDriverName ||
+                                selected.assignedDriverUid}
+                            </option>
+                          ) : null}
+                          {drivers.map((driver) => (
+                            <option key={driver.uid} value={driver.uid}>
+                              {driver.displayName || driver.email}
+                            </option>
+                          ))}
+                        </select>
+                        {pendingDriverUid !== null &&
+                        pendingDriverUid !==
+                          (selected.assignedDriverUid || "") ? (
+                          <button
+                            type="button"
+                            className="ops-assign-confirm"
+                            disabled={assigningId === selected.id || saving}
+                            aria-label="Confirm driver assignment"
+                            title="Confirm"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              void assignDriver(selected.id, pendingDriverUid);
+                            }}
+                          >
+                            <Check size={18} strokeWidth={2.75} aria-hidden />
+                          </button>
+                        ) : selected.assignedDriverUid ? (
+                          <span
+                            className="ops-assign-confirmed"
+                            aria-label="Driver assigned"
+                            title="Assigned"
+                          >
+                            <Check size={18} strokeWidth={2.75} aria-hidden />
+                          </span>
                         ) : null}
-                        {drivers.map((driver) => (
-                          <option key={driver.uid} value={driver.uid}>
-                            {driver.displayName || driver.email}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
+                      </span>
+                    </div>
                   ) : selected.assignedDriverName ? (
                     <p className="ops-assign-readonly">
                       <Truck size={14} aria-hidden />
@@ -2963,7 +3340,11 @@ export function AdminOrdersPanel({
                   aria-describedby="ops-confirm-desc"
                   onClick={(event) => event.stopPropagation()}
                 >
-                  <h4 id="ops-confirm-title">Are you sure?</h4>
+                  <h4 id="ops-confirm-title">
+                    {confirmAction.kind === "charge" && confirmAction.onSpot
+                      ? "Charge different card"
+                      : "Are you sure?"}
+                  </h4>
                   <div id="ops-confirm-desc" className="ops-confirm-body">
                     {confirmAction.kind === "cancel" ? (
                       <>
@@ -3007,6 +3388,204 @@ export function AdminOrdersPanel({
                           Cannot be undone.
                         </p>
                       </>
+                    ) : confirmAction.kind === "dry-empty" ? (
+                      <>
+                        <p>
+                          This order includes dry cleaning, but no dry-cleaning
+                          items were added.
+                        </p>
+                        <p className="ops-confirm-note">
+                          Continue without dry-cleaning items?
+                          {!selected?.services.laundry
+                            ? " The $50 dry cleaning minimum still applies."
+                            : ""}
+                        </p>
+                      </>
+                    ) : confirmAction.kind === "refund" ? (
+                      <>
+                        <p>
+                          Refund order{" "}
+                          <strong>
+                            {orderDisplayId(confirmAction.order.id)}
+                          </strong>
+                        </p>
+                        <p className="ops-confirm-meta">
+                          Charged $
+                          {(confirmAction.order.finalTotal ?? 0).toFixed(2)}
+                          {typeof confirmAction.order.refundAmount ===
+                            "number" &&
+                          confirmAction.order.refundAmount > 0
+                            ? ` · already refunded $${confirmAction.order.refundAmount.toFixed(2)}`
+                            : ""}
+                          {" · "}
+                          ${refundRemainingUsd(confirmAction.order).toFixed(2)}{" "}
+                          remaining
+                        </p>
+                        <label className="ops-refund-amount-field">
+                          <span>Refund amount ($)</span>
+                          <input
+                            type="number"
+                            inputMode="decimal"
+                            min="0.01"
+                            step="0.01"
+                            max={refundRemainingUsd(confirmAction.order)}
+                            value={refundAmountInput}
+                            disabled={saving}
+                            onChange={(e) =>
+                              setRefundAmountInput(e.target.value)
+                            }
+                          />
+                        </label>
+                        <div className="ops-refund-amount-quick">
+                          <button
+                            type="button"
+                            className="ops-confirm-btn is-ghost"
+                            disabled={saving}
+                            onClick={() =>
+                              setRefundAmountInput(
+                                refundRemainingUsd(confirmAction.order).toFixed(
+                                  2
+                                )
+                              )
+                            }
+                          >
+                            Full remaining
+                          </button>
+                        </div>
+                        <p className="ops-confirm-note">
+                          Money returns to the customer card via Stripe. Only
+                          owners and managers can do this.
+                        </p>
+                      </>
+                    ) : confirmAction.kind === "topup" ? (
+                      <>
+                        <p>
+                          Charge more on order{" "}
+                          <strong>
+                            {orderDisplayId(confirmAction.order.id)}
+                          </strong>
+                        </p>
+                        <p className="ops-confirm-meta">
+                          Current total $
+                          {(confirmAction.order.finalTotal ?? 0).toFixed(2)}
+                        </p>
+                        <label className="ops-refund-amount-field">
+                          <span>Additional amount ($)</span>
+                          <input
+                            type="number"
+                            inputMode="decimal"
+                            min="0.50"
+                            step="0.01"
+                            value={topUpAmountInput}
+                            disabled={saving}
+                            onChange={(e) =>
+                              setTopUpAmountInput(e.target.value)
+                            }
+                          />
+                        </label>
+                        <p className="ops-confirm-note">
+                          Charges the saved card for the extra amount. Use this
+                          to fix an undercharge.
+                        </p>
+                      </>
+                    ) : confirmAction.kind === "charge" ? (
+                      confirmAction.onSpot ? (
+                        selected ? (
+                          <OnSpotChargePanel
+                            orderId={selected.id}
+                            clientSecret={confirmAction.onSpot.clientSecret}
+                            paymentIntentId={
+                              confirmAction.onSpot.paymentIntentId
+                            }
+                            amountLabel={`$${confirmAction.finalTotal.toFixed(2)}`}
+                            onCancel={() =>
+                              setConfirmAction({
+                                ...confirmAction,
+                                onSpot: undefined,
+                                error:
+                                  confirmAction.error ||
+                                  "Saved card charge failed. You can retry or use a different card.",
+                              })
+                            }
+                            onPaid={async () => {
+                              const action = confirmAction;
+                              setConfirmAction(null);
+                              setOkMsg("");
+                              setError("");
+                              await afterChargeSuccess({
+                                finalTotal: action.finalTotal,
+                                promoCodeUsed: action.promoCodeUsed,
+                                promoDiscountAmount:
+                                  action.promoDiscountAmount,
+                                promoLabel: action.promoLabel,
+                                onSpot: true,
+                              });
+                            }}
+                          />
+                        ) : null
+                      ) : (
+                      <>
+                        <p>
+                          Charge this customer{" "}
+                          <strong>
+                            ${confirmAction.finalTotal.toFixed(2)}
+                          </strong>
+                          ?
+                        </p>
+                        {confirmAction.error ? (
+                          <>
+                            <p className="ops-confirm-note ops-confirm-error" role="alert">
+                              Payment failed. Call the customer and ask for a
+                              different card to charge on the spot. Tell them
+                              the order will be closed if payment is not
+                              completed. Then update the managers that this
+                              order needs to be closed.
+                            </p>
+                            <p className="ops-confirm-meta">
+                              {[
+                                confirmAction.hasLaundry
+                                  ? `${confirmAction.weightLbs} lb`
+                                  : null,
+                                confirmAction.dryCleanItems.length > 0
+                                  ? `${confirmAction.dryCleanItems.length} dry clean line${
+                                      confirmAction.dryCleanItems.length === 1
+                                        ? ""
+                                        : "s"
+                                    }`
+                                  : null,
+                                confirmAction.promoLabel || null,
+                              ]
+                                .filter(Boolean)
+                                .join(" · ")}
+                            </p>
+                          </>
+                        ) : (
+                          <>
+                            <p className="ops-confirm-meta">
+                              {[
+                                confirmAction.hasLaundry
+                                  ? `${confirmAction.weightLbs} lb`
+                                  : null,
+                                confirmAction.dryCleanItems.length > 0
+                                  ? `${confirmAction.dryCleanItems.length} dry clean line${
+                                      confirmAction.dryCleanItems.length === 1
+                                        ? ""
+                                        : "s"
+                                    }`
+                                  : null,
+                                confirmAction.promoLabel || null,
+                              ]
+                                .filter(Boolean)
+                                .join(" · ")}
+                            </p>
+                            <p className="ops-confirm-note">
+                              Double check weight, photo, and dry clean items.
+                              This charges the card on file.
+                            </p>
+                          </>
+                        )}
+                      </>
+                      )
                     ) : (
                       <>
                         <p>
@@ -3019,14 +3598,17 @@ export function AdminOrdersPanel({
                     )}
                   </div>
                   <div className="ops-confirm-actions">
-                    <button
-                      type="button"
-                      className="ops-confirm-btn is-cancel"
-                      disabled={deleting || saving}
-                      onClick={() => setConfirmAction(null)}
-                    >
-                      Cancel
-                    </button>
+                    {confirmAction.kind === "charge" &&
+                    confirmAction.onSpot ? null : (
+                      <button
+                        type="button"
+                        className="ops-confirm-btn is-cancel"
+                        disabled={deleting || saving}
+                        onClick={() => setConfirmAction(null)}
+                      >
+                        Cancel
+                      </button>
+                    )}
                     {confirmAction.kind === "back" ? (
                       <button
                         type="button"
@@ -3036,7 +3618,68 @@ export function AdminOrdersPanel({
                       >
                         {saving ? "Updating…" : "Go back"}
                       </button>
-                    ) : (
+                    ) : confirmAction.kind === "dry-empty" ? (
+                      <button
+                        type="button"
+                        className="ops-confirm-btn is-confirm"
+                        disabled={saving}
+                        onClick={() =>
+                          void requestChargeAndCollect({ allowEmptyDry: true })
+                        }
+                      >
+                        Continue
+                      </button>
+                    ) : confirmAction.kind === "refund" ? (
+                      <button
+                        type="button"
+                        className="ops-confirm-btn is-danger"
+                        disabled={saving}
+                        onClick={() =>
+                          void confirmRefundOrder(confirmAction.order)
+                        }
+                      >
+                        {saving ? "Refunding…" : "Yes, refund"}
+                      </button>
+                    ) : confirmAction.kind === "topup" ? (
+                      <button
+                        type="button"
+                        className="ops-confirm-btn is-confirm"
+                        disabled={saving}
+                        onClick={() =>
+                          void confirmTopUpOrder(confirmAction.order)
+                        }
+                      >
+                        {saving ? "Charging…" : "Yes, charge more"}
+                      </button>
+                    ) : confirmAction.kind === "charge" &&
+                      !confirmAction.onSpot ? (
+                      confirmAction.error ? (
+                        <button
+                          type="button"
+                          className="ops-confirm-btn is-confirm"
+                          disabled={saving || confirmAction.onSpotBusy}
+                          onClick={() =>
+                            void startOnSpotCharge(confirmAction)
+                          }
+                        >
+                          {confirmAction.onSpotBusy ? "Loading…" : "Payment"}
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          className="ops-confirm-btn is-confirm"
+                          disabled={saving || confirmAction.onSpotBusy}
+                          onClick={() =>
+                            void confirmChargeAndCollect(confirmAction)
+                          }
+                        >
+                          {saving ? "Charging…" : "Yes, charge"}
+                        </button>
+                      )
+                    ) : confirmAction.kind === "charge" &&
+                      confirmAction.onSpot ? null : confirmAction.kind ===
+                        "delete" ||
+                      confirmAction.kind === "cancel" ? (
                       <button
                         type="button"
                         className="ops-confirm-btn is-danger"
@@ -3044,14 +3687,18 @@ export function AdminOrdersPanel({
                         onClick={() => {
                           if (confirmAction.kind === "delete") {
                             void deleteHistoryOrder(confirmAction.order);
-                          } else {
+                          } else if (confirmAction.kind === "cancel") {
                             void cancelAdminOrder(confirmAction.order);
                           }
                         }}
                       >
-                        {deleting ? "Deleting…" : "Delete"}
+                        {deleting
+                          ? "Deleting…"
+                          : confirmAction.kind === "delete"
+                            ? "Delete"
+                            : "Cancel order"}
                       </button>
-                    )}
+                    ) : null}
                   </div>
                 </div>
               </div>

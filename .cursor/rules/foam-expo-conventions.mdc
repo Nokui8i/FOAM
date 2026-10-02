@@ -1,0 +1,41 @@
+---
+description: Expo/RN project layout, Dev Builds, env config — no second backend
+alwaysApply: true
+---
+
+# FOAM Expo conventions
+
+## Future layout (scaffold only when explicitly approved)
+
+```
+mobile/driver/              # FOAM Driver — app.foam.driver
+mobile/ops/                 # FOAM OPS — app.foam.ops
+packages/foam-staff-core/   # shared pure business logic
+```
+
+## Stack
+
+- React Native, Expo, TypeScript
+- Expo Development Builds for day-to-day work
+- EAS Build when explicitly required
+
+Do **not** assume Expo Go is the production architecture.
+
+## Conventions
+
+- Consistent navigation architecture across Driver and OPS
+- Environment-aware configuration
+- Public/mobile config is **public** — treat it as such
+
+## Never hardcode in mobile
+
+- production secrets
+- Firebase Admin credentials / service account keys
+- private API keys / Stripe secret keys / other server secrets
+
+Sensitive operations stay server-side via the **existing** backend / Cloud Functions where appropriate.
+
+## One platform
+
+- Do not create a second backend or second database for mobile
+- Do not create a parallel Firebase project unless explicitly approved

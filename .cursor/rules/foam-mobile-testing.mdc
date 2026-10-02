@@ -1,0 +1,41 @@
+---
+description: Native mobile features must cover success, failure, offline, permissions, lifecycle
+alwaysApply: true
+---
+
+# FOAM mobile testing expectations
+
+Every native feature must consider at minimum:
+
+1. Normal success path  
+2. Loading state  
+3. Empty state  
+4. Error state  
+5. Slow network  
+6. Offline network  
+7. Reconnect  
+8. Permission denied  
+9. Permission permanently denied  
+10. App backgrounded  
+11. App killed and reopened  
+12. Duplicate taps  
+13. Request timeout  
+14. Firebase failure  
+15. Upload failure  
+16. Retry  
+17. Recovery after retry  
+
+## Driver workflows — also consider
+
+- GPS unavailable / location permission denied
+- Camera permission denied / camera unavailable
+- Photo upload interrupted
+- Order status update interrupted / duplicate status update
+- Stale order data
+- Another device changing the same order
+
+## Devices
+
+Testing must eventually include Android emulator, physical Android, iOS simulator, and physical iPhone.
+
+Do **not** claim mobile functionality is production-ready based only on a browser preview.

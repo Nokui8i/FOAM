@@ -17,6 +17,7 @@ import {
 } from "firebase/firestore";
 import { ArrowLeft, Check, ChevronDown, ChevronLeft, ChevronRight, Minus, Plus, X } from "lucide-react";
 
+import { SaveCardPanel } from "@/components/save-card-panel";
 import { OptionSheet } from "@/components/option-sheet";
 import { AddressAutocomplete } from "@/components/address-autocomplete";
 import { Button } from "@/components/ui/button";
@@ -130,6 +131,10 @@ const STEP_COPY: Record<
     title: "Confirm your order",
     hint: "Review details, preferences, and total.",
   },
+  billing: {
+    title: "Card for pickup",
+    hint: "",
+  },
 };
 
 export function BookingApp() {
@@ -161,6 +166,14 @@ function BookingAppInner() {
   const [doneTrackKey, setDoneTrackKey] = useState<string | null>(null);
   const [repeatDiscountEligible, setRepeatDiscountEligible] = useState(false);
   const [guestGateOpen, setGuestGateOpen] = useState(false);
+  const [billingCard, setBillingCard] = useState<{
+    brand: string;
+    last4: string;
+    expMonth: number | null;
+    expYear: number | null;
+    stripeCustomerId?: string;
+    stripePaymentMethodId?: string;
+  } | null>(null);
   const [promoStatus, setPromoStatus] = useState<
     | { state: "idle" }
     | { state: "checking" }
@@ -409,21 +422,24 @@ function BookingAppInner() {
     if (step === "schedule") setStep("services");
     else if (step === "address") setStep("schedule");
     else if (step === "confirm") setStep("address");
+    else if (step === "billing") setStep("confirm");
   }
 
   function requestSubmit() {
     setError("");
-    // Guests always get the sign-in offer; signed-in users skip it.
+    // Guests always get the sign-in offer; signed-in users go to billing.
     if (!user) {
       setGuestGateOpen(true);
       return;
     }
-    void submitOrder();
+    setBillingCard(null);
+    setStep("billing");
   }
 
   function continueAsGuest() {
     setGuestGateOpen(false);
-    void submitOrder();
+    setBillingCard(null);
+    setStep("billing");
   }
 
   function signUpForBenefits() {
@@ -435,6 +451,15 @@ function BookingAppInner() {
     setBusy(true);
     setError("");
     try {
+      if (!user) {
+        if (
+          !billingCard?.stripeCustomerId ||
+          !billingCard?.stripePaymentMethodId
+        ) {
+          throw new Error("Add a card to continue.");
+        }
+      }
+
       if (
         !slotIsBookable(
           draft.pickupDate,
@@ -527,6 +552,16 @@ function BookingAppInner() {
         },
         tip,
         promoCode: appliedPromo?.code ?? "",
+        ...(billingCard?.stripeCustomerId && billingCard.stripePaymentMethodId
+          ? {
+              stripeCustomerId: billingCard.stripeCustomerId,
+              stripePaymentMethodId: billingCard.stripePaymentMethodId,
+              cardBrand: billingCard.brand,
+              cardLast4: billingCard.last4,
+              cardExpMonth: billingCard.expMonth,
+              cardExpYear: billingCard.expYear,
+            }
+          : {}),
         createdAt: serverTimestamp(),
       };
 
@@ -1192,6 +1227,64 @@ function BookingAppInner() {
             </p>
           </div>
         ) : null}
+
+        {step === "billing" ? (
+          <div className="book-stack">
+            <div className="account-ops-note">
+              Card details are stored securely by Stripe — FOAM never sees or
+              saves your full card number. We charge after weigh at pickup.
+            </div>
+            {billingCard?.last4 ? (
+              <div className="account-ops-pay-card">
+                <div className="account-ops-pay-card-top">
+                  <span className="account-ops-pay-card-brand">
+                    Card ready
+                  </span>
+                  <span className="account-ops-pay-card-chip">Default</span>
+                </div>
+                <p className="account-ops-pay-card-number">
+                  •••• •••• •••• {billingCard.last4}
+                </p>
+                <div className="account-ops-pay-card-meta">
+                  <span>
+                    {(billingCard.brand || "Card").replace(/^./, (c) =>
+                      c.toUpperCase()
+                    )}
+                  </span>
+                  {billingCard.expMonth && billingCard.expYear ? (
+                    <span>
+                      Exp {String(billingCard.expMonth).padStart(2, "0")}/
+                      {String(billingCard.expYear).slice(-2)}
+                    </span>
+                  ) : null}
+                </div>
+                <div className="account-ops-pay-card-actions">
+                  <button
+                    type="button"
+                    className="account-ops-btn is-ghost"
+                    onClick={() => setBillingCard(null)}
+                  >
+                    Use a different card
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="book-billing-save">
+                <SaveCardPanel
+                  autoStart
+                  guestMode={!user}
+                  guestEmail={draft.email}
+                  customerName={draft.name}
+                  saveLabel="Save card & continue"
+                  onSaved={(card) => {
+                    setBillingCard(card);
+                    setError("");
+                  }}
+                />
+              </div>
+            )}
+          </div>
+        ) : null}
       </div>
 
       {error ? (
@@ -1201,7 +1294,27 @@ function BookingAppInner() {
       ) : null}
 
       <div className="book-cta">
-        {step !== "confirm" ? (
+        {step === "confirm" ? (
+          <Button
+            type="button"
+            className="w-full"
+            size="lg"
+            disabled={busy}
+            onClick={requestSubmit}
+          >
+            Continue to billing
+          </Button>
+        ) : step === "billing" ? (
+          <Button
+            type="button"
+            className="w-full"
+            size="lg"
+            disabled={busy || !billingCard?.last4}
+            onClick={() => void submitOrder()}
+          >
+            {busy ? "Submitting…" : "Place order"}
+          </Button>
+        ) : (
           <Button
             type="button"
             className="w-full"
@@ -1210,16 +1323,6 @@ function BookingAppInner() {
             onClick={goNext}
           >
             Continue
-          </Button>
-        ) : (
-          <Button
-            type="button"
-            className="w-full"
-            size="lg"
-            disabled={busy}
-            onClick={requestSubmit}
-          >
-            {busy ? "Submitting…" : "Continue to billing"}
           </Button>
         )}
       </div>
@@ -1412,13 +1515,18 @@ function GuestCheckoutGate({
           )}
         </div>
         <div className="book-guest-gate-actions">
-          <Button type="button" className="w-full" size="lg" onClick={onSignUp}>
+          <Button
+            type="button"
+            className="book-guest-gate-btn-primary w-full text-white"
+            size="lg"
+            onClick={onSignUp}
+          >
             Sign in / Create account
           </Button>
           <Button
             type="button"
             variant="outline"
-            className="w-full"
+            className="book-guest-gate-btn-outline w-full text-black"
             size="lg"
             onClick={onContinueGuest}
           >

@@ -130,8 +130,8 @@ function DriverAppInner() {
   }, []);
 
   async function releaseToLogin(message: string, announce: boolean) {
+    // Pending stays in memory only so a refresh does not fake a new request.
     if (announce) {
-      // Pending stays in memory only so a refresh does not fake a new request.
       if (message.startsWith("Request sent.")) {
         setLoginNotice(message);
       } else {
@@ -150,6 +150,11 @@ function DriverAppInner() {
       window.setTimeout(() => {
         bootstrappingAccess.current = false;
       }, 1500);
+      if (announce && message.startsWith("Request sent.")) {
+        window.setTimeout(() => {
+          window.location.reload();
+        }, 2000);
+      }
     }
   }
 

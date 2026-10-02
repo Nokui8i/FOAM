@@ -1,0 +1,35 @@
+---
+description: No Firebase production or deploy changes without explicit approval
+alwaysApply: true
+---
+
+# Firebase production approval gate
+
+Inspecting Firebase-related **code** is allowed.
+
+Without **explicit approval in the current conversation**, do **not**:
+
+- edit `firestore.rules` or `firestore.indexes.json`
+- edit Cloud Functions
+- change Firebase Auth or project configuration
+- change production database schema
+- run `firebase deploy` (any target)
+- deploy Hosting, Functions, Firestore rules, or indexes
+- delete Firebase resources
+- change production security configuration
+
+If a task appears to require any of the above: **STOP**, explain what must change, and ask for explicit approval before proceeding.
+
+## Auth model
+
+Client-side authorization checks are UX only. Real authorization stays in Firebase Security Rules and/or server-side functions.
+
+## Secrets
+
+Never add to mobile (or any client) source:
+
+- service account credentials
+- Firebase Admin credentials
+- private keys
+- production secrets
+- API secrets

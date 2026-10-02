@@ -67,6 +67,7 @@ import {
 } from "@/lib/admin-alerts";
 import {
   canAccessOps,
+  canIssueRefunds,
   canManageStaffPage,
   ensureStaffProfile,
   isCompanyOwner,
@@ -232,6 +233,7 @@ function AdminAppInner() {
 
   const allowed = canAccessOps(staffProfile, user?.email);
   const canManageStaff = canManageStaffPage(staffProfile, user?.email);
+  const canRefund = canIssueRefunds(staffProfile, user?.email);
   const driverOnlyAccess =
     Boolean(user) &&
     staffReady &&
@@ -267,6 +269,11 @@ function AdminAppInner() {
       window.setTimeout(() => {
         bootstrappingAccess.current = false;
       }, 1500);
+      if (announce && message.startsWith("Request sent.")) {
+        window.setTimeout(() => {
+          window.location.reload();
+        }, 2000);
+      }
     }
   }
 
@@ -1059,6 +1066,7 @@ function AdminAppInner() {
         hasUnreadStaff={hasUnreadStaff}
         setPendingStaffCount={setPendingStaffCount}
         canManageStaff={canManageStaff}
+        canRefund={canRefund}
         setReminderTodoCount={setReminderTodoCount}
         accountMenuOpen={accountMenuOpen}
         setAccountMenuOpen={setAccountMenuOpen}
@@ -1081,6 +1089,7 @@ function OpsConsole({
   hasUnreadStaff,
   setPendingStaffCount,
   canManageStaff,
+  canRefund,
   setReminderTodoCount,
   accountMenuOpen,
   setAccountMenuOpen,
@@ -1097,6 +1106,7 @@ function OpsConsole({
   hasUnreadStaff: boolean;
   setPendingStaffCount: (count: number) => void;
   canManageStaff: boolean;
+  canRefund: boolean;
   setReminderTodoCount: (count: number) => void;
   accountMenuOpen: boolean;
   setAccountMenuOpen: (open: boolean | ((prev: boolean) => boolean)) => void;
@@ -1534,6 +1544,7 @@ function OpsConsole({
                 adminEmail={user.email ?? ""}
                 mobileView={mobileView}
                 onMobileViewChange={setMobileView}
+                canRefund={canRefund}
               />
             ) : tab === "alerts" ? (
               <AdminAlertsPanel

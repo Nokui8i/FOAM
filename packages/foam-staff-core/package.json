@@ -1,0 +1,17 @@
+{
+  "name": "@foam/staff-core",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Pure TypeScript domain types and business rules shared by FOAM staff apps. No React, Firebase, or UI.",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "^5"
+  }
+}

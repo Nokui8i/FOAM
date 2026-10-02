@@ -1,0 +1,44 @@
+---
+description: FOAM web stays; new mobile is React Native + Expo — not WebView/Capacitor
+alwaysApply: true
+---
+
+# FOAM architecture boundaries
+
+## Current web (production-critical)
+
+- The existing Next.js web app remains production-critical.
+- Do **not** rewrite or replace it.
+- Do **not** break customer, Driver, or OPS web functionality.
+- Leave existing web behavior unchanged unless explicitly requested.
+
+## New mobile (React Native + Expo)
+
+New native apps use: React Native, Expo, TypeScript, Expo Development Builds, and EAS Build when required.
+
+They are **not**: WebViews, Capacitor shells, iframes, hosted sites in native shells, Next.js pages in a mobile app, or browser UI wrappers.
+
+- Do **not** implement new mobile features by extending Capacitor WebViews.
+- Do **not** import Next.js UI into React Native.
+- Do **not** import DOM/browser-specific UI into React Native.
+- Do **not** blindly share UI between web and React Native.
+
+Shared code may include only platform-independent logic, types, validation, data contracts, and carefully isolated services.
+
+Before new architecture work, inspect the existing implementation and reuse business logic/contracts where safe.
+
+## Intended future layout (not created in this stage)
+
+```
+mobile/driver/     # FOAM Driver — app.foam.driver
+mobile/ops/        # FOAM OPS — app.foam.ops
+packages/foam-staff-core/   # shared pure business logic
+```
+
+Use native React Native components and Expo-supported APIs. Do **not** use WebView or HTML/CSS as the primary app UI.
+
+## Unrelated tools in this workspace
+
+- **Lovable**: do not create parallel FOAM apps, backends, or deployments.
+- **Blender / Shopify / Meta VR**: unrelated to FOAM mobile; do not use for this architecture.
+- **Stripe**: remains relevant for FOAM payments.

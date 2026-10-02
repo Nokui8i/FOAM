@@ -3,42 +3,46 @@
 import { useEffect } from "react";
 import { Capacitor } from "@capacitor/core";
 import { StatusBar, Style } from "@capacitor/status-bar";
-import { SplashScreen } from "@capacitor/splash-screen";
 import { App as CapApp } from "@capacitor/app";
 import { Keyboard, KeyboardResize } from "@capacitor/keyboard";
 
+function isStaffPath(pathname: string) {
+  return (
+    pathname.startsWith("/ops") ||
+    pathname.startsWith("/driver") ||
+    pathname.startsWith("/admin")
+  );
+}
+
 /**
  * Native shell chrome for Capacitor (Android + iOS).
- * No-ops in the browser / Firebase Hosting web build.
+ * Splash art is handled by Android launch theme + OpsBoot BrandSplash —
+ * do not stack Capacitor SplashScreen overlays (caused emulator glitches).
  */
 export function CapacitorNativeBoot() {
   useEffect(() => {
     if (!Capacitor.isNativePlatform()) return;
 
-    let cancelled = false;
-
     async function boot() {
+      const staff = isStaffPath(window.location.pathname);
+
       try {
-        // Customer site is light; dark status icons on a white bar.
-        await StatusBar.setStyle({ style: Style.Dark });
-        await StatusBar.setBackgroundColor({ color: "#ffffff" });
+        if (staff) {
+          await StatusBar.setStyle({ style: Style.Light });
+          await StatusBar.setBackgroundColor({ color: "#050505" });
+        } else {
+          await StatusBar.setStyle({ style: Style.Dark });
+          await StatusBar.setBackgroundColor({ color: "#ffffff" });
+        }
         if (Capacitor.getPlatform() === "android") {
           await StatusBar.setOverlaysWebView({ overlay: false });
         }
       } catch {
-        // Plugin may be unavailable on some builds; ignore.
+        // ignore
       }
 
       try {
         await Keyboard.setResizeMode({ mode: KeyboardResize.Body });
-      } catch {
-        // iOS/Android keyboard resize modes differ; ignore failures.
-      }
-
-      try {
-        // Let the live web UI paint before dismissing the native splash.
-        await new Promise((r) => setTimeout(r, 400));
-        if (!cancelled) await SplashScreen.hide({ fadeOutDuration: 280 });
       } catch {
         // ignore
       }
@@ -55,7 +59,6 @@ export function CapacitorNativeBoot() {
     });
 
     return () => {
-      cancelled = true;
       void backSub.then((h) => h.remove());
     };
   }, []);

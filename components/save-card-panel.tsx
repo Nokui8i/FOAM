@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import {
   Elements,
   PaymentElement,
@@ -8,25 +8,44 @@ import {
   useStripe,
 } from "@stripe/react-stripe-js";
 
-import { Button } from "@/components/ui/button";
 import {
   confirmCardSaved,
+  confirmGuestCardSaved,
+  createGuestSetupIntent,
   createSetupIntent,
   stripeCallableErrorMessage,
 } from "@/lib/stripe-api";
 import { getStripe, isStripeConfigured } from "@/lib/stripe";
 
-type Props = {
-  customerName?: string;
-  onSaved: (card: {
-    brand: string;
-    last4: string;
-    expMonth: number | null;
-    expYear: number | null;
-  }) => void;
+export type SavedCardPayload = {
+  brand: string;
+  last4: string;
+  expMonth: number | null;
+  expYear: number | null;
+  stripeCustomerId?: string;
+  stripePaymentMethodId?: string;
 };
 
-function SaveCardFormInner({ onSaved }: { onSaved: Props["onSaved"] }) {
+type Props = {
+  customerName?: string;
+  /** Guest checkout — no Firebase Auth. */
+  guestEmail?: string;
+  guestMode?: boolean;
+  /** Start SetupIntent immediately. */
+  autoStart?: boolean;
+  saveLabel?: string;
+  onSaved: (card: SavedCardPayload) => void;
+};
+
+function SaveCardFormInner({
+  guestMode,
+  saveLabel,
+  onSaved,
+}: {
+  guestMode: boolean;
+  saveLabel: string;
+  onSaved: Props["onSaved"];
+}) {
   const stripe = useStripe();
   const elements = useElements();
   const [busy, setBusy] = useState(false);
@@ -49,8 +68,20 @@ function SaveCardFormInner({ onSaved }: { onSaved: Props["onSaved"] }) {
       if (!setupIntentId) {
         throw new Error("Setup incomplete. Try again.");
       }
-      const card = await confirmCardSaved(setupIntentId);
-      onSaved(card);
+      if (guestMode) {
+        const card = await confirmGuestCardSaved(setupIntentId);
+        onSaved({
+          brand: card.brand,
+          last4: card.last4,
+          expMonth: card.expMonth,
+          expYear: card.expYear,
+          stripeCustomerId: card.customerId,
+          stripePaymentMethodId: card.paymentMethodId,
+        });
+      } else {
+        const card = await confirmCardSaved(setupIntentId);
+        onSaved(card);
+      }
     } catch (err) {
       setError(
         err instanceof Error ? err.message : stripeCallableErrorMessage(err)
@@ -61,40 +92,55 @@ function SaveCardFormInner({ onSaved }: { onSaved: Props["onSaved"] }) {
   }
 
   return (
-    <form onSubmit={onSubmit} className="account-ops-stack gap-3">
-      <PaymentElement
-        options={{
-          layout: "tabs",
-        }}
-      />
+    <form
+      onSubmit={onSubmit}
+      className="account-ops-stack gap-3 account-ops-save-card-form"
+    >
+      <PaymentElement options={{ layout: "tabs" }} />
       {error ? (
         <p className="account-ops-note" role="alert">
           {error}
         </p>
       ) : null}
-      <Button type="submit" disabled={!stripe || busy}>
-        {busy ? "Saving…" : "Save card"}
-      </Button>
+      <button
+        type="submit"
+        className="account-ops-btn is-primary account-ops-save-card-btn"
+        disabled={!stripe || busy}
+      >
+        {busy ? "Saving…" : saveLabel}
+      </button>
     </form>
   );
 }
 
-export function SaveCardPanel({ customerName, onSaved }: Props) {
+/** Stripe Payment Element — account Payments or guest booking billing. */
+export function SaveCardPanel({
+  customerName,
+  guestEmail,
+  guestMode = false,
+  autoStart = false,
+  saveLabel = "Save card",
+  onSaved,
+}: Props) {
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [bootError, setBootError] = useState("");
   const [loading, setLoading] = useState(false);
 
   async function start() {
     if (!isStripeConfigured()) {
-      setBootError(
-        "Stripe is not configured yet. Add NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY to .env.local."
-      );
+      setBootError("Payments are not available right now. Try again later.");
+      return;
+    }
+    if (guestMode && !guestEmail?.trim()) {
+      setBootError("Email is required to save a card.");
       return;
     }
     setLoading(true);
     setBootError("");
     try {
-      const { clientSecret: secret } = await createSetupIntent(customerName);
+      const { clientSecret: secret } = guestMode
+        ? await createGuestSetupIntent(guestEmail!.trim(), customerName)
+        : await createSetupIntent(customerName);
       if (!secret) throw new Error("Missing client secret.");
       setClientSecret(secret);
     } catch (err) {
@@ -104,6 +150,13 @@ export function SaveCardPanel({ customerName, onSaved }: Props) {
     }
   }
 
+  useEffect(() => {
+    if (autoStart && !clientSecret && !loading && !bootError) {
+      void start();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoStart]);
+
   if (!clientSecret) {
     return (
       <div className="account-ops-stack gap-3">
@@ -111,15 +164,18 @@ export function SaveCardPanel({ customerName, onSaved }: Props) {
           <p className="account-ops-note" role="alert">
             {bootError}
           </p>
+        ) : loading || autoStart ? (
+          <p className="account-ops-note">Loading…</p>
         ) : (
-          <p className="account-ops-note">
-            Save a card securely with Stripe. We charge after your laundry is
-            weighed — never over WhatsApp or text.
-          </p>
+          <button
+            type="button"
+            className="account-ops-btn is-primary"
+            onClick={() => void start()}
+            disabled={loading}
+          >
+            Add card
+          </button>
         )}
-        <Button type="button" onClick={() => void start()} disabled={loading}>
-          {loading ? "Loading…" : "Add card"}
-        </Button>
       </div>
     );
   }
@@ -138,7 +194,11 @@ export function SaveCardPanel({ customerName, onSaved }: Props) {
         },
       }}
     >
-      <SaveCardFormInner onSaved={onSaved} />
+      <SaveCardFormInner
+        guestMode={guestMode}
+        saveLabel={saveLabel}
+        onSaved={onSaved}
+      />
     </Elements>
   );
 }

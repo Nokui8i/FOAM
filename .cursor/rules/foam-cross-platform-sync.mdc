@@ -1,0 +1,324 @@
+---
+description: FOAM is one backend-driven system — web + Android + iOS must stay in realtime sync
+alwaysApply: true
+---
+
+# FOAM cross-platform source-of-truth
+
+This is a **global architecture rule**. It is mandatory for all future FOAM development.
+
+## Clients and backend
+
+FOAM consists of these clients:
+
+1. Customer Web
+2. OPS Web
+3. Driver Web
+4. OPS Native Android
+5. OPS Native iOS
+6. Driver Native Android
+7. Driver Native iOS
+
+And a shared backend:
+
+8. Firebase / Backend
+
+**The backend is the single source of truth.**
+
+## Core requirement
+
+Every feature, workflow, state change, permission change, notification, order update, staff change, schedule change, support event, payment event, driver event, or other business operation must be designed and implemented as a **cross-platform system**.
+
+A feature is **NOT** complete if it works on only one client while equivalent clients remain inconsistent.
+
+Whenever a feature is added or modified, the implementation must consider all applicable:
+
+- Web clients
+- Android clients
+- iOS clients
+- Firebase / backend logic
+- Firestore rules
+- Cloud Functions
+- realtime listeners
+- notifications
+- authorization
+- persistence
+
+## Single source of truth
+
+Do **not** create separate competing sources of truth.
+
+Do **not** create:
+
+- mobile-only business state
+- web-only business state
+- Android-only database fields
+- iOS-only database fields
+- duplicate order state
+- duplicate staff state
+- duplicate schedule state
+- duplicate authorization state
+
+unless there is a documented platform-specific technical reason.
+
+The backend data model and business contracts are authoritative.
+
+Native apps and web apps are clients of the **same** backend.
+
+## Realtime requirement
+
+If the Web application currently receives a backend change in realtime, the equivalent native client must also receive that change in realtime when the feature exists on that client.
+
+Prefer the same Firebase realtime mechanisms and data contracts used by the existing system.
+
+Do **not** solve synchronization by requiring:
+
+- manual refresh
+- app restart
+- logout / login
+- reopening a screen
+
+when the Web application already updates automatically.
+
+Use the appropriate realtime listener / subscription mechanism.
+
+## Bidirectional synchronization
+
+Synchronization must work in both directions.
+
+Example:
+
+OPS Web → changes order status → Firebase → Driver Web → Driver Android → Driver iOS
+
+And:
+
+Driver Android → changes order status → Firebase → OPS Web → Driver Web → Driver iOS
+
+The same principle applies to every shared entity.
+
+## Staff / employee synchronization
+
+Staff state must remain synchronized across:
+
+- OPS Web
+- Driver Web
+- OPS Android
+- OPS iOS
+- Driver Android
+- Driver iOS
+
+Examples:
+
+- Employee created → pending state visible where applicable
+- Employee approved → access changes everywhere
+- Employee denied → access changes everywhere
+- Employee revoked → access changes everywhere
+- Employee removed / deleted → active native/web sessions must react according to the established web behavior
+- Employee banned → native and web clients must follow the same access behavior
+
+Do **not** implement a separate mobile staff authorization model.
+
+## Orders
+
+Orders must use the same backend data model and business state transitions across Web, Android, and iOS.
+
+If an order changes:
+
+- status
+- driver assignment
+- pickup state
+- weight
+- photos
+- dry-cleaning state
+- payment state
+- delivery state
+- notes
+- schedule
+- tracking information
+
+every applicable client must receive the same authoritative state.
+
+Do **not** invent mobile-specific order states when an existing backend state already exists.
+
+## Schedule
+
+Schedule changes made by OPS Web must propagate to applicable Driver Web, Android, and iOS clients.
+
+Changes made by an authorized mobile client must propagate back to OPS and other applicable clients.
+
+## Notifications
+
+Notifications must respect the same backend event and authorization logic across platforms.
+
+Do **not** create separate notification business logic only for Android or only for iOS.
+
+Platform-specific delivery mechanisms are allowed:
+
+- Android push
+- iOS push
+- Web notifications
+
+but the event / business decision that creates the notification must remain shared and authoritative.
+
+## Security / authorization
+
+All clients must respect the same backend authorization model.
+
+Never weaken security on mobile to make a feature easier.
+
+Do not duplicate security decisions only in client-side code.
+
+Client-side guards are UX / access gates.
+
+Firebase Rules / backend authorization remain authoritative.
+
+## Android + iOS requirement
+
+Every native feature must be designed for **BOTH**:
+
+- Android
+- iOS
+
+Do **not** implement Android-only functionality and call the feature complete.
+
+If a feature requires platform-specific implementation, provide:
+
+- Android implementation
+- **AND** iOS implementation
+
+using the same shared business contract.
+
+Platform-specific UI is allowed.
+
+Platform-specific native APIs are allowed.
+
+Platform-specific code must **not** create different business behavior.
+
+## Web + native parity
+
+When implementing a feature that already exists on Web:
+
+1. **FIRST** inspect the existing Web implementation.
+2. Identify: data sources, Firestore collections, queries, listeners, mutations, Cloud Functions, validation, permissions, state transitions, error handling, loading states, realtime behavior.
+3. Implement the native equivalent using the **same** backend contracts and business rules.
+
+Do not merely recreate the visual appearance.
+
+**Behavioral parity is required.**
+
+## Shared domain logic
+
+Whenever practical, reusable business logic, types, validation, constants, state definitions, and contracts should live in shared platform-neutral code.
+
+Do **not** share Web UI code with React Native.
+
+Share:
+
+- TypeScript types
+- domain models
+- validation
+- constants
+- state definitions
+- pure business logic
+- backend contracts
+
+Do **not** share:
+
+- DOM components
+- Next.js pages
+- Tailwind web UI
+- browser-only APIs
+
+## Feature completion gate
+
+Before declaring a feature **COMPLETE**, verify:
+
+- [ ] Backend / data model understood
+- [ ] Firebase Rules understood
+- [ ] Existing Web behavior inspected
+- [ ] OPS Web impact checked
+- [ ] Driver Web impact checked
+- [ ] OPS Android impact checked
+- [ ] OPS iOS impact checked
+- [ ] Driver Android impact checked
+- [ ] Driver iOS impact checked
+- [ ] Realtime listeners implemented where required
+- [ ] Mutations use the same backend contracts
+- [ ] Authorization is consistent
+- [ ] Notifications are consistent
+- [ ] Error behavior is consistent
+- [ ] No platform has silently diverged
+- [ ] Android tested where available
+- [ ] iOS implementation included even if runtime testing is temporarily unavailable
+- [ ] Web behavior remains unchanged unless intentionally modified
+- [ ] Existing clients remain compatible
+
+## No partial features
+
+Do **not** declare “Mobile implementation complete” if only Android is implemented.
+
+Do **not** declare “Feature complete” if only Driver is implemented while OPS is required.
+
+Do **not** declare “Sync complete” because both clients happen to use Firebase.
+
+Using the same Firebase project is **NOT** sufficient.
+
+Actual data synchronization, realtime listeners, mutations, authorization, and business behavior must be verified.
+
+## Change impact analysis
+
+Before modifying an existing backend entity or workflow, identify all clients affected by the change.
+
+For example, changing order status logic requires checking:
+
+- Cloud Functions
+- Firestore Rules
+- OPS Web
+- Driver Web
+- OPS Android
+- OPS iOS
+- Driver Android
+- Driver iOS
+- notifications
+- realtime listeners
+
+Do **not** make a backend change that silently breaks another client.
+
+## Backward compatibility
+
+Existing production Web functionality must not be broken while native functionality is being added.
+
+Native development must integrate with the existing backend, not force a backend rewrite unless explicitly approved.
+
+## Architectural principle
+
+FOAM is **ONE** system with multiple clients.
+
+It is **NOT**:
+
+- a website
+- plus a separate Android app
+- plus a separate iPhone app
+
+It is one backend-driven operational system with multiple interfaces.
+
+All clients must converge on the same:
+
+- data
+- state
+- permissions
+- business rules
+- workflows
+- realtime events
+
+Only presentation and platform-specific implementation may differ.
+
+## Mandatory agent response behavior
+
+Whenever a developer asks to implement a feature, first determine whether the feature affects other clients.
+
+If yes, explicitly identify the affected clients before implementation.
+
+If a requested implementation would create platform divergence, **STOP** and explain the divergence before coding.
+
+Never silently implement only the currently open app when the feature belongs to the shared FOAM operational system.
