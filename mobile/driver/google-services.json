@@ -22,6 +22,14 @@
           }
         },
         {
+          "client_id": "729229196646-r474bsa7kovbmrfdo60bdr3jmc88cvi4.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "app.foam.driver",
+            "certificate_hash": "5e8f16062ea3cd2c4a0d547876baa6f38cabf625"
+          }
+        },
+        {
           "client_id": "729229196646-vfi3qchur2kggvp5gnerhn99mkiaoepr.apps.googleusercontent.com",
           "client_type": 3
         }

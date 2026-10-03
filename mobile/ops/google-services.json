@@ -22,6 +22,14 @@
           }
         },
         {
+          "client_id": "729229196646-r474bsa7kovbmrfdo60bdr3jmc88cvi4.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "app.foam.driver",
+            "certificate_hash": "5e8f16062ea3cd2c4a0d547876baa6f38cabf625"
+          }
+        },
+        {
           "client_id": "729229196646-vfi3qchur2kggvp5gnerhn99mkiaoepr.apps.googleusercontent.com",
           "client_type": 3
         }
@@ -63,6 +71,14 @@
           "android_info": {
             "package_name": "app.foam.ops",
             "certificate_hash": "e7d3ec0ef2238c5c9fe12662a0a4ae96ef448574"
+          }
+        },
+        {
+          "client_id": "729229196646-vjeqd62mkqq5cmbrihaqevisoc0lul2u.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "app.foam.ops",
+            "certificate_hash": "5e8f16062ea3cd2c4a0d547876baa6f38cabf625"
           }
         },
         {

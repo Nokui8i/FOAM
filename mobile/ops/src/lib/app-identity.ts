@@ -1,4 +1,3 @@
-import * as Application from "expo-application";
 import Constants from "expo-constants";
 
 import type { StaffPortal } from "@foam/staff-core";
@@ -14,24 +13,19 @@ export const FOAM_APP_SLUG = "foam-ops";
 
 /**
  * Detect Dev Client loading the wrong Metro project (e.g. Driver bundle inside OPS APK).
- * Returns null when identity is consistent.
+ * Uses Expo config from the loaded JS bundle.
  */
 export function getFoamAppIdentityError(): string | null {
-  const nativeId = Application.applicationId?.trim() || null;
   const configPackage =
     Constants.expoConfig?.android?.package?.trim() ||
     Constants.expoConfig?.ios?.bundleIdentifier?.trim() ||
     null;
   const slug = Constants.expoConfig?.slug?.trim() || null;
 
-  if (nativeId && nativeId !== FOAM_APP_PACKAGE) {
-    return `Native package is "${nativeId}" but this source expects "${FOAM_APP_PACKAGE}".`;
-  }
-
   if (configPackage && configPackage !== FOAM_APP_PACKAGE) {
     return (
       `Wrong JS bundle: Metro config package is "${configPackage}" ` +
-      `but this native app is "${FOAM_APP_PACKAGE}". ` +
+      `but this app expects "${FOAM_APP_PACKAGE}". ` +
       `Stop other Expo/Metro processes and start Metro from mobile/ops.`
     );
   }

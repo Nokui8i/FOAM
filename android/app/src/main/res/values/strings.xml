@@ -1,7 +1,0 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
-<resources>
-    <string name="app_name">FOAM OPS</string>
-    <string name="title_activity_main">FOAM OPS</string>
-    <string name="package_name">app.foam.ops</string>
-    <string name="custom_url_scheme">app.foam.ops</string>
-</resources>

@@ -4,7 +4,7 @@ description: >-
   Implements a new FOAM native mobile feature for Driver or OPS using React
   Native + Expo. Use when adding or changing native mobile screens, workflows,
   permissions, camera/location, or offline-capable staff features. Do not use
-  for Capacitor WebView work, web-only Next.js features, or Firebase rules/functions
+  for WebView shells, web-only Next.js features, or Firebase rules/functions
   changes without approval.
 ---
 
@@ -17,7 +17,7 @@ description: >-
 
 ## When NOT to use
 
-- Capacitor / WebView staff shell maintenance → use `foam-staff-capacitor-legacy`
+- WebView or Capacitor shells. Capacitor has been removed. Native work stays in Expo.
 - Scaffolding new Expo apps → use `foam-mobile-bootstrap` (only when user asks)
 - Extracting shared packages → use `foam-shared-domain`
 - Firebase rules/functions/Auth changes → use `foam-firebase-change-review` first
@@ -33,10 +33,10 @@ description: >-
 6. Identify loading / error / offline / reconnect states (`foam-mobile-testing`).
 7. Identify Firebase/backend interactions.
 8. Confirm no production Firebase changes are required; if needed → STOP and get approval.
-9. Implement native UI (React Native + Expo APIs only — no WebView/Capacitor shortcuts).
+9. Implement native UI (React Native + Expo APIs only — no WebView shells).
 10. Implement failure/recovery behavior (duplicate taps, timeouts, retries).
 11. Test normal and edge cases per `foam-mobile-testing`.
-12. Verify no web/Capacitor shortcut was introduced.
+12. Verify no WebView shell was introduced.
 13. Summarize changed files and remaining risks.
 
 ## Safety

@@ -1,26 +1,24 @@
 ---
-description: Do not extend Capacitor WebViews for new native FOAM apps
+description: Do not add Capacitor or WebView shells for FOAM native apps
 alwaysApply: true
 ---
 
-# Capacitor = legacy / current staff WebView only
+# Capacitor is retired
 
-Existing Capacitor paths (keep; do not delete or auto-migrate):
+The old Capacitor staff shells have been removed.
 
-- `android/`
-- `android-driver/`
-- `ios/`
-- `capacitor.config.ts`
-- `capacitor.driver.config.ts`
+Native staff apps are:
+
+- `mobile/driver` — React Native + Expo
+- `mobile/ops` — React Native + Expo
 
 ## Do not
 
-- Delete these projects in this stage
-- Migrate them automatically
-- Extend them as the architecture for new native apps
-- Add new mobile features to Capacitor when the task belongs to React Native + Expo
+- Reintroduce Capacitor, `@capacitor/*`, or a WebView shell
+- Recreate `android/`, `android-driver/`, or `ios/` as Capacitor projects
+- Add new mobile features as a website wrapped in a native shell
 
 ## Do
 
-- Modify Capacitor code **only** when the user explicitly asks to maintain or fix existing Capacitor apps
-- Treat the long-term native architecture as **React Native + Expo**
+- Build native staff features in `mobile/driver` and `mobile/ops`
+- Use Expo prebuild output inside those apps when a native project is required

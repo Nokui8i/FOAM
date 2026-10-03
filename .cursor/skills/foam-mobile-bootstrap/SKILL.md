@@ -4,7 +4,7 @@ description: >-
   Safely scaffolds future FOAM React Native + Expo apps (mobile/driver,
   mobile/ops) and optional packages/foam-staff-core. Use only when the user
   explicitly asks to create native Expo projects. Do not use during preparation
-  stages, for Capacitor work, or to rewrite the existing web app.
+  stages, or to rewrite the existing web app.
 ---
 
 # FOAM mobile bootstrap
@@ -17,24 +17,22 @@ description: >-
 
 - Preparation-only stages (rules/skills only)
 - Feature work inside apps that already exist → `foam-native-feature`
-- Capacitor maintenance → `foam-staff-capacitor-legacy`
-- Automatic migration away from Capacitor
+- Reintroducing Capacitor or a WebView shell
 
 ## Workflow (when invoked)
 
 1. Inspect repository structure.
 2. Confirm existing web architecture (Next.js remains).
 3. Confirm Firebase architecture (same project; no parallel project).
-4. Confirm existing Capacitor apps (`android/`, `android-driver/`, `ios/`) — leave intact.
-5. Confirm package manager and workspace layout.
-6. Confirm Node/toolchain requirements for Expo.
-7. **Propose exact files/directories** and wait for approval before creating.
-8. Create native Expo projects **only after approval**.
-9. Never rewrite the existing web application.
-10. Never replace Firebase / create a second backend or database.
-11. Never migrate Capacitor automatically.
-12. Never deploy.
-13. Never commit or push unless explicitly requested.
+4. Confirm package manager and workspace layout.
+5. Confirm Node/toolchain requirements for Expo.
+6. **Propose exact files/directories** and wait for approval before creating.
+7. Create native Expo projects **only after approval**.
+8. Never rewrite the existing web application.
+9. Never replace Firebase / create a second backend or database.
+10. Never deploy.
+11. Never commit or push unless explicitly requested.
+12. Do not recreate Capacitor projects. Native apps stay Expo under `mobile/`.
 
 ## Target layout
 

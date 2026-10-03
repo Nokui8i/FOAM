@@ -23,7 +23,7 @@ description: >-
 ## Workflow
 
 1. Inspect existing domain logic (`lib/`, related modules).
-2. Identify dependencies (Next.js, DOM, Capacitor, browser APIs, Firebase client).
+2. Identify dependencies (Next.js, DOM, browser APIs, Firebase client).
 3. Separate pure logic from Next.js / browser / UI code.
 4. Identify Firebase-specific code — keep client usage isolated; do not embed Admin SDK.
 5. Identify browser-only dependencies — leave them out of the shared package.

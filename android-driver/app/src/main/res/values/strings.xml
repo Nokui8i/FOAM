@@ -1,7 +1,0 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
-<resources>
-    <string name="app_name">FOAM Driver</string>
-    <string name="title_activity_main">FOAM Driver</string>
-    <string name="package_name">app.foam.driver</string>
-    <string name="custom_url_scheme">app.foam.driver</string>
-</resources>

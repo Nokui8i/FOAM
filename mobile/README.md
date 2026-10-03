@@ -5,7 +5,7 @@
 
 These are Development Build apps (not Expo Go production).
 
-**App ID note:** `app.foam.driver` and `app.foam.ops` match the existing Capacitor
-staff shells. Store migration / replacement is a later stage — do not change IDs now.
+**App ID note:** `app.foam.driver` and `app.foam.ops` are the store identities.
+Do not change them.
 
 Shared pure domain package: `packages/foam-staff-core` (`@foam/staff-core`).

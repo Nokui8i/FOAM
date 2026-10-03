@@ -1,4 +1,3 @@
-import * as Application from "expo-application";
 import Constants from "expo-constants";
 
 import type { StaffPortal } from "@foam/staff-core";
@@ -14,24 +13,24 @@ export const FOAM_APP_SLUG = "foam-driver";
 
 /**
  * Detect Dev Client loading the wrong Metro project (e.g. OPS bundle inside Driver APK).
- * Returns null when identity is consistent.
+ * Uses Expo config from the loaded JS bundle — when OPS Metro serves OPS source into
+ * the Driver APK, slug/package will be foam-ops / app.foam.ops and this fails.
+ *
+ * Note: this check lives in Driver source. If the wrong Metro serves OPS source,
+ * OPS's own app-identity runs instead — so always start Metro from mobile/driver
+ * for the Driver Dev Client.
  */
 export function getFoamAppIdentityError(): string | null {
-  const nativeId = Application.applicationId?.trim() || null;
   const configPackage =
     Constants.expoConfig?.android?.package?.trim() ||
     Constants.expoConfig?.ios?.bundleIdentifier?.trim() ||
     null;
   const slug = Constants.expoConfig?.slug?.trim() || null;
 
-  if (nativeId && nativeId !== FOAM_APP_PACKAGE) {
-    return `Native package is "${nativeId}" but this source expects "${FOAM_APP_PACKAGE}".`;
-  }
-
   if (configPackage && configPackage !== FOAM_APP_PACKAGE) {
     return (
       `Wrong JS bundle: Metro config package is "${configPackage}" ` +
-      `but this native app is "${FOAM_APP_PACKAGE}". ` +
+      `but this app expects "${FOAM_APP_PACKAGE}". ` +
       `Stop other Expo/Metro processes and start Metro from mobile/driver.`
     );
   }

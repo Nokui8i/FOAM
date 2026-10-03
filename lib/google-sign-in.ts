@@ -1,9 +1,6 @@
-import { Capacitor } from "@capacitor/core";
-import { FirebaseAuthentication } from "@capacitor-firebase/authentication";
 import {
   GoogleAuthProvider,
   onAuthStateChanged,
-  signInWithCredential,
   signInWithPopup,
   signInWithRedirect,
   type Auth,
@@ -44,33 +41,7 @@ function redirectWouldLoseState(auth: Auth) {
 }
 
 /**
- * Native Google account picker inside OPS / Driver Capacitor apps.
- * Never opens Chrome Custom Tabs / the browser OAuth flow.
- */
-async function signInWithGoogleNative(): Promise<User> {
-  ensureStaffBackendBound();
-  const auth = await readyFirebaseAuth();
-
-  const result = await FirebaseAuthentication.signInWithGoogle({
-    skipNativeAuth: true,
-  });
-  const idToken = result.credential?.idToken;
-  if (!idToken) {
-    throw Object.assign(new Error("Google sign-in did not return an ID token."), {
-      code: "auth/missing-id-token",
-    });
-  }
-
-  const credential = GoogleAuthProvider.credential(
-    idToken,
-    result.credential?.accessToken
-  );
-  const signedIn = await signInWithCredential(auth, credential);
-  return signedIn.user;
-}
-
-/**
- * Browser Google sign-in (customer site / desktop).
+ * Browser Google sign-in (customer site, OPS Web, Driver Web).
  *
  * Prefer popup. Only fall back to redirect when the popup is truly blocked
  * AND redirect can keep sessionStorage on the same host. Never redirect on
@@ -152,14 +123,8 @@ async function signInWithGoogleWeb(): Promise<User> {
   });
 }
 
-/**
- * Google sign-in for staff consoles.
- * Capacitor apps use the native account sheet; browsers keep the web flow.
- */
+/** Google sign-in for the website and the staff web consoles. */
 export async function signInWithGoogle(): Promise<User> {
-  if (Capacitor.isNativePlatform()) {
-    return signInWithGoogleNative();
-  }
   return signInWithGoogleWeb();
 }
 
@@ -183,9 +148,6 @@ export function googleSignInErrorMessage(
   }
   if (code === "auth/unauthorized-domain") {
     return "This domain is not authorized for Google sign-in.";
-  }
-  if (code === "auth/missing-id-token") {
-    return "Google sign-in failed in the app. Try again.";
   }
   return fallback;
 }
