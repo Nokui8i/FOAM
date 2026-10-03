@@ -1,5 +1,5 @@
 ---
-description: No automatic git commits, pushes, or Firebase/production deployments
+description: Commit and push only when asked. Deploy the Firebase services a requested web change actually needs.
 alwaysApply: true
 ---
 
@@ -12,18 +12,28 @@ Without an **explicit request in the current conversation**, do **not**:
 - `git commit`
 - `git push` (any form)
 - force push
-- `firebase deploy` (any target)
-- deploy Hosting, Functions, Firestore rules, or indexes
-- change production infrastructure as a side effect of coding
-- treat deployment as an invisible final step
+- change production infrastructure beyond the Firebase deploy required by the requested change
+- create a new Firebase project or change Firebase architecture
 
 User-rule git safety still applies: commit/push only when asked; no destructive git.
 
+Deployment and Git are separate. After a deploy, do **not** commit or push unless the user asks in that conversation.
+
 ## Web “done”
 
-Firebase Hosting deploy happens **only** when the user explicitly asks.
+A requested Customer Web / OPS Web / Driver Web change is **not** done until the relevant Firebase deploy has succeeded, unless the user explicitly says not to deploy.
 
-Do **not** define completion as “pushed + hosted” unless they requested that.
+After the code change:
+
+1. Run the relevant typechecks, tests, and the web build.
+2. Deploy **only** the Firebase services that change requires, on the existing project `foam-laundry-app` and the existing Hosting site `foam-laundry-app`:
+   - Web UI → Firebase Hosting (`firebase deploy --only hosting`)
+   - Cloud Functions only when that change requires them
+   - Firestore rules or indexes only when that change requires them
+3. Do **not** deploy unrelated services.
+4. Tell the user exactly what was deployed and the live URL.
+
+Do **not** leave the user to run the deploy. Do **not** stop at local code for a requested web change.
 
 ## Mobile “done”
 

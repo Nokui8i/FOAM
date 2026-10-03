@@ -15,7 +15,7 @@ function activeFunctions(): Functions {
 
 export type SetupIntentResult = {
   clientSecret: string;
-  customerId: string;
+  customerId?: string;
 };
 
 export type SavedCardResult = {
@@ -64,13 +64,58 @@ export async function createGuestSetupIntent(email: string, name?: string) {
   return res.data;
 }
 
-export type GuestCardResult = SavedCardResult & {
-  customerId: string;
-  paymentMethodId: string;
-};
+export async function createGuestOrder(input: {
+  services: { laundry: boolean; dryCleaning: boolean; bagCount: number };
+  contact: { name: string; email: string; phone: string };
+  pickup: {
+    address: string;
+    unit: string;
+    city: string;
+    zip: string;
+    notes: string;
+    date: string;
+    slot: string;
+    repeatRequested: boolean;
+  };
+  preferences: Record<string, string>;
+  orderNotes: string;
+  tip: number;
+  promoCode: string;
+}) {
+  const callable = httpsCallable<typeof input, { orderId: string; trackKey: string }>(
+    activeFunctions(),
+    "createGuestOrder"
+  );
+  const res = await callable(input);
+  return res.data;
+}
+
+export async function attachGuestOrderBilling(input: {
+  orderId: string;
+  setupIntentId: string;
+}) {
+  const callable = httpsCallable<typeof input, { ok: true }>(
+    activeFunctions(),
+    "attachGuestOrderBilling"
+  );
+  const res = await callable(input);
+  return res.data;
+}
+
+export async function discardUnbilledGuestOrder(input: {
+  orderId: string;
+  setupIntentId: string;
+}) {
+  const callable = httpsCallable<typeof input, { ok: true }>(
+    activeFunctions(),
+    "discardUnbilledGuestOrder"
+  );
+  const res = await callable(input);
+  return res.data;
+}
 
 export async function confirmGuestCardSaved(setupIntentId: string) {
-  const callable = httpsCallable<{ setupIntentId: string }, GuestCardResult>(
+  const callable = httpsCallable<{ setupIntentId: string }, SavedCardResult>(
     activeFunctions(),
     "confirmGuestCardSaved"
   );
@@ -98,7 +143,6 @@ export async function chargeOrder(input: {
 export type OnSpotPaymentIntentResult = {
   clientSecret: string;
   paymentIntentId: string;
-  customerId: string;
   finalTotal: number;
 };
 

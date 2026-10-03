@@ -794,6 +794,12 @@ export function AdminOrdersPanel({
       return hay.includes(q);
     });
 
+    void unreadTick;
+    const unreadRank = (row: FoamOrder) => {
+      if (isDriverViewer || !adminEmail) return 1;
+      return isOrderUnread(adminEmail, row.id) ? 0 : 1;
+    };
+
     if (mode === "history") {
       return [...matched].sort((a, b) => {
         const failCmp = paymentFailFirst(a, b);
@@ -808,10 +814,16 @@ export function AdminOrdersPanel({
       return [...matched].sort((a, b) => {
         const failCmp = paymentFailFirst(a, b);
         if (failCmp !== 0) return failCmp;
+        const unreadCmp = unreadRank(a) - unreadRank(b);
+        if (unreadCmp !== 0) return unreadCmp;
         return compareOrdersByPickupSchedule(a, b);
       });
     }
-    return [...matched].sort(paymentFailFirst);
+    return [...matched].sort((a, b) => {
+      const failCmp = paymentFailFirst(a, b);
+      if (failCmp !== 0) return failCmp;
+      return unreadRank(a) - unreadRank(b);
+    });
   }, [
     rows,
     filter,
@@ -821,6 +833,8 @@ export function AdminOrdersPanel({
     futureWeekEnd,
     historyDay,
     isDriverViewer,
+    adminEmail,
+    unreadTick,
   ]);
 
   // Prefer URL selection across all rows so a status/tab change does not close the card.
@@ -2912,24 +2926,30 @@ export function AdminOrdersPanel({
                         selectOrder(row.id);
                       }}
                     >
-                      {unread ? (
-                        <i className="ops-row-unread-dot" aria-hidden />
-                      ) : null}
                       <span className="ops-row-top">
                         <span className="ops-row-name">{row.contact.name}</span>
-                        {(() => {
-                          const badge = orderOpsBadge(row);
-                          return (
-                            <span
-                              className={cn(
-                                "ops-status-pill",
-                                badge.className
-                              )}
-                            >
-                              {badge.label}
-                            </span>
-                          );
-                        })()}
+                        <span className="ops-row-status">
+                          {unread ? (
+                            <i
+                              className="ops-row-unread-dot"
+                              title="New order"
+                              aria-label="New order"
+                            />
+                          ) : null}
+                          {(() => {
+                            const badge = orderOpsBadge(row);
+                            return (
+                              <span
+                                className={cn(
+                                  "ops-status-pill",
+                                  badge.className
+                                )}
+                              >
+                                {badge.label}
+                              </span>
+                            );
+                          })()}
+                        </span>
                       </span>
                       <span className="ops-row-when">
                         {formatPickupDate(row.pickup.date)},{" "}

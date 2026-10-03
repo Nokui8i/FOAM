@@ -10,7 +10,7 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { collection, onSnapshot } from "firebase/firestore";
+import { collection, onSnapshot, query, where } from "firebase/firestore";
 import { createPortal } from "react-dom";
 
 import { useOpsPageReadyWhen } from "@/components/ops-boot";
@@ -124,7 +124,12 @@ export function AdminSchedulePanel({
   useEffect(() => subscribeDayOverride(dayIso, setDayOverride), [dayIso]);
 
   useEffect(() => {
-    return onSnapshot(collection(getFirebaseDb(), "orders"), (snap) => {
+    return onSnapshot(
+      query(
+        collection(getFirebaseDb(), "orders"),
+        where("status", "in", ["new", "confirmed"])
+      ),
+      (snap) => {
       const next: Array<{ date: string; slot: string }> = [];
       snap.forEach((docSnap) => {
         const data = docSnap.data() as Record<string, unknown>;

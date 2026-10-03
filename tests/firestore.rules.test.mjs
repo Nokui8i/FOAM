@@ -8,6 +8,7 @@ import {
 } from "@firebase/rules-unit-testing";
 import {
   doc,
+  getDoc,
   serverTimestamp,
   setDoc,
   updateDoc,
@@ -92,17 +93,42 @@ after(async () => {
 });
 
 test("guest order creation succeeds, but injected payment fields are rejected", async () => {
-  const db = env.unauthenticatedContext().firestore();
-  await assertSucceeds(setDoc(doc(db, "orders/order-safe"), makeOrder()));
+  const anonymous = env.unauthenticatedContext().firestore();
+  await assertFails(setDoc(doc(anonymous, "orders/order-safe"), makeOrder()));
+  const db = env.authenticatedContext("customer-1").firestore();
+  await assertSucceeds(setDoc(doc(db, "orders/order-safe"), makeOrder({
+    guest: false,
+    uid: "customer-1",
+  })));
   await assertFails(setDoc(
     doc(db, "orders/order-injected"),
-    makeOrder({ paymentStatus: "paid", finalTotal: 0.01, stripePaymentIntentId: "pi_fake" })
+    makeOrder({
+      guest: false,
+      uid: "customer-1",
+      paymentStatus: "paid",
+      finalTotal: 0.01,
+      stripePaymentIntentId: "pi_fake",
+      chargeLedger: [{ paymentIntentId: "pi_fake", amount: 1, refunded: 0 }],
+    })
+  ));
+  await assertFails(setDoc(
+    doc(db, "orders/order-card-meta"),
+    makeOrder({
+      guest: false,
+      uid: "customer-1",
+      stripeCustomerId: "cus_secret",
+      stripePaymentMethodId: "pm_secret",
+      cardBrand: "visa",
+      cardLast4: "0019",
+      cardExpMonth: 1,
+      cardExpYear: 2028,
+    })
   ));
 });
 
 test("order pricing snapshot must match current server configuration", async () => {
-  const db = env.unauthenticatedContext().firestore();
-  const tampered = makeOrder();
+  const db = env.authenticatedContext("customer-1").firestore();
+  const tampered = makeOrder({ guest: false, uid: "customer-1" });
   tampered.pricing.laundryRatePerLb = 0.01;
   await assertFails(setDoc(doc(db, "orders/order-bad-rate"), tampered));
 });
@@ -120,14 +146,14 @@ test("promo discount snapshot must match an active stored promo", async () => {
       active: true,
     });
   });
-  const db = env.unauthenticatedContext().firestore();
-  const order = makeOrder({ promoCode: "SAVE10" });
+  const db = env.authenticatedContext("customer-1").firestore();
+  const order = makeOrder({ guest: false, uid: "customer-1", promoCode: "SAVE10" });
   order.pricing.promoCode = "SAVE10";
   order.pricing.promoDiscountType = "percent";
   order.pricing.promoDiscountValue = 10;
   await assertSucceeds(setDoc(doc(db, "orders/order-promo"), order));
 
-  const forged = makeOrder({ promoCode: "SAVE10" });
+  const forged = makeOrder({ guest: false, uid: "customer-1", promoCode: "SAVE10" });
   forged.pricing.promoCode = "SAVE10";
   forged.pricing.promoDiscountType = "percent";
   forged.pricing.promoDiscountValue = 90;
@@ -142,8 +168,65 @@ test("only admins can write pickup availability", async () => {
   };
   await assertFails(setDoc(doc(anonymous, "pickupAvailability/2026-10-10"), update));
 
-  const admin = env.authenticatedContext("owner", { email: "paylocksmith@gmail.com" }).firestore();
+  const admin = env.authenticatedContext("owner", { email: "paylocksmith@gmail.com", email_verified: true }).firestore();
   await assertSucceeds(setDoc(doc(admin, "pickupAvailability/2026-10-10"), update));
+});
+
+test("clients cannot read order billing documents", async () => {
+  await env.withSecurityRulesDisabled(async (context) => {
+    const db = context.firestore();
+    await setDoc(doc(db, "staff/driver-1"), { status: "approved", role: "driver" });
+    await setDoc(doc(db, "orderBilling/assigned-order"), {
+      stripeCustomerId: "cus_secret",
+      stripePaymentMethodId: "pm_secret",
+      cardLast4: "0019",
+    });
+    await setDoc(doc(db, "orders/assigned-order"), {
+      ...makeOrder({ guest: false, uid: "customer-1" }),
+      assignedDriverUid: "driver-1",
+    });
+  });
+  const driver = env.authenticatedContext("driver-1").firestore();
+  await assertFails(getDoc(doc(driver, "orderBilling/assigned-order")));
+  await assertSucceeds(getDoc(doc(driver, "orders/assigned-order")));
+  const customer = env.authenticatedContext("customer-1").firestore();
+  await assertFails(getDoc(doc(customer, "orderBilling/assigned-order")));
+  const admin = env.authenticatedContext("owner", { email: "paylocksmith@gmail.com", email_verified: true }).firestore();
+  await assertFails(getDoc(doc(admin, "orderBilling/assigned-order")));
+  await assertFails(setDoc(doc(driver, "orderBilling/assigned-order"), { cardLast4: "0000" }));
+  await assertFails(getDoc(doc(driver, "rateLimits/guest-setup")));
+  await assertFails(setDoc(doc(admin, "rateLimits/guest-setup"), { count: 1 }));
+  await assertFails(getDoc(doc(env.unauthenticatedContext().firestore(), "rateLimits/guest-setup")));
+});
+
+test("approved driver cannot read customer profiles", async () => {
+  await env.withSecurityRulesDisabled(async (context) => {
+    const db = context.firestore();
+    await setDoc(doc(db, "staff/driver-1"), { status: "approved", role: "driver" });
+    await setDoc(doc(db, "users/customer-1"), {
+      uid: "customer-1",
+      email: "customer@example.com",
+      name: "Customer",
+      stripeCustomerId: "cus_secret",
+      stripePaymentMethodId: "pm_secret",
+      cardBrand: "visa",
+      cardLast4: "0019",
+    });
+    await setDoc(doc(db, "orders/assigned-order"), {
+      ...makeOrder({ guest: false, uid: "customer-1" }),
+      assignedDriverUid: "driver-1",
+      contact: { name: "Customer", email: "customer@example.com", phone: "7025550100" },
+    });
+  });
+  const driver = env.authenticatedContext("driver-1").firestore();
+  await assertFails(getDoc(doc(driver, "users/customer-1")));
+  await assertSucceeds(getDoc(doc(driver, "orders/assigned-order")));
+
+  const customer = env.authenticatedContext("customer-1").firestore();
+  await assertSucceeds(getDoc(doc(customer, "users/customer-1")));
+
+  const admin = env.authenticatedContext("owner", { email: "paylocksmith@gmail.com", email_verified: true }).firestore();
+  await assertSucceeds(getDoc(doc(admin, "users/customer-1")));
 });
 
 test("assigned driver can take an allowed transition but cannot change billing", async () => {
@@ -192,10 +275,25 @@ test("customer order edits allow preferences but reject payment and price change
   }));
 });
 
+test("signed-in customer can create only their own order", async () => {
+  const db = env.authenticatedContext("customer-1").firestore();
+  await assertSucceeds(setDoc(doc(db, "orders/mine"), makeOrder({
+    guest: false,
+    uid: "customer-1",
+  })));
+  await assertFails(setDoc(doc(db, "orders/other"), makeOrder({
+    guest: false,
+    uid: "customer-2",
+  })));
+  await assertFails(setDoc(doc(db, "orders/as-guest"), makeOrder()));
+});
+
 test("tracking document creation must point to its order and secret key", async () => {
-  const db = env.unauthenticatedContext().firestore();
   const order = makeOrder();
-  await assertSucceeds(setDoc(doc(db, "orders/order-track"), order));
+  await env.withSecurityRulesDisabled(async (context) => {
+    await setDoc(doc(context.firestore(), "orders/order-track"), order);
+  });
+  const db = env.unauthenticatedContext().firestore();
   const track = {
     orderId: "order-track",
     ref: "12345678",

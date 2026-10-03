@@ -112,18 +112,7 @@ async function loadWaitingSlotCounts(dateIso: string): Promise<SlotCounts> {
       dateIso
     );
   } catch {
-    /* Fallback: scan recent orders if the date query isn't indexed yet. */
-    try {
-      const snap = await getDocs(collection(getFirebaseDb(), "orders"));
-      return waitingCountsFromOrdersSnap(
-        snap.docs.map((d) => ({
-          data: () => d.data() as Record<string, unknown>,
-        })),
-        dateIso
-      );
-    } catch {
-      return {};
-    }
+    return {};
   }
 }
 
@@ -178,44 +167,12 @@ export function subscribePickupSlotCounts(
     }
   );
 
-  let unsubOrders = () => {};
-  try {
-    unsubOrders = onSnapshot(
-      query(
-        collection(getFirebaseDb(), "orders"),
-        where("pickup.date", "==", dateIso)
-      ),
-      (snap) => {
-        waiting = waitingCountsFromOrdersSnap(
-          snap.docs.map((d) => ({
-            data: () => d.data() as Record<string, unknown>,
-          })),
-          dateIso
-        );
-        emit();
-      },
-      () => {
-        /* index / permission — fall back to full collection */
-        unsubOrders = onSnapshot(
-          collection(getFirebaseDb(), "orders"),
-          (snap) => {
-            waiting = waitingCountsFromOrdersSnap(
-              snap.docs.map((d) => ({
-                data: () => d.data() as Record<string, unknown>,
-              })),
-              dateIso
-            );
-            emit();
-          },
-          () => {
-            waiting = {};
-            emit();
-          }
-        );
-      }
-    );
-  } catch {
-    unsubOrders = onSnapshot(collection(getFirebaseDb(), "orders"), (snap) => {
+  const unsubOrders = onSnapshot(
+    query(
+      collection(getFirebaseDb(), "orders"),
+      where("pickup.date", "==", dateIso)
+    ),
+    (snap) => {
       waiting = waitingCountsFromOrdersSnap(
         snap.docs.map((d) => ({
           data: () => d.data() as Record<string, unknown>,
@@ -223,8 +180,12 @@ export function subscribePickupSlotCounts(
         dateIso
       );
       emit();
-    });
-  }
+    },
+    () => {
+      waiting = {};
+      emit();
+    }
+  );
 
   return () => {
     unsubAvail();

@@ -14,7 +14,7 @@
     "dev": "next dev --hostname 0.0.0.0 --port 3000",
     "build": "next build && node scripts/fix-rsc-aliases.cjs",
     "test:rules": "firebase emulators:exec --project demo-foam-rules --only firestore \"node --test tests/firestore.rules.test.mjs\"",
-    "test:firebase": "npm --prefix functions run build && firebase emulators:exec --project demo-foam-rules --only firestore \"node --test tests/firestore.rules.test.mjs && node --test tests/functions-pricing.test.mjs && node --test tests/functions-reliability.test.mjs\"",
+    "test:firebase": "npm --prefix functions run build && firebase emulators:exec --project demo-foam-rules --only firestore,storage \"node --test tests/firestore.rules.test.mjs && node --test tests/storage.rules.test.mjs && node --test tests/functions-pricing.test.mjs && node --test tests/functions-reliability.test.mjs && node --test tests/functions-retention.test.mjs && node --test tests/functions-receipts.test.mjs && node --test tests/functions-charge-auth.test.mjs && node --test tests/functions-rate-limit.test.mjs && node --test tests/functions-guest-order.test.mjs\"",
     "start": "next start",
     "lint": "eslint",
     "mobile:driver": "npm run start --workspace=@foam/driver",

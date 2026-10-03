@@ -14,10 +14,16 @@ service cloud.firestore {
         ];
     }
 
+    function isVerifiedCompanyOwner() {
+      return request.auth.token.keys().hasAll(['email', 'email_verified'])
+        && request.auth.token.email_verified == true
+        && isCompanyOwnerEmail(request.auth.token.email);
+    }
+
     function isAdmin() {
       return isSignedIn()
         && (
-          isCompanyOwnerEmail(request.auth.token.email)
+          isVerifiedCompanyOwner()
           || (
             exists(/databases/$(database)/documents/staff/$(request.auth.uid))
             && get(/databases/$(database)/documents/staff/$(request.auth.uid)).data.status == 'approved'
@@ -182,7 +188,7 @@ service cloud.firestore {
     }
 
     match /users/{uid} {
-      allow read: if isOwner(uid) || isAdmin() || isDriver();
+      allow read: if isOwner(uid) || isAdmin();
       allow create: if isOwner(uid)
         && request.resource.data.uid == uid
         && request.resource.data.email is string
@@ -217,7 +223,7 @@ service cloud.firestore {
     function isStaffDirectoryReader() {
       return isSignedIn()
         && (
-          isCompanyOwnerEmail(request.auth.token.email)
+          isVerifiedCompanyOwner()
           || (
             exists(/databases/$(database)/documents/staff/$(request.auth.uid))
             && get(/databases/$(database)/documents/staff/$(request.auth.uid)).data.status == 'approved'
@@ -245,7 +251,7 @@ service cloud.firestore {
           request.resource.data.status == 'pending'
           || (
             request.resource.data.status == 'approved'
-            && isCompanyOwnerEmail(request.auth.token.email)
+            && isVerifiedCompanyOwner()
           )
         );
 
@@ -253,11 +259,11 @@ service cloud.firestore {
         // Company owners can always heal/update their own staff doc
         (
           isOwner(uid)
-          && isCompanyOwnerEmail(request.auth.token.email)
+          && isVerifiedCompanyOwner()
         )
         // Company owners may manage any non-owner staff (roles, approve, revoke)
         || (
-          isCompanyOwnerEmail(request.auth.token.email)
+          isVerifiedCompanyOwner()
           && !isStaffTargetOwner()
         )
         // Managers may approve/deny pending only as driver, or update drivers only
@@ -309,7 +315,7 @@ service cloud.firestore {
         || (
           !isStaffTargetOwner()
           && (
-            isCompanyOwnerEmail(request.auth.token.email)
+            isVerifiedCompanyOwner()
             || (
               isApprovedManagerOnly()
               && (
@@ -368,13 +374,24 @@ service cloud.firestore {
       allow read, update, delete: if isAdmin();
     }
 
+    // Stripe customer/payment-method metadata. Admin SDK only.
+    // Customers, drivers, and OPS clients cannot read or write this collection.
+    match /orderBilling/{orderId} {
+      allow read, write: if false;
+    }
+
+    // Callable abuse counters. Admin SDK only.
+    match /rateLimits/{bucket} {
+      allow read, write: if false;
+    }
+
     match /orders/{id} {
+      // Guest checkout goes through createGuestOrder. A signed-out client cannot write an order.
       allow create: if
         request.resource.data.keys().hasOnly([
           'status', 'guest', 'uid', 'trackKey', 'services', 'contact',
           'pickup', 'preferences', 'orderNotes', 'pricing', 'tip', 'promoCode',
-          'stripeCustomerId', 'stripePaymentMethodId', 'cardBrand', 'cardLast4',
-          'cardExpMonth', 'cardExpYear', 'createdAt', 'sourceOrderId', 'automatedWeekly'
+          'createdAt', 'sourceOrderId', 'automatedWeekly'
         ])
         && request.resource.data.status == 'new'
         && request.resource.data.guest is bool
@@ -411,8 +428,6 @@ service cloud.firestore {
         && request.resource.data.contact.phone.size() <= 40
         && (
           isAdmin()
-          || (request.resource.data.guest == true
-            && request.resource.data.uid == null)
           || (request.resource.data.guest == false
             && isSignedIn()
             && request.resource.data.uid == request.auth.uid)

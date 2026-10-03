@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, Suspense, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, Suspense, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -23,6 +23,11 @@ import { AddressAutocomplete } from "@/components/address-autocomplete";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/components/auth-provider";
 import { getFirebaseDb } from "@/lib/firebase";
+import {
+  attachGuestOrderBilling,
+  createGuestOrder,
+  discardUnbilledGuestOrder,
+} from "@/lib/stripe-api";
 import {
   buildOrderTrackDoc,
   makeTrackKey,
@@ -171,9 +176,10 @@ function BookingAppInner() {
     last4: string;
     expMonth: number | null;
     expYear: number | null;
-    stripeCustomerId?: string;
-    stripePaymentMethodId?: string;
+    setupIntentId?: string;
   } | null>(null);
+  const [billingCardLoading, setBillingCardLoading] = useState(false);
+  const skipSavedCardRef = useRef(false);
   const [promoStatus, setPromoStatus] = useState<
     | { state: "idle" }
     | { state: "checking" }
@@ -425,6 +431,34 @@ function BookingAppInner() {
     else if (step === "billing") setStep("confirm");
   }
 
+  async function openBillingForSignedInUser() {
+    if (!user) return;
+    skipSavedCardRef.current = false;
+    setBillingCard(null);
+    setBillingCardLoading(true);
+    setStep("billing");
+    try {
+      const profile = await getUserProfile(user.uid);
+      if (skipSavedCardRef.current) return;
+      if (
+        profile?.cardLast4 &&
+        profile.stripeCustomerId &&
+        profile.stripePaymentMethodId
+      ) {
+        setBillingCard({
+          brand: profile.cardBrand,
+          last4: profile.cardLast4,
+          expMonth: profile.cardExpMonth,
+          expYear: profile.cardExpYear,
+        });
+      }
+    } catch {
+      if (!skipSavedCardRef.current) setBillingCard(null);
+    } finally {
+      if (!skipSavedCardRef.current) setBillingCardLoading(false);
+    }
+  }
+
   function requestSubmit() {
     setError("");
     // Guests always get the sign-in offer; signed-in users go to billing.
@@ -432,8 +466,7 @@ function BookingAppInner() {
       setGuestGateOpen(true);
       return;
     }
-    setBillingCard(null);
-    setStep("billing");
+    void openBillingForSignedInUser();
   }
 
   function continueAsGuest() {
@@ -451,13 +484,8 @@ function BookingAppInner() {
     setBusy(true);
     setError("");
     try {
-      if (!user) {
-        if (
-          !billingCard?.stripeCustomerId ||
-          !billingCard?.stripePaymentMethodId
-        ) {
-          throw new Error("Add a card to continue.");
-        }
+      if (!user && !billingCard?.setupIntentId) {
+        throw new Error("Add a card to continue.");
       }
 
       if (
@@ -488,15 +516,76 @@ function BookingAppInner() {
         });
       }
 
+      const wantsRepeat = draft.repeatPickup;
+      const tip = resolvedTip(draft);
+
+      if (!user) {
+        const setupIntentId = billingCard?.setupIntentId;
+        if (!setupIntentId) throw new Error("Add a card to continue.");
+        let created: { orderId: string; trackKey: string } | null = null;
+        try {
+          created = await createGuestOrder({
+            services: {
+              laundry: draft.laundry,
+              dryCleaning: draft.dryCleaning,
+              bagCount: draft.laundry ? Number(draft.bagCount) || 1 : 0,
+            },
+            contact: {
+              name: draft.name.trim(),
+              email: draft.email.trim().toLowerCase(),
+              phone: draft.phone.trim(),
+            },
+            pickup: {
+              address: draft.address.trim(),
+              unit: draft.unit.trim(),
+              city: draft.city.trim() || LAS_VEGAS_CITY,
+              zip: draft.zip.trim(),
+              notes: draft.pickupNotes.trim(),
+              date: draft.pickupDate,
+              slot: draft.pickupSlot,
+              repeatRequested: wantsRepeat,
+            },
+            preferences: {
+              pants: draft.pants,
+              dresses: draft.dresses,
+              detergent: draft.detergent,
+              softener: draft.softener,
+              whitesWashTemp: draft.whitesWashTemp,
+              colorsWashTemp: draft.colorsWashTemp,
+              whitesDryerHeat: draft.whitesDryerHeat,
+              colorsDryerHeat: draft.colorsDryerHeat,
+            },
+            orderNotes: draft.orderNotes.trim(),
+            tip,
+            promoCode: appliedPromo?.code ?? "",
+          });
+          await attachGuestOrderBilling({
+            orderId: created.orderId,
+            setupIntentId,
+          });
+        } catch (err) {
+          if (created) {
+            await discardUnbilledGuestOrder({
+              orderId: created.orderId,
+              setupIntentId,
+            }).catch(() => undefined);
+            await releasePickupSlot(draft.pickupDate, draft.pickupSlot);
+          }
+          throw err;
+        }
+        clearBookingDraft();
+        setDoneId(created.orderId);
+        setDoneTrackKey(created.trackKey);
+        return;
+      }
+
       await reservePickupSlot(draft.pickupDate, draft.pickupSlot);
 
-      const wantsRepeat = draft.repeatPickup;
       const repeatActive = Boolean(user) && wantsRepeat;
       const pricing = pricingForOrder({
         weeklyAutomation: repeatActive,
         rates,
       });
-      const tip = resolvedTip(draft);
       const trackKey = makeTrackKey();
       const payload = {
         status: "new",
@@ -552,20 +641,10 @@ function BookingAppInner() {
         },
         tip,
         promoCode: appliedPromo?.code ?? "",
-        ...(billingCard?.stripeCustomerId && billingCard.stripePaymentMethodId
-          ? {
-              stripeCustomerId: billingCard.stripeCustomerId,
-              stripePaymentMethodId: billingCard.stripePaymentMethodId,
-              cardBrand: billingCard.brand,
-              cardLast4: billingCard.last4,
-              cardExpMonth: billingCard.expMonth,
-              cardExpYear: billingCard.expYear,
-            }
-          : {}),
         createdAt: serverTimestamp(),
       };
 
-      let ref;
+      let ref: Awaited<ReturnType<typeof addDoc>> | undefined;
       try {
         ref = await addDoc(collection(getFirebaseDb(), "orders"), payload);
       } catch (err) {
@@ -1234,7 +1313,9 @@ function BookingAppInner() {
               Card details are stored securely by Stripe — FOAM never sees or
               saves your full card number. We charge after weigh at pickup.
             </div>
-            {billingCard?.last4 ? (
+            {billingCardLoading ? (
+              <p className="account-ops-note">Checking your saved card…</p>
+            ) : billingCard?.last4 ? (
               <div className="account-ops-pay-card">
                 <div className="account-ops-pay-card-top">
                   <span className="account-ops-pay-card-brand">
@@ -1262,7 +1343,11 @@ function BookingAppInner() {
                   <button
                     type="button"
                     className="account-ops-btn is-ghost"
-                    onClick={() => setBillingCard(null)}
+                    onClick={() => {
+                      skipSavedCardRef.current = true;
+                      setBillingCardLoading(false);
+                      setBillingCard(null);
+                    }}
                   >
                     Use a different card
                   </button>
@@ -1309,7 +1394,7 @@ function BookingAppInner() {
             type="button"
             className="w-full"
             size="lg"
-            disabled={busy || !billingCard?.last4}
+            disabled={busy || billingCardLoading || !billingCard?.last4}
             onClick={() => void submitOrder()}
           >
             {busy ? "Submitting…" : "Place order"}

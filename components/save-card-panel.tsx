@@ -24,6 +24,7 @@ export type SavedCardPayload = {
   expYear: number | null;
   stripeCustomerId?: string;
   stripePaymentMethodId?: string;
+  setupIntentId?: string;
 };
 
 type Props = {
@@ -75,8 +76,7 @@ function SaveCardFormInner({
           last4: card.last4,
           expMonth: card.expMonth,
           expYear: card.expYear,
-          stripeCustomerId: card.customerId,
-          stripePaymentMethodId: card.paymentMethodId,
+          setupIntentId,
         });
       } else {
         const card = await confirmCardSaved(setupIntentId);

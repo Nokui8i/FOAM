@@ -7,18 +7,20 @@ alwaysApply: true
 
 Inspecting Firebase-related **code** is allowed.
 
-Without **explicit approval in the current conversation**, do **not**:
+The user has a standing instruction: after a requested web change, deploy the Firebase services that change requires (Hosting, and Functions or rules/indexes only when required) so the live site shows it. Skip that deploy only when the user explicitly says not to deploy.
+
+Without approval in the current conversation, and when it is **not** required by that requested change, do **not**:
 
 - edit `firestore.rules` or `firestore.indexes.json`
 - edit Cloud Functions
 - change Firebase Auth or project configuration
 - change production database schema
-- run `firebase deploy` (any target)
-- deploy Hosting, Functions, Firestore rules, or indexes
+- deploy unrelated Hosting, Functions, rules, or indexes
 - delete Firebase resources
 - change production security configuration
+- create a new Firebase project or change Firebase architecture
 
-If a task appears to require any of the above: **STOP**, explain what must change, and ask for explicit approval before proceeding.
+If a task needs a protected change that the requested feature does not already require: **STOP**, explain what must change, and ask before proceeding.
 
 ## Auth model
 

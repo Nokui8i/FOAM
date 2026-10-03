@@ -51,7 +51,6 @@ import {
   googleSignInErrorMessage,
   signInWithGoogle,
 } from "@/lib/google-sign-in";
-import { purgeExpiredOpsDataOncePerSession } from "@/lib/data-retention";
 import {
   isFuturePickupOrder,
   isReadyForDelivery,
@@ -296,7 +295,7 @@ function AdminAppInner() {
   }
 
   useEffect(() => {
-    const mq = window.matchMedia("(min-width: 821px)");
+    const mq = window.matchMedia("(min-width: 1201px)");
     const sync = () => setShowLoginBrand(mq.matches);
     sync();
     mq.addEventListener("change", sync);
@@ -610,9 +609,6 @@ function AdminAppInner() {
 
   useEffect(() => {
     if (!allowed) return;
-    void purgeExpiredOpsDataOncePerSession().catch(() => {
-      /* retention is best-effort; do not block ops */
-    });
     // Money-critical: heal any missing +7 weekly queues whenever ops opens.
     const key = "foam-weekly-reconcile-v1";
     try {

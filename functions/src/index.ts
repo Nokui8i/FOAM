@@ -1,14 +1,52 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { initializeApp } from "firebase-admin/app";
 import { getAuth } from "firebase-admin/auth";
 import { FieldValue, getFirestore } from "firebase-admin/firestore";
+import { logger } from "firebase-functions";
 import { onCall, onRequest, HttpsError } from "firebase-functions/v2/https";
 import { onDocumentWritten } from "firebase-functions/v2/firestore";
+import { onSchedule } from "firebase-functions/v2/scheduler";
 import { setGlobalOptions } from "firebase-functions/v2";
 import Stripe from "stripe";
 
+import { deleteOrderDependents } from "./order-cleanup";
+import {
+  receiptParamsForAttempt,
+  resolveReceiptEmail,
+} from "./receipt-email";
+import { purgeExpiredOpsData as runRetentionPurge } from "./retention";
+import { requestClientIp } from "./client-ip";
+import {
+  GUEST_ORDER_EMAIL_LIMIT,
+  GUEST_ORDER_IP_LIMIT,
+  GUEST_ORDER_IP_WINDOW_MS,
+  guestOrderDocument,
+  guestPricingSnapshot,
+  parseGuestOrderInput,
+  type GuestPromoSnapshot,
+  type GuestRateSnapshot,
+} from "./guest-order";
+
+export { deleteOrderTrackProjection } from "./order-cleanup";
+export { requestClientIp } from "./client-ip";
+
 initializeApp();
 setGlobalOptions({ region: "us-central1", timeoutSeconds: 60 });
+
+/** Daily retention. 03:15 America/Los_Angeles, once. OPS does not have to be open. */
+export const purgeExpiredOpsData = onSchedule(
+  {
+    schedule: "15 3 * * *",
+    timeZone: "America/Los_Angeles",
+    timeoutSeconds: 540,
+    memory: "512MiB",
+    maxInstances: 1,
+  },
+  async () => {
+    const result = await runRetentionPurge();
+    logger.info("FOAM retention purge finished", result);
+  }
+);
 
 const OWNER_EMAILS = new Set([
   "paylocksmith@gmail.com",
@@ -41,6 +79,55 @@ function validIsoDate(value: unknown): value is string {
   return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
 }
 
+type RateLimitRequest = {
+  rawRequest?: {
+    ip?: string;
+    headers?: Record<string, string | string[] | undefined>;
+  };
+};
+
+/**
+ * Fixed-window counter in rateLimits/{bucket}. Clients cannot read it.
+ * A missing address does not share one global bucket.
+ */
+export async function consumeRateLimit(
+  db: ReturnType<typeof getFirestore>,
+  bucket: string,
+  limit: number,
+  windowMs: number
+): Promise<void> {
+  const safe = bucket.replace(/[^a-zA-Z0-9:_-]/g, "_").slice(0, 200);
+  if (!safe) return;
+  const ref = db.doc(`rateLimits/${safe}`);
+  await db.runTransaction(async (tx) => {
+    const snap = await tx.get(ref);
+    const now = Date.now();
+    const start = Number(snap.data()?.windowStartMs || 0);
+    const fresh = !snap.exists || !Number.isFinite(start) || now - start >= windowMs;
+    const count = fresh ? 0 : Number(snap.data()?.count || 0);
+    if (count >= limit) {
+      throw new HttpsError("resource-exhausted", "Too many requests. Try again shortly.");
+    }
+    tx.set(ref, {
+      count: count + 1,
+      windowStartMs: fresh ? now : start,
+      updatedAt: FieldValue.serverTimestamp(),
+    });
+  });
+}
+
+const MISSING_PLATFORM_IP_BUCKET = "platform-ip-missing";
+
+export async function limitGuestCaller(
+  request: RateLimitRequest,
+  action: string,
+  limit: number,
+  windowMs: number
+) {
+  const ip = requestClientIp(request) || MISSING_PLATFORM_IP_BUCKET;
+  await consumeRateLimit(getFirestore(), `${action}:${ip}`, limit, windowMs);
+}
+
 async function waitingSlotCounts(date: string) {
   const snap = await getFirestore().collection("orders")
     .where("pickup.date", "==", date).get();
@@ -70,11 +157,7 @@ export const syncOrderTrack = onDocumentWritten("orders/{orderId}", async (event
   if (!after?.exists) {
     const before = event.data?.before;
     const oldOrder = before?.exists ? before.data() || {} : {};
-    await deleteOrderTrackProjection(
-      getFirestore(),
-      event.params.orderId,
-      typeof oldOrder.trackKey === "string" ? oldOrder.trackKey : ""
-    );
+    await deleteOrderDependents(getFirestore(), event.params.orderId, oldOrder);
     return;
   }
   const order = after.data() || {};
@@ -118,20 +201,6 @@ export const syncOrderTrack = onDocumentWritten("orders/{orderId}", async (event
   });
 });
 
-/** Delete only the tracking document that belongs to the deleted order. */
-export async function deleteOrderTrackProjection(
-  db: ReturnType<typeof getFirestore>,
-  orderId: string,
-  trackKey: string
-) {
-  if (!trackKey || trackKey.length > 64) return;
-  const ref = db.doc(`orderTracks/${trackKey}`);
-  await db.runTransaction(async (tx) => {
-    const snap = await tx.get(ref);
-    if (snap.exists && snap.data()?.orderId === orderId) tx.delete(ref);
-  });
-}
-
 async function pickupCapacity(date: string, slot: string) {
   const db = getFirestore();
   const [scheduleSnap, overrideSnap] = await Promise.all([
@@ -157,13 +226,7 @@ async function pickupCapacity(date: string, slot: string) {
     : 0;
 }
 
-/** Server-controlled pickup holds keep public clients from editing counters. */
-export const reservePickupSlot = onCall(async (request) => {
-  const date = request.data?.date;
-  const slot = normalizedSlotLabel(String(request.data?.slot || ""));
-  if (!validIsoDate(date) || !slot || slot.length > 80) {
-    throw new HttpsError("invalid-argument", "Invalid pickup date or time window.");
-  }
+async function holdPickupSlot(date: string, slot: string) {
   const [capacity, waiting] = await Promise.all([
     pickupCapacity(date, slot),
     waitingSlotCounts(date),
@@ -179,11 +242,23 @@ export const reservePickupSlot = onCall(async (request) => {
     slots[slot] = count + 1;
     tx.set(ref, { slots, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
   });
+}
+
+/** Server-controlled pickup holds keep public clients from editing counters. */
+export const reservePickupSlot = onCall(async (request) => {
+  await limitGuestCaller(request, "reserve", 12, 10 * 60 * 1000);
+  const date = request.data?.date;
+  const slot = normalizedSlotLabel(String(request.data?.slot || ""));
+  if (!validIsoDate(date) || !slot || slot.length > 80) {
+    throw new HttpsError("invalid-argument", "Invalid pickup date or time window.");
+  }
+  await holdPickupSlot(date, slot);
   return { ok: true };
 });
 
 /** Best-effort release only ever decrements a single hold and never below live orders. */
 export const releasePickupSlot = onCall(async (request) => {
+  await limitGuestCaller(request, "release", 30, 10 * 60 * 1000);
   const date = request.data?.date;
   const slot = normalizedSlotLabel(String(request.data?.slot || ""));
   if (!validIsoDate(date) || !slot || slot.length > 80) return { ok: true };
@@ -201,6 +276,93 @@ export const releasePickupSlot = onCall(async (request) => {
     tx.set(ref, { slots, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
   });
   return { ok: true };
+});
+
+async function promoSnapshotForGuest(
+  db: ReturnType<typeof getFirestore>,
+  code: string
+): Promise<GuestPromoSnapshot | null> {
+  if (!code) return null;
+  const snap = await db.doc(`promoCodes/${code}`).get();
+  if (!snap.exists) throw new HttpsError("invalid-argument", "Promo code is not available.");
+  const data = snap.data() || {};
+  const value = Number(data.discountValue);
+  const active = data.active !== false
+    && (data.limitMode !== "uses"
+      || (Number.isFinite(Number(data.maxUses)) && Number(data.usedCount || 0) < Number(data.maxUses)));
+  if (!active || (data.discountType !== "percent" && data.discountType !== "fixed")
+    || !Number.isFinite(value) || value <= 0 || String(data.code || "") !== code) {
+    throw new HttpsError("invalid-argument", "Promo code is not available.");
+  }
+  const discountType: "percent" | "fixed" = data.discountType === "percent" ? "percent" : "fixed";
+  return {
+    code,
+    discountType,
+    discountValue: value,
+    includesFee: data.includesFee === true,
+  };
+}
+
+/**
+ * Guest checkout. The browser cannot create this order itself.
+ * Price, status, and payment fields come from the server.
+ */
+export async function createGuestOrderRecord(data: unknown) {
+  const draft = parseGuestOrderInput(data);
+  const db = getFirestore();
+  const ratesSnap = await db.doc("config/laundryRates").get();
+  const rates = ratesSnap.data() || {};
+  const snapshot: GuestRateSnapshot = {
+    weeklyPerLb: Number(rates.weeklyPerLb),
+    standardPerLb: Number(rates.standardPerLb),
+    deliveryFee: Number(rates.deliveryFee),
+    minimumOrder: Number(rates.minimumOrder),
+  };
+  if (![snapshot.weeklyPerLb, snapshot.standardPerLb, snapshot.deliveryFee, snapshot.minimumOrder]
+    .every((value) => Number.isFinite(value) && value > 0)) {
+    throw new HttpsError("failed-precondition", "Pickup pricing is unavailable.");
+  }
+  const promo = await promoSnapshotForGuest(db, draft.promoCode);
+  const pricing = guestPricingSnapshot(snapshot, draft.tip, promo);
+  await holdPickupSlot(draft.pickup.date, draft.pickup.slot);
+  const ref = db.collection("orders").doc();
+  const trackKey = randomBytes(16).toString("hex");
+  const order = guestOrderDocument(draft, pricing, trackKey);
+  const contactName = order.contact.name;
+  await ref.set({
+    ...order,
+    createdAt: FieldValue.serverTimestamp(),
+  });
+  await db.doc(`orderTracks/${trackKey}`).set({
+    orderId: ref.id,
+    ref: orderPublicReference(ref.id),
+    status: "new",
+    firstName: contactName.split(/\s+/)[0]?.slice(0, 40) || "Customer",
+    pickupDate: order.pickup.date,
+    pickupSlot: order.pickup.slot,
+    laundry: order.services.laundry,
+    dryCleaning: order.services.dryCleaning,
+    bagCount: order.services.bagCount,
+    preferences: order.preferences,
+    orderNotes: order.orderNotes,
+    pickupNotes: order.pickup.notes,
+    createdAt: FieldValue.serverTimestamp(),
+    updatedAt: FieldValue.serverTimestamp(),
+  });
+  return { orderId: ref.id, trackKey };
+}
+
+export const createGuestOrder = onCall(async (request) => {
+  await limitGuestCaller(request, "guest-order", GUEST_ORDER_IP_LIMIT, GUEST_ORDER_IP_WINDOW_MS);
+  const draft = parseGuestOrderInput(request.data);
+  const emailHash = createHash("sha256").update(draft.contact.email).digest("hex").slice(0, 32);
+  await consumeRateLimit(
+    getFirestore(),
+    `guest-order-email:${emailHash}`,
+    GUEST_ORDER_EMAIL_LIMIT,
+    GUEST_ORDER_IP_WINDOW_MS
+  );
+  return createGuestOrderRecord(draft);
 });
 
 /** Reconcile counters from authoritative waiting orders; caller counts are ignored. */
@@ -243,6 +405,26 @@ async function assertStaff(uid: string) {
     throw new HttpsError("permission-denied", "Staff role required.");
   }
   return { role, email };
+}
+
+/**
+ * Drivers may charge only the order Firestore assigned to them.
+ * Owners, admins, and managers are unchanged. The assignment is the stored
+ * order field, never a value from the request.
+ */
+export function assertCallerMayChargeOrder(
+  role: string,
+  callerUid: string,
+  order: Record<string, unknown>
+) {
+  if (role === "admin" || role === "manager") return;
+  if (role !== "driver") {
+    throw new HttpsError("permission-denied", "Staff access required.");
+  }
+  const assigned = order.assignedDriverUid;
+  if (typeof assigned !== "string" || assigned !== callerUid) {
+    throw new HttpsError("permission-denied", "This order is not assigned to you.");
+  }
 }
 
 async function ensureStripeCustomer(params: {
@@ -623,6 +805,7 @@ export async function computeAuthoritativeCharge(
  * create different payment intents for different submitted amounts. */
 async function acquireChargeLock(
   orderRef: ReturnType<ReturnType<typeof getFirestore>["doc"]>,
+  orderId: string,
   verifiedPaymentIntentId: string,
   attemptFingerprint: string
 ): Promise<string> {
@@ -635,7 +818,11 @@ async function acquireChargeLock(
     if (current.refundAttemptFingerprint) {
       throw new HttpsError("failed-precondition", "A refund attempt is unresolved. Retry it before charging this order.");
     }
-    const currentPaymentIntentId = String(current.stripePaymentIntentId || "");
+    const billingSnap = await tx.get(db.doc(`orderBilling/${orderId}`));
+    const billing = billingFromData(
+      billingSnap.exists ? (billingSnap.data() as Record<string, unknown>) : undefined
+    );
+    const currentPaymentIntentId = selectPaymentIntentId(billing, current);
     if (currentPaymentIntentId !== verifiedPaymentIntentId) {
       throw new HttpsError(
         "failed-precondition",
@@ -688,7 +875,11 @@ export async function acquireRefundLock(
     if (current.chargeAttemptFingerprint) {
       throw new HttpsError("failed-precondition", "A charge attempt is unresolved. Retry it before refunding this order.");
     }
-    const currentLedger = normalizeChargeLedger(current);
+    const billingSnap = await tx.get(getFirestore().doc(`orderBilling/${orderRef.id}`));
+    const billing = billingFromData(
+      billingSnap.exists ? (billingSnap.data() as Record<string, unknown>) : undefined
+    );
+    const currentLedger = resolveChargeLedger(billing, current);
     const sameLedger = currentLedger.length === expectedLedger.length
       && currentLedger.every((row, index) =>
         row.paymentIntentId === expectedLedger[index]?.paymentIntentId
@@ -723,7 +914,8 @@ export async function acquireRefundLock(
 /** Block new charges when paid, or when an in-flight PI already succeeded/processing. */
 async function guardAgainstDoubleCharge(
   stripe: Stripe,
-  order: Record<string, unknown>
+  order: Record<string, unknown>,
+  billing: { stripePaymentIntentId?: string; chargeLedger?: unknown } | null | undefined
 ): Promise<{ ok: true } | { ok: false; message: string; paymentIntentId?: string }> {
   const lockAt = order.chargeLockAt as { toDate?: () => Date } | undefined;
   if (lockAt && typeof lockAt.toDate === "function") {
@@ -736,10 +928,7 @@ async function guardAgainstDoubleCharge(
     }
   }
 
-  const candidateIds = [...new Set([
-    String(order.stripePaymentIntentId || ""),
-    ...normalizeChargeLedger(order).map((row) => row.paymentIntentId),
-  ].filter(Boolean))];
+  const candidateIds = collectPaymentIntentIds(billing, order);
   if (candidateIds.length > 100) {
     return { ok: false, message: "Too many payment attempts to verify. Contact an administrator." };
   }
@@ -865,13 +1054,6 @@ async function applyPaidChargeToOrder(opts: {
     status: "washing",
     "pricing.finalTotalPending": false,
     paymentStatus: paid ? "paid" : "pending",
-    stripePaymentIntentId: paymentIntent.id,
-    ...(customerId ? { stripeCustomerId: customerId } : {}),
-    ...(pmId ? { stripePaymentMethodId: pmId } : {}),
-    ...(card?.brand ? { cardBrand: card.brand } : {}),
-    ...(card?.last4 ? { cardLast4: card.last4 } : {}),
-    ...(card?.exp_month != null ? { cardExpMonth: card.exp_month } : {}),
-    ...(card?.exp_year != null ? { cardExpYear: card.exp_year } : {}),
     paymentError: FieldValue.delete(),
     pendingOnSpotCharge: FieldValue.delete(),
     chargeLockAt: FieldValue.delete(),
@@ -887,12 +1069,14 @@ async function applyPaidChargeToOrder(opts: {
     updatedAt: FieldValue.serverTimestamp(),
   };
 
+  const billing = await readOrderBilling(db, orderId);
+  let nextLedger: ChargeLedgerEntry[] | undefined;
   if (paid) {
     const chargedUsd =
       Math.round((paymentIntent.amount || Math.round(finalTotal * 100)) ) / 100;
-    const ledger = normalizeChargeLedger(order);
+    const ledger = resolveChargeLedger(billing, order);
     const already = ledger.some((row) => row.paymentIntentId === paymentIntent.id);
-    patch.chargeLedger = already
+    nextLedger = already
       ? ledger
       : [
           ...ledger,
@@ -911,6 +1095,16 @@ async function applyPaidChargeToOrder(opts: {
   }
 
   await db.doc(`orders/${orderId}`).set(patch, { merge: true });
+  await mergeOrderBilling(db, orderId, {
+    stripeCustomerId: customerId,
+    stripePaymentMethodId: pmId,
+    cardBrand: card?.brand || "",
+    cardLast4: card?.last4 || "",
+    cardExpMonth: card?.exp_month ?? null,
+    cardExpYear: card?.exp_year ?? null,
+    stripePaymentIntentId: paymentIntent.id,
+    chargeLedger: nextLedger,
+  });
   await writeTrackWashing(db, order, finalTotal, weightLbs);
 
   return {
@@ -918,8 +1112,6 @@ async function applyPaidChargeToOrder(opts: {
     paymentStatus: (paid ? "paid" : "pending") as "paid" | "pending",
     paymentIntentId: paymentIntent.id,
     finalTotal,
-    brand: card?.brand || "",
-    last4: card?.last4 || "",
   };
 }
 
@@ -929,25 +1121,28 @@ type ChargeLedgerEntry = {
   refunded: number;
 };
 
+function parseChargeLedger(raw: unknown): ChargeLedgerEntry[] {
+  if (!Array.isArray(raw) || raw.length === 0) return [];
+  return raw
+    .map((row) => {
+      const item = row && typeof row === "object" ? (row as Record<string, unknown>) : {};
+      const paymentIntentId = String(item.paymentIntentId || "");
+      const amount =
+        typeof item.amount === "number" && Number.isFinite(item.amount)
+          ? Math.round(item.amount * 100) / 100
+          : 0;
+      const refunded =
+        typeof item.refunded === "number" && Number.isFinite(item.refunded)
+          ? Math.round(item.refunded * 100) / 100
+          : 0;
+      return { paymentIntentId, amount, refunded };
+    })
+    .filter((row) => row.paymentIntentId && row.amount > 0);
+}
+
 function normalizeChargeLedger(order: Record<string, unknown>): ChargeLedgerEntry[] {
-  const raw = order.chargeLedger;
-  if (Array.isArray(raw) && raw.length > 0) {
-    return raw
-      .map((row) => {
-        const item = row && typeof row === "object" ? (row as Record<string, unknown>) : {};
-        const paymentIntentId = String(item.paymentIntentId || "");
-        const amount =
-          typeof item.amount === "number" && Number.isFinite(item.amount)
-            ? Math.round(item.amount * 100) / 100
-            : 0;
-        const refunded =
-          typeof item.refunded === "number" && Number.isFinite(item.refunded)
-            ? Math.round(item.refunded * 100) / 100
-            : 0;
-        return { paymentIntentId, amount, refunded };
-      })
-      .filter((row) => row.paymentIntentId && row.amount > 0);
-  }
+  const parsed = parseChargeLedger(order.chargeLedger);
+  if (parsed.length > 0) return parsed;
 
   const piId = String(order.stripePaymentIntentId || "");
   if (!piId) return [];
@@ -967,6 +1162,34 @@ function normalizeChargeLedger(order: Record<string, unknown>): ChargeLedgerEntr
       refunded: Math.min(refunded, charged),
     },
   ];
+}
+
+export function selectPaymentIntentId(
+  billing: { stripePaymentIntentId?: unknown } | null | undefined,
+  legacy: { stripePaymentIntentId?: unknown } | null | undefined
+) {
+  return billingText(billing?.stripePaymentIntentId) || billingText(legacy?.stripePaymentIntentId);
+}
+
+export function resolveChargeLedger(
+  billing: { chargeLedger?: unknown } | null | undefined,
+  legacy: Record<string, unknown>
+) {
+  const fromBilling = parseChargeLedger(billing?.chargeLedger);
+  if (fromBilling.length > 0) return fromBilling;
+  return normalizeChargeLedger(legacy);
+}
+
+export function collectPaymentIntentIds(
+  billing: { stripePaymentIntentId?: unknown; chargeLedger?: unknown } | null | undefined,
+  legacy: Record<string, unknown>
+) {
+  return [...new Set([
+    billingText(billing?.stripePaymentIntentId),
+    billingText(legacy.stripePaymentIntentId),
+    ...parseChargeLedger(billing?.chargeLedger).map((row) => row.paymentIntentId),
+    ...parseChargeLedger(legacy.chargeLedger).map((row) => row.paymentIntentId),
+  ].filter(Boolean))];
 }
 
 async function verifyChargeLedger(
@@ -997,7 +1220,80 @@ async function verifyChargeLedger(
   return money(total);
 }
 
-async function resolveOrderCard(order: Record<string, unknown>) {
+function billingText(value: unknown) {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function billingExp(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+export function selectGuestPaymentIds(
+  billing: { stripeCustomerId?: string; stripePaymentMethodId?: string } | null | undefined,
+  legacy: { stripeCustomerId?: unknown; stripePaymentMethodId?: unknown } | null | undefined
+) {
+  return {
+    customerId: billingText(billing?.stripeCustomerId) || billingText(legacy?.stripeCustomerId),
+    paymentMethodId:
+      billingText(billing?.stripePaymentMethodId) || billingText(legacy?.stripePaymentMethodId),
+  };
+}
+
+function billingFromData(data: Record<string, unknown> | undefined) {
+  return {
+    stripeCustomerId: billingText(data?.stripeCustomerId),
+    stripePaymentMethodId: billingText(data?.stripePaymentMethodId),
+    cardBrand: billingText(data?.cardBrand),
+    cardLast4: billingText(data?.cardLast4),
+    cardExpMonth: billingExp(data?.cardExpMonth),
+    cardExpYear: billingExp(data?.cardExpYear),
+    stripePaymentIntentId: billingText(data?.stripePaymentIntentId),
+    chargeLedger: parseChargeLedger(data?.chargeLedger),
+  };
+}
+
+async function readOrderBilling(db: ReturnType<typeof getFirestore>, orderId: string) {
+  const snap = await db.doc(`orderBilling/${orderId}`).get();
+  return billingFromData(snap.exists ? (snap.data() as Record<string, unknown>) : undefined);
+}
+
+async function mergeOrderBilling(
+  db: ReturnType<typeof getFirestore>,
+  orderId: string,
+  fields: {
+    stripeCustomerId?: string;
+    stripePaymentMethodId?: string;
+    cardBrand?: string;
+    cardLast4?: string;
+    cardExpMonth?: number | null;
+    cardExpYear?: number | null;
+    stripePaymentIntentId?: string;
+    chargeLedger?: ChargeLedgerEntry[];
+  }
+) {
+  const patch: Record<string, unknown> = {
+    updatedAt: FieldValue.serverTimestamp(),
+  };
+  const customerId = billingText(fields.stripeCustomerId);
+  const paymentMethodId = billingText(fields.stripePaymentMethodId);
+  const cardBrand = billingText(fields.cardBrand);
+  const cardLast4 = billingText(fields.cardLast4);
+  if (customerId) patch.stripeCustomerId = customerId;
+  if (paymentMethodId) patch.stripePaymentMethodId = paymentMethodId;
+  if (cardBrand) patch.cardBrand = cardBrand;
+  if (cardLast4) patch.cardLast4 = cardLast4;
+  if (fields.cardExpMonth != null) patch.cardExpMonth = fields.cardExpMonth;
+  if (fields.cardExpYear != null) patch.cardExpYear = fields.cardExpYear;
+  const paymentIntentId = billingText(fields.stripePaymentIntentId);
+  if (paymentIntentId) patch.stripePaymentIntentId = paymentIntentId;
+  if (fields.chargeLedger && fields.chargeLedger.length > 0) {
+    patch.chargeLedger = fields.chargeLedger;
+  }
+  if (Object.keys(patch).length < 2) return;
+  await db.doc(`orderBilling/${orderId}`).set(patch, { merge: true });
+}
+
+async function resolveOrderCard(order: Record<string, unknown>, orderId: string) {
   const db = getFirestore();
   const customerUid = typeof order.uid === "string" ? order.uid : "";
   let customerId = "";
@@ -1015,8 +1311,10 @@ async function resolveOrderCard(order: Record<string, unknown>) {
     customerId = String(user.stripeCustomerId || "");
     paymentMethodId = String(user.stripePaymentMethodId || "");
   } else {
-    customerId = String(order.stripeCustomerId || "");
-    paymentMethodId = String(order.stripePaymentMethodId || "");
+    const billing = await readOrderBilling(db, orderId);
+    const selected = selectGuestPaymentIds(billing, order);
+    customerId = selected.customerId;
+    paymentMethodId = selected.paymentMethodId;
   }
 
   if (!customerId || !paymentMethodId) {
@@ -1064,9 +1362,16 @@ export const createGuestSetupIntent = onCall(async (request) => {
       : "";
   const name =
     typeof request.data?.name === "string" ? request.data.name.trim() : "";
-  if (!email || !email.includes("@") || email.length > 200) {
+  if (!email || !email.includes("@") || email.length > 200 || name.length > 120) {
     throw new HttpsError("invalid-argument", "Valid email required.");
   }
+  await limitGuestCaller(request, "guest-setup", 20, 60 * 60 * 1000);
+  await consumeRateLimit(
+    getFirestore(),
+    `guest-email:${createHash("sha256").update(email).digest("hex").slice(0, 32)}`,
+    5,
+    60 * 60 * 1000
+  );
 
   const stripe = stripeClient();
   const customer = await stripe.customers.create({
@@ -1086,12 +1391,12 @@ export const createGuestSetupIntent = onCall(async (request) => {
 
   return {
     clientSecret: intent.client_secret,
-    customerId: customer.id,
   };
 });
 
 /** Guest booking: confirm SetupIntent and return card + Stripe ids for the order. */
 export const confirmGuestCardSaved = onCall(async (request) => {
+  await limitGuestCaller(request, "guest-confirm", 30, 60 * 60 * 1000);
   const setupIntentId =
     typeof request.data?.setupIntentId === "string"
       ? request.data.setupIntentId
@@ -1132,14 +1437,271 @@ export const confirmGuestCardSaved = onCall(async (request) => {
   }
 
   return {
-    customerId,
-    paymentMethodId: pmId,
     brand: pm.card?.brand || "",
     last4: pm.card?.last4 || "",
     expMonth: pm.card?.exp_month || null,
     expYear: pm.card?.exp_year || null,
   };
 });
+
+async function guestOrderForSetupIntent(orderId: string, setupIntentId: string) {
+  if (!orderId || !setupIntentId) {
+    throw new HttpsError("invalid-argument", "orderId and setupIntentId required.");
+  }
+  const db = getFirestore();
+  const orderSnap = await db.doc(`orders/${orderId}`).get();
+  if (!orderSnap.exists) {
+    throw new HttpsError("not-found", "Order not found.");
+  }
+  const order = orderSnap.data() || {};
+  if (order.guest !== true || (typeof order.uid === "string" && order.uid)) {
+    throw new HttpsError("permission-denied", "Guest order required.");
+  }
+  const createdRaw = order.createdAt as { toDate?: () => Date } | undefined;
+  const createdAt = createdRaw?.toDate?.();
+  if (!createdAt || Date.now() - createdAt.getTime() > 30 * 60 * 1000) {
+    throw new HttpsError("failed-precondition", "Guest card attachment window has closed.");
+  }
+  const contact =
+    order.contact && typeof order.contact === "object"
+      ? (order.contact as Record<string, unknown>)
+      : {};
+  const orderEmail = billingText(contact.email).toLowerCase();
+  const stripe = stripeClient();
+  const intent = await stripe.setupIntents.retrieve(setupIntentId, {
+    expand: ["payment_method"],
+  });
+  if (intent.metadata?.foamGuest !== "true") {
+    throw new HttpsError("permission-denied", "Not a guest SetupIntent.");
+  }
+  const intentEmail = billingText(intent.metadata?.guestEmail).toLowerCase();
+  if (!orderEmail || !intentEmail || intentEmail !== orderEmail) {
+    throw new HttpsError("permission-denied", "Guest card does not match this order.");
+  }
+  return { db, order, intent };
+}
+
+/** Guest booking: store the confirmed card on orderBilling, not on the order. */
+export const attachGuestOrderBilling = onCall(async (request) => {
+  await limitGuestCaller(request, "guest-attach", 20, 60 * 60 * 1000);
+  const orderId = typeof request.data?.orderId === "string" ? request.data.orderId : "";
+  const setupIntentId =
+    typeof request.data?.setupIntentId === "string" ? request.data.setupIntentId : "";
+  const { db, intent } = await guestOrderForSetupIntent(orderId, setupIntentId);
+  if (intent.status !== "succeeded" || !intent.payment_method) {
+    throw new HttpsError("failed-precondition", "Card setup not complete.");
+  }
+  const pmId =
+    typeof intent.payment_method === "string"
+      ? intent.payment_method
+      : intent.payment_method.id;
+  const pm =
+    typeof intent.payment_method === "string"
+      ? await stripeClient().paymentMethods.retrieve(pmId)
+      : intent.payment_method;
+  const customerId =
+    typeof intent.customer === "string" ? intent.customer : intent.customer?.id || "";
+  const existing = await readOrderBilling(db, orderId);
+  if (
+    existing.stripePaymentMethodId &&
+    existing.stripePaymentMethodId !== pmId
+  ) {
+    throw new HttpsError("already-exists", "This order already has a card on file.");
+  }
+  await mergeOrderBilling(db, orderId, {
+    stripeCustomerId: customerId,
+    stripePaymentMethodId: pmId,
+    cardBrand: pm.card?.brand || "",
+    cardLast4: pm.card?.last4 || "",
+    cardExpMonth: pm.card?.exp_month ?? null,
+    cardExpYear: pm.card?.exp_year ?? null,
+  });
+  return { ok: true as const };
+});
+
+/** Guest booking rollback when the card could not be stored. */
+export const discardUnbilledGuestOrder = onCall(async (request) => {
+  await limitGuestCaller(request, "guest-discard", 20, 60 * 60 * 1000);
+  const orderId = typeof request.data?.orderId === "string" ? request.data.orderId : "";
+  const setupIntentId =
+    typeof request.data?.setupIntentId === "string" ? request.data.setupIntentId : "";
+  const { db, order } = await guestOrderForSetupIntent(orderId, setupIntentId);
+  if (order.status !== "new") {
+    throw new HttpsError("failed-precondition", "Only a new guest order can be discarded.");
+  }
+  const existing = await readOrderBilling(db, orderId);
+  if (existing.stripePaymentMethodId) {
+    throw new HttpsError("failed-precondition", "Guest order already has billing.");
+  }
+  await deleteOrderDependents(db, orderId, order);
+  await db.doc(`orders/${orderId}`).delete();
+  return { ok: true as const };
+});
+
+/**
+ * Owner-only copy of legacy order payment metadata into orderBilling.
+ * Does not delete the fields on the order. Defaults to a dry run.
+ */
+export const backfillOrderBilling = onCall({ timeoutSeconds: 300 }, async (request) => {
+  if (!request.auth?.uid) {
+    throw new HttpsError("unauthenticated", "Sign in required.");
+  }
+  const email = String(request.auth.token.email || "").toLowerCase();
+  if (!OWNER_EMAILS.has(email)) {
+    throw new HttpsError("permission-denied", "Owner access required.");
+  }
+  const dryRun = request.data?.dryRun !== false;
+  const db = getFirestore();
+  const snap = await db.collection("orders").select(
+    "status",
+    "paymentStatus",
+    "guest",
+    "uid",
+    "stripeCustomerId",
+    "stripePaymentMethodId",
+    "cardBrand",
+    "cardLast4",
+    "cardExpMonth",
+    "cardExpYear",
+    "stripePaymentIntentId",
+    "chargeLedger",
+    "finalTotal",
+    "refundAmount"
+  ).get();
+  let withLegacy = 0;
+  let activeGuestDependents = 0;
+  let copied = 0;
+  let alreadyComplete = 0;
+  let conflicts = 0;
+  let paymentIntentIdsCopied = 0;
+  let ledgersCopied = 0;
+  for (const orderDoc of snap.docs) {
+    const data = orderDoc.data() as Record<string, unknown>;
+    const legacy = billingFromData(data);
+    const legacyLedger = parseChargeLedger(data.chargeLedger);
+    const hasLegacy = Boolean(
+      legacy.stripeCustomerId ||
+      legacy.stripePaymentMethodId ||
+      legacy.cardBrand ||
+      legacy.cardLast4 ||
+      legacy.cardExpMonth != null ||
+      legacy.cardExpYear != null ||
+      legacy.stripePaymentIntentId ||
+      legacyLedger.length > 0
+    );
+    if (!hasLegacy) continue;
+    withLegacy += 1;
+    const status = billingText(data.status);
+    const paymentStatus = billingText(data.paymentStatus);
+    const guest = data.guest === true || !billingText(data.uid);
+    const open = status !== "delivered" && status !== "cancelled" && paymentStatus !== "paid";
+    if (guest && open && (legacy.stripeCustomerId || legacy.stripePaymentMethodId)) {
+      activeGuestDependents += 1;
+    }
+    const existing = await readOrderBilling(db, orderDoc.id);
+    const pmConflict = Boolean(
+      existing.stripePaymentMethodId &&
+      legacy.stripePaymentMethodId &&
+      existing.stripePaymentMethodId !== legacy.stripePaymentMethodId
+    );
+    const customerConflict = Boolean(
+      existing.stripeCustomerId &&
+      legacy.stripeCustomerId &&
+      existing.stripeCustomerId !== legacy.stripeCustomerId
+    );
+    const paymentIntentConflict = Boolean(
+      existing.stripePaymentIntentId &&
+      legacy.stripePaymentIntentId &&
+      existing.stripePaymentIntentId !== legacy.stripePaymentIntentId
+    );
+    if (pmConflict || customerConflict || paymentIntentConflict) {
+      conflicts += 1;
+      continue;
+    }
+    const copyPaymentIntent = !existing.stripePaymentIntentId && Boolean(legacy.stripePaymentIntentId);
+    const copyLedger = existing.chargeLedger.length === 0 && legacyLedger.length > 0;
+    const missing =
+      (!existing.stripeCustomerId && legacy.stripeCustomerId) ||
+      (!existing.stripePaymentMethodId && legacy.stripePaymentMethodId) ||
+      (!existing.cardBrand && legacy.cardBrand) ||
+      (!existing.cardLast4 && legacy.cardLast4) ||
+      (existing.cardExpMonth == null && legacy.cardExpMonth != null) ||
+      (existing.cardExpYear == null && legacy.cardExpYear != null) ||
+      copyPaymentIntent ||
+      copyLedger;
+    if (!missing) {
+      alreadyComplete += 1;
+      continue;
+    }
+    if (!dryRun) {
+      await mergeOrderBilling(db, orderDoc.id, {
+        stripeCustomerId: existing.stripeCustomerId ? "" : legacy.stripeCustomerId,
+        stripePaymentMethodId: existing.stripePaymentMethodId ? "" : legacy.stripePaymentMethodId,
+        cardBrand: existing.cardBrand ? "" : legacy.cardBrand,
+        cardLast4: existing.cardLast4 ? "" : legacy.cardLast4,
+        cardExpMonth: existing.cardExpMonth == null ? legacy.cardExpMonth : null,
+        cardExpYear: existing.cardExpYear == null ? legacy.cardExpYear : null,
+        stripePaymentIntentId: copyPaymentIntent ? legacy.stripePaymentIntentId : "",
+        chargeLedger: copyLedger ? legacyLedger : undefined,
+      });
+      copied += 1;
+      if (copyPaymentIntent) paymentIntentIdsCopied += 1;
+      if (copyLedger) ledgersCopied += 1;
+    }
+  }
+  return {
+    dryRun,
+    scanned: snap.size,
+    withLegacy,
+    activeGuestDependents,
+    copied,
+    alreadyComplete,
+    conflicts,
+    paymentIntentIdsCopied,
+    ledgersCopied,
+  };
+});
+/**
+ * Receipt address from Auth, the user profile, or the email stored on the order.
+ * Payment requests cannot supply a different address.
+ */
+async function orderReceiptEmail(order: Record<string, unknown>): Promise<string | null> {
+  const contact =
+    order.contact && typeof order.contact === "object"
+      ? (order.contact as Record<string, unknown>)
+      : {};
+  const contactEmail =
+    (typeof contact.email === "string" ? contact.email : "") ||
+    (typeof order.email === "string" ? order.email : "");
+  const uid = typeof order.uid === "string" ? order.uid.trim() : "";
+  let authEmail = "";
+  let authEmailVerified = false;
+  let profileEmail = "";
+  if (uid) {
+    try {
+      const user = await getAuth().getUser(uid);
+      authEmail = user.email || "";
+      authEmailVerified = user.emailVerified === true;
+    } catch {
+      authEmail = "";
+    }
+    try {
+      const profile = await getFirestore().doc(`users/${uid}`).get();
+      const stored = profile.data()?.email;
+      profileEmail = typeof stored === "string" ? stored : "";
+    } catch {
+      profileEmail = "";
+    }
+  }
+  return resolveReceiptEmail({
+    accountUid: uid,
+    authEmail,
+    authEmailVerified,
+    profileEmail,
+    orderContactEmail: contactEmail,
+  });
+}
+
 /**
  * Staff: charge card on file after weigh, then mark order paid + at laundry.
  */
@@ -1162,6 +1724,7 @@ export const chargeOrder = onCall(async (request) => {
     throw new HttpsError("not-found", "Order not found.");
   }
   const order = orderSnap.data() || {};
+  assertCallerMayChargeOrder(staff.role, request.auth.uid, order);
   const {
     weightLbs,
     dryCleanItems,
@@ -1171,8 +1734,9 @@ export const chargeOrder = onCall(async (request) => {
     promoLabel,
   } = await computeAuthoritativeCharge(db, orderId, order, request.data || {});
   const stripe = stripeClient();
+  const billing = await readOrderBilling(db, orderId);
 
-  const guard = await guardAgainstDoubleCharge(stripe, order);
+  const guard = await guardAgainstDoubleCharge(stripe, order, billing);
   if (!guard.ok) {
     if (guard.message === "Order already charged." && guard.paymentIntentId) {
       const pi = await stripe.paymentIntents.retrieve(guard.paymentIntentId);
@@ -1201,7 +1765,7 @@ export const chargeOrder = onCall(async (request) => {
   }
 
   const customerUid = typeof order.uid === "string" ? order.uid : "";
-  const { customerId, paymentMethodId } = await resolveOrderCard(order);
+  const { customerId, paymentMethodId } = await resolveOrderCard(order, orderId);
 
   const amountCents = Math.round(finalTotal * 100);
   const attemptFingerprint = JSON.stringify({
@@ -1214,9 +1778,11 @@ export const chargeOrder = onCall(async (request) => {
   });
   const attemptId = await acquireChargeLock(
     orderRef,
-    String(order.stripePaymentIntentId || ""),
+    orderId,
+    selectPaymentIntentId(billing, order),
     attemptFingerprint
   );
+  const receiptEmail = await orderReceiptEmail(order);
 
   let paymentIntent: Stripe.PaymentIntent;
   try {
@@ -1229,6 +1795,7 @@ export const chargeOrder = onCall(async (request) => {
         off_session: true,
         confirm: true,
         description: `FOAM order ${orderId}`,
+        ...receiptParamsForAttempt(receiptEmail, false),
         metadata: {
           orderId,
           firebaseUid: customerUid,
@@ -1272,13 +1839,15 @@ export const chargeOrder = onCall(async (request) => {
       stripeErr.decline_code ? `decline=${stripeErr.decline_code}` : "",
     ].filter(Boolean);
     const message = parts.join(" · ") || "Stripe charge failed.";
+    if (stripeErr.payment_intent) {
+      await mergeOrderBilling(db, orderId, {
+        stripePaymentIntentId: stripeErr.payment_intent.id,
+      });
+    }
     await orderRef.set(
       {
         paymentStatus: "failed",
         paymentError: message,
-        ...(stripeErr.payment_intent
-          ? { stripePaymentIntentId: stripeErr.payment_intent.id }
-          : {}),
         chargeLockAt: FieldValue.delete(),
         ...(stripeErr.payment_intent
           ? {
@@ -1297,11 +1866,11 @@ export const chargeOrder = onCall(async (request) => {
     paymentIntent.status !== "succeeded" &&
     paymentIntent.status !== "processing"
   ) {
+    await mergeOrderBilling(db, orderId, { stripePaymentIntentId: paymentIntent.id });
     await orderRef.set(
       {
         paymentStatus: "failed",
         paymentError: `Stripe status: ${paymentIntent.status}`,
-        stripePaymentIntentId: paymentIntent.id,
         chargeLockAt: FieldValue.delete(),
         chargeAttemptId: FieldValue.delete(),
         chargeAttemptFingerprint: FieldValue.delete(),
@@ -1340,12 +1909,6 @@ export const chargeOrderMore = onCall(async (request) => {
   }
 
   const staff = await assertStaff(request.auth.uid);
-  if (staff.role === "driver") {
-    throw new HttpsError(
-      "permission-denied",
-      "Only owners and managers can charge more."
-    );
-  }
 
   const orderId =
     typeof request.data?.orderId === "string" ? request.data.orderId : "";
@@ -1369,8 +1932,16 @@ export const chargeOrderMore = onCall(async (request) => {
     throw new HttpsError("not-found", "Order not found.");
   }
   const order = orderSnap.data() || {};
+  assertCallerMayChargeOrder(staff.role, request.auth.uid, order);
+  if (staff.role === "driver") {
+    throw new HttpsError(
+      "permission-denied",
+      "Only owners and managers can charge more."
+    );
+  }
   const stripe = stripeClient();
-  const ledger = normalizeChargeLedger(order);
+  const billing = await readOrderBilling(db, orderId);
+  const ledger = resolveChargeLedger(billing, order);
   const priorTotal = await verifyChargeLedger(stripe, orderId, ledger);
   const remainingPaid = ledger.reduce(
     (sum, row) => sum + Math.max(0, row.amount - row.refunded),
@@ -1384,7 +1955,7 @@ export const chargeOrderMore = onCall(async (request) => {
   }
 
   const { customerUid, customerId, paymentMethodId } =
-    await resolveOrderCard(order);
+    await resolveOrderCard(order, orderId);
   const attemptFingerprint = JSON.stringify({
     kind: "topup",
     amountCents,
@@ -1394,9 +1965,11 @@ export const chargeOrderMore = onCall(async (request) => {
   });
   const attemptId = await acquireChargeLock(
     orderRef,
-    String(order.stripePaymentIntentId || ""),
+    orderId,
+    selectPaymentIntentId(billing, order),
     attemptFingerprint
   );
+  const receiptEmail = await orderReceiptEmail(order);
 
   let paymentIntent: Stripe.PaymentIntent;
   try {
@@ -1409,6 +1982,7 @@ export const chargeOrderMore = onCall(async (request) => {
         off_session: true,
         confirm: true,
         description: `FOAM order ${orderId} top-up`,
+        ...receiptParamsForAttempt(receiptEmail, false),
         metadata: {
           orderId,
           firebaseUid: customerUid,
@@ -1432,10 +2006,12 @@ export const chargeOrderMore = onCall(async (request) => {
       stripeErr.code ? `code=${stripeErr.code}` : "",
       stripeErr.decline_code ? `decline=${stripeErr.decline_code}` : "",
     ].filter(Boolean);
+    if (stripeErr.payment_intent) {
+      await mergeOrderBilling(db, orderId, {
+        stripePaymentIntentId: stripeErr.payment_intent.id,
+      });
+    }
     await orderRef.set({
-      ...(stripeErr.payment_intent
-        ? { stripePaymentIntentId: stripeErr.payment_intent.id }
-        : {}),
       chargeLockAt: FieldValue.delete(),
       ...(stripeErr.payment_intent
         ? {
@@ -1452,8 +2028,8 @@ export const chargeOrderMore = onCall(async (request) => {
     paymentIntent.status !== "succeeded" &&
     paymentIntent.status !== "processing"
   ) {
+    await mergeOrderBilling(db, orderId, { stripePaymentIntentId: paymentIntent.id });
     await orderRef.set({
-      stripePaymentIntentId: paymentIntent.id,
       paymentStatus: "failed",
       paymentError: `Additional payment not completed (${paymentIntent.status}).`,
       chargeLockAt: FieldValue.delete(),
@@ -1477,12 +2053,14 @@ export const chargeOrderMore = onCall(async (request) => {
     },
   ];
 
+  await mergeOrderBilling(db, orderId, {
+    stripePaymentIntentId: paymentIntent.id,
+    chargeLedger: nextLedger,
+  });
   await orderRef.set(
     {
       finalTotal: nextTotal,
       paymentStatus: paymentIntent.status === "succeeded" ? "paid" : "pending",
-      stripePaymentIntentId: paymentIntent.id,
-      chargeLedger: nextLedger,
       chargeLockAt: FieldValue.delete(),
       chargeAttemptId: FieldValue.delete(),
       chargeAttemptFingerprint: FieldValue.delete(),
@@ -1531,6 +2109,7 @@ export const createOnSpotPaymentIntent = onCall(async (request) => {
     throw new HttpsError("not-found", "Order not found.");
   }
   const order = orderSnap.data() || {};
+  assertCallerMayChargeOrder(staff.role, request.auth.uid, order);
   const {
     weightLbs,
     dryCleanItems,
@@ -1541,7 +2120,8 @@ export const createOnSpotPaymentIntent = onCall(async (request) => {
   } = await computeAuthoritativeCharge(db, orderId, order, request.data || {});
   const stripe = stripeClient();
 
-  const guard = await guardAgainstDoubleCharge(stripe, order);
+  const billing = await readOrderBilling(db, orderId);
+  const guard = await guardAgainstDoubleCharge(stripe, order, billing);
   if (!guard.ok) {
     throw new HttpsError("failed-precondition", guard.message);
   }
@@ -1582,7 +2162,8 @@ export const createOnSpotPaymentIntent = onCall(async (request) => {
       );
     }
   } else {
-    customerId = String(order.stripeCustomerId || "");
+    const billing = await readOrderBilling(db, orderId);
+    customerId = selectGuestPaymentIds(billing, order).customerId;
     if (customerId) {
       const customer = await stripe.customers.retrieve(customerId);
       if (customer.deleted || (customer.metadata?.foamGuest !== "true"
@@ -1612,9 +2193,11 @@ export const createOnSpotPaymentIntent = onCall(async (request) => {
   });
   const attemptId = await acquireChargeLock(
     orderRef,
-    String(order.stripePaymentIntentId || ""),
+    orderId,
+    selectPaymentIntentId(billing, order),
     attemptFingerprint
   );
+  const receiptEmail = await orderReceiptEmail(order);
   const paymentIntent = await stripe.paymentIntents.create(
     {
       amount: amountCents,
@@ -1622,6 +2205,7 @@ export const createOnSpotPaymentIntent = onCall(async (request) => {
       customer: customerId,
       payment_method_types: ["card"],
       description: `FOAM order ${orderId} (on-spot)`,
+      ...receiptParamsForAttempt(receiptEmail, false),
       metadata: {
         orderId,
         firebaseUid: customerUid,
@@ -1638,10 +2222,12 @@ export const createOnSpotPaymentIntent = onCall(async (request) => {
     throw new HttpsError("internal", "Missing PaymentIntent client secret.");
   }
 
+  await mergeOrderBilling(db, orderId, {
+    stripeCustomerId: customerId,
+    stripePaymentIntentId: paymentIntent.id,
+  });
   await orderRef.set(
     {
-      stripeCustomerId: customerId,
-      stripePaymentIntentId: paymentIntent.id,
       chargeLockAt: FieldValue.delete(),
       chargeAttemptId: FieldValue.delete(),
       chargeAttemptFingerprint: FieldValue.delete(),
@@ -1664,7 +2250,6 @@ export const createOnSpotPaymentIntent = onCall(async (request) => {
   return {
     clientSecret: paymentIntent.client_secret,
     paymentIntentId: paymentIntent.id,
-    customerId,
     finalTotal,
   };
 });
@@ -1698,7 +2283,9 @@ export const finalizeOnSpotCharge = onCall(async (request) => {
     throw new HttpsError("not-found", "Order not found.");
   }
   const order = orderSnap.data() || {};
-  if (String(order.stripePaymentIntentId || "") !== paymentIntentId) {
+  assertCallerMayChargeOrder(staff.role, request.auth.uid, order);
+  const billing = await readOrderBilling(db, orderId);
+  if (selectPaymentIntentId(billing, order) !== paymentIntentId) {
     throw new HttpsError("permission-denied", "PaymentIntent is not the active payment attempt for this order.");
   }
 
@@ -1766,7 +2353,8 @@ export const refundOrder = onCall(async (request) => {
     throw new HttpsError("not-found", "Order not found.");
   }
   const order = orderSnap.data() || {};
-  const ledger = normalizeChargeLedger(order);
+  const billing = await readOrderBilling(db, orderId);
+  const ledger = resolveChargeLedger(billing, order);
   const stripe = stripeClient();
   const chargedUsd = await verifyChargeLedger(stripe, orderId, ledger);
 
@@ -1858,9 +2446,9 @@ export const refundOrder = onCall(async (request) => {
     100;
   const fullyRefunded = totalRefundedUsd >= chargedUsd - 0.001;
 
+  await mergeOrderBilling(db, orderId, { chargeLedger: nextLedger });
   await orderRef.set(
     {
-      chargeLedger: nextLedger,
       refundStatus: fullyRefunded ? "issued" : "approved",
       refundAmount: totalRefundedUsd,
       stripeRefundId: lastRefundId,
@@ -1923,6 +2511,8 @@ export const stripeWebhook = onRequest({ cors: false }, async (req, res) => {
 
   const db = getFirestore();
 
+  // Receipts are Stripe's. receipt_email is set only when the PaymentIntent
+  // is created. Do not update it here after success.
   if (
     event.type === "payment_intent.succeeded" ||
     event.type === "payment_intent.payment_failed"
@@ -1936,7 +2526,8 @@ export const stripeWebhook = onRequest({ cors: false }, async (req, res) => {
 
       if (event.type === "payment_intent.succeeded") {
         if (pi.metadata?.chargeMode === "top_up") {
-          const ledger = normalizeChargeLedger(order);
+          const billing = await readOrderBilling(db, orderId);
+          const ledger = resolveChargeLedger(billing, order);
           const amountUsd = Math.round((pi.amount || 0)) / 100;
           const hasPi = ledger.some((row) => row.paymentIntentId === pi.id);
           if (!hasPi && amountUsd >= 0.01) {
@@ -1945,19 +2536,21 @@ export const stripeWebhook = onRequest({ cors: false }, async (req, res) => {
               Number.isFinite(order.finalTotal)
                 ? order.finalTotal
                 : 0;
+            await mergeOrderBilling(db, orderId, {
+              stripePaymentIntentId: pi.id,
+              chargeLedger: [
+                ...ledger,
+                {
+                  paymentIntentId: pi.id,
+                  amount: amountUsd,
+                  refunded: 0,
+                },
+              ],
+            });
             await orderRef.set(
               {
                 finalTotal: Math.round((priorTotal + amountUsd) * 100) / 100,
                 paymentStatus: "paid",
-                stripePaymentIntentId: pi.id,
-                chargeLedger: [
-                  ...ledger,
-                  {
-                    paymentIntentId: pi.id,
-                    amount: amountUsd,
-                    refunded: 0,
-                  },
-                ],
                 paymentError: FieldValue.delete(),
                 updatedAt: FieldValue.serverTimestamp(),
               },
@@ -1975,10 +2568,10 @@ export const stripeWebhook = onRequest({ cors: false }, async (req, res) => {
           });
         }
       } else {
+        await mergeOrderBilling(db, orderId, { stripePaymentIntentId: pi.id });
         await orderRef.set(
           {
             paymentStatus: "failed",
-            stripePaymentIntentId: pi.id,
             paymentError:
               pi.last_payment_error?.message || "Payment failed",
             chargeLockAt: FieldValue.delete(),

@@ -122,7 +122,7 @@ function DriverAppInner() {
   }, []);
 
   useEffect(() => {
-    const mq = window.matchMedia("(min-width: 821px)");
+    const mq = window.matchMedia("(min-width: 1201px)");
     const sync = () => setShowLoginBrand(mq.matches);
     sync();
     mq.addEventListener("change", sync);
