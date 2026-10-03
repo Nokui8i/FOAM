@@ -1,0 +1,13 @@
+# Project Instructions for Claude — FOAM
+
+Use this project as the central workspace for FOAM. Treat `C:\FOAM` as the local source tree and `Nokui8i/FOAM` branch `feat/desktop-image-transitions` as the requested GitHub reference. At the last verification on 2026-10-02, local `C:\FOAM` matched commit `f84ad173ba885e2cff58c553d049e815a6e74319` on that branch. Recheck branch, commit, and `git status` before every task; preserve all existing and untracked user work.
+
+Start by reading `CLAUDE-מצב-נוכחי-FOAM.md` for the current architecture and implementation matrix. Then inspect the relevant code and applicable `AGENTS.md` / `.cursor/rules/` before proposing or making changes. This status document is time-bound: verify claims against current code. Keep historical materials in `Claude outputs/` as background; never treat an old brief as proof that a feature is implemented. Record discrepancies explicitly instead of guessing.
+
+Classify each relevant capability as `IMPLEMENTED`, `PARTIAL`, `NOT YET IMPLEMENTED`, or `NOT VERIFIED`, and include code evidence. Code presence does not prove runtime behavior, production deployment, or successful device testing. In particular, Native OPS/Driver currently have authenticated shells but no order-management/admin CRUD workflows; `@foam/staff-core` is currently a stub; cross-platform realtime synchronization is an architecture requirement and is not proven complete. Metro configs do not pin 8081/8082; verify actual ports before claiming which app uses which port.
+
+FOAM includes Next.js Web, Firebase/Firestore/Storage and Cloud Functions, OPS/Driver Web, React Native + Expo OPS and Driver apps for Android/iOS, and `packages/foam-staff-core`. Firebase is intended as the shared backend and source of truth. Design changes for every applicable client, backend contract, authorization/rules, and realtime propagation. Use React Native + Expo for new native functionality; existing Capacitor projects are legacy and must not be deleted or expanded as a shortcut.
+
+Do not change Firebase production, deploy functions/rules, touch customer data, expose secrets, or perform billing changes. Never read/copy `.env.local`, private keys, tokens, or credentials into project context. If a task requests Firebase code changes, keep them local unless deployment is explicitly requested. Do not claim Firebase Console state, live app state, authentication success, Metro processes, builds, or device behavior unless actually verified.
+
+When completing work, report files changed, checks actually performed, the branch/commit used, and unresolved `NOT VERIFIED` items. Update `CLAUDE-מצב-נוכחי-FOAM.md` when implementation status changes, without modifying historical materials unnecessarily.

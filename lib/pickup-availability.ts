@@ -5,22 +5,25 @@ import {
   getDocs,
   onSnapshot,
   query,
-  runTransaction,
   serverTimestamp,
   setDoc,
   where,
 } from "firebase/firestore";
+import { getFunctions, httpsCallable } from "firebase/functions";
 
 import { SLOT_CAPACITY } from "@/lib/booking";
-import { getFirebaseDb } from "@/lib/firebase";
+import {
+  getFirebaseApp,
+  getFirebaseDb,
+  getStaffFirebaseApp,
+  isStaffBackendBound,
+} from "@/lib/firebase";
 import {
   isWaitingForPickup,
   normalizeOrderStatus,
   type OrderStatus,
 } from "@/lib/orders";
 import {
-  loadDayOverride,
-  loadPickupSchedule,
   slotCapacityForDay,
   subscribeDayOverride,
   type DayOverride,
@@ -229,12 +232,9 @@ export function subscribePickupSlotCounts(
   };
 }
 
-async function capacityForSlot(dateIso: string, slot: string) {
-  const [schedule, override] = await Promise.all([
-    loadPickupSchedule(),
-    loadDayOverride(dateIso),
-  ]);
-  return slotCapacityForDay(schedule, override, slot);
+function pickupCallable<T, R>(name: string, data: T) {
+  const app = isStaffBackendBound() ? getStaffFirebaseApp() : getFirebaseApp();
+  return httpsCallable<T, R>(getFunctions(app, "us-central1"), name)(data);
 }
 
 export async function reservePickupSlot(dateIso: string, slot: string) {
@@ -242,51 +242,15 @@ export async function reservePickupSlot(dateIso: string, slot: string) {
   if (!dateIso || !label) {
     throw new Error("Invalid time window.");
   }
-  const [capacity, waiting] = await Promise.all([
-    capacityForSlot(dateIso, label),
-    loadWaitingSlotCounts(dateIso),
-  ]);
-  const waitingForSlot = waiting[label] ?? 0;
-  const ref = doc(getFirebaseDb(), "pickupAvailability", dateIso);
-  await runTransaction(getFirebaseDb(), async (tx) => {
-    const snap = await tx.get(ref);
-    const counts = normalizeCounts(snap.data()?.slots);
-    const current = Math.max(counts[label] ?? 0, waitingForSlot);
-    if (current >= capacity) {
-      throw new Error("That time window is full. Pick another slot.");
-    }
-    counts[label] = current + 1;
-    tx.set(
-      ref,
-      {
-        slots: counts,
-        updatedAt: serverTimestamp(),
-      },
-      { merge: true }
-    );
-  });
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateIso)) throw new Error("Invalid pickup date.");
+  await pickupCallable("reservePickupSlot", { date: dateIso, slot: label });
 }
 
 export async function releasePickupSlot(dateIso: string, slot: string) {
   const label = normalizeSlotLabel(slot);
   if (!dateIso || !label) return;
-  const ref = doc(getFirebaseDb(), "pickupAvailability", dateIso);
   try {
-    await runTransaction(getFirebaseDb(), async (tx) => {
-      const snap = await tx.get(ref);
-      if (!snap.exists()) return;
-      const counts = normalizeCounts(snap.data()?.slots);
-      const current = counts[label] ?? 0;
-      counts[label] = Math.max(0, current - 1);
-      tx.set(
-        ref,
-        {
-          slots: counts,
-          updatedAt: serverTimestamp(),
-        },
-        { merge: true }
-      );
-    });
+    await pickupCallable("releasePickupSlot", { date: dateIso, slot: label });
   } catch {
     /* best-effort — do not block cancel */
   }
@@ -329,34 +293,11 @@ export async function setDaySlotCounts(dateIso: string, counts: SlotCounts) {
 /** Raise counters when waiting orders outnumber the availability doc. */
 export async function ensureAvailabilityAtLeast(
   dateIso: string,
-  counts: SlotCounts
+  _counts: SlotCounts
 ) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(dateIso)) return;
-  const ref = doc(getFirebaseDb(), "pickupAvailability", dateIso);
   try {
-    await runTransaction(getFirebaseDb(), async (tx) => {
-      const snap = await tx.get(ref);
-      const next = normalizeCounts(snap.data()?.slots);
-      let changed = false;
-      for (const [label, value] of Object.entries(counts)) {
-        const key = normalizeSlotLabel(label);
-        const n = Math.floor(Number(value ?? 0));
-        if (!key || !Number.isFinite(n) || n <= 0) continue;
-        if (n > (next[key] ?? 0)) {
-          next[key] = n;
-          changed = true;
-        }
-      }
-      if (!changed) return;
-      tx.set(
-        ref,
-        {
-          slots: next,
-          updatedAt: serverTimestamp(),
-        },
-        { merge: true }
-      );
-    });
+    await pickupCallable("ensurePickupAvailability", { date: dateIso });
   } catch {
     /* best-effort */
   }

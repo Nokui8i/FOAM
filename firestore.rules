@@ -33,18 +33,114 @@ service cloud.firestore {
         && get(/databases/$(database)/documents/staff/$(request.auth.uid)).data.role == 'driver';
     }
 
-    function isStaff() {
-      return isAdmin() || isDriver()
-        || (
-          isSignedIn()
-          && exists(/databases/$(database)/documents/staff/$(request.auth.uid))
-          && get(/databases/$(database)/documents/staff/$(request.auth.uid)).data.status == 'approved'
-          && get(/databases/$(database)/documents/staff/$(request.auth.uid)).data.role == 'manager'
-        );
-    }
-
     function isOwner(uid) {
       return isSignedIn() && request.auth.uid == uid;
+    }
+
+    function isAssignedDriver(order) {
+      return isDriver()
+        && order.assignedDriverUid is string
+        && order.assignedDriverUid == request.auth.uid;
+    }
+
+    function driverStatusTransitionAllowed() {
+      return request.resource.data.status == resource.data.status
+        || (resource.data.status == 'new'
+          && request.resource.data.status == 'confirmed')
+        || (resource.data.status == 'washing'
+          && request.resource.data.status == 'out_for_delivery')
+        || (resource.data.status == 'out_for_delivery'
+          && request.resource.data.status == 'delivered');
+    }
+
+    function driverOrderUpdateAllowed() {
+      return isAssignedDriver(resource.data)
+        && request.resource.data.assignedDriverUid == resource.data.assignedDriverUid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'status', 'statusUpdatedAt', 'lastUpdatedBy', 'photos'
+        ])
+        && driverStatusTransitionAllowed()
+        && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['photos'])
+          || (request.resource.data.photos is list
+            && request.resource.data.photos.size() <= 30));
+    }
+
+    function orderTrackMatchesOrder(order) {
+      return request.resource.data.orderId == resource.data.orderId
+        && request.resource.data.status == order.status
+        && request.resource.data.pickupDate == order.pickup.date
+        && request.resource.data.pickupSlot == order.pickup.slot
+        && request.resource.data.laundry == order.services.laundry
+        && request.resource.data.dryCleaning == order.services.dryCleaning
+        && request.resource.data.bagCount == order.services.bagCount
+        && request.resource.data.preferences == order.preferences
+        && request.resource.data.orderNotes == order.orderNotes
+        && request.resource.data.pickupNotes == order.pickup.notes;
+    }
+
+    function orderTrackCreateMatchesOrder(key) {
+      let orderPath = /databases/$(database)/documents/orders/$(request.resource.data.orderId);
+      return request.resource.data.orderId is string
+        && existsAfter(orderPath)
+        && getAfter(orderPath).data.trackKey == key
+        && getAfter(orderPath).data.status == request.resource.data.status
+        && getAfter(orderPath).data.pickup.date == request.resource.data.pickupDate
+        && getAfter(orderPath).data.pickup.slot == request.resource.data.pickupSlot
+        && getAfter(orderPath).data.services.laundry == request.resource.data.laundry
+        && getAfter(orderPath).data.services.dryCleaning == request.resource.data.dryCleaning
+        && getAfter(orderPath).data.services.bagCount == request.resource.data.bagCount
+        && getAfter(orderPath).data.preferences == request.resource.data.preferences
+        && getAfter(orderPath).data.orderNotes == request.resource.data.orderNotes
+        && getAfter(orderPath).data.pickup.notes == request.resource.data.pickupNotes;
+    }
+
+    function orderPromoDocumentMatches() {
+      let promoPath = /databases/$(database)/documents/promoCodes/$(request.resource.data.promoCode);
+      let promo = get(promoPath).data;
+      return request.resource.data.promoCode is string
+        && request.resource.data.promoCode.size() >= 2
+        && request.resource.data.promoCode.size() <= 24
+        && exists(promoPath)
+        && promo.active == true
+        && promo.code == request.resource.data.promoCode
+        && request.resource.data.pricing.promoCode == request.resource.data.promoCode
+        && request.resource.data.pricing.promoDiscountType == promo.discountType
+        && request.resource.data.pricing.promoDiscountValue == promo.discountValue
+        && request.resource.data.pricing.promoIncludesFee == (promo.includesFee == true)
+        && (promo.limitMode != 'uses'
+          || (promo.maxUses is int && promo.usedCount is int && promo.usedCount < promo.maxUses));
+    }
+
+    function orderPromoSnapshotMatches() {
+      return request.resource.data.promoCode == ''
+        ? request.resource.data.pricing.promoCode == ''
+          && request.resource.data.pricing.promoDiscountType == null
+          && request.resource.data.pricing.promoDiscountValue == null
+          && request.resource.data.pricing.promoIncludesFee == false
+        : orderPromoDocumentMatches();
+    }
+
+    function orderPriceSnapshotMatches() {
+      let pricing = request.resource.data.pricing;
+      let rates = get(/databases/$(database)/documents/config/laundryRates).data;
+      return pricing is map
+        && request.resource.data.tip is number
+        && request.resource.data.tip >= 0
+        && request.resource.data.tip <= 500
+        && pricing.mode == 'weighed_at_pickup'
+        && pricing.tier in ['weekly', 'standard']
+        && pricing.tier == (request.resource.data.pickup.repeat == true ? 'weekly' : 'standard')
+        && pricing.laundryRatePerLb > 0
+        && ((pricing.tier == 'weekly' && pricing.laundryRatePerLb == rates.weeklyPerLb)
+          || (pricing.tier == 'standard' && pricing.laundryRatePerLb == rates.standardPerLb))
+        && pricing.deliveryFee == rates.deliveryFee
+        && pricing.minimumOrder == rates.minimumOrder
+        && pricing.tip == request.resource.data.tip
+        && pricing.finalTotalPending == true
+        && pricing.repeatDiscountEligible is bool
+        && pricing.repeatDiscountPercent in [0, 10]
+        && (!pricing.repeatDiscountEligible || pricing.repeatDiscountPercent == 10)
+        && orderPromoSnapshotMatches();
     }
 
     function orderWaitingStatus() {
@@ -274,8 +370,34 @@ service cloud.firestore {
 
     match /orders/{id} {
       allow create: if
-        request.resource.data.status == 'new'
+        request.resource.data.keys().hasOnly([
+          'status', 'guest', 'uid', 'trackKey', 'services', 'contact',
+          'pickup', 'preferences', 'orderNotes', 'pricing', 'tip', 'promoCode',
+          'stripeCustomerId', 'stripePaymentMethodId', 'cardBrand', 'cardLast4',
+          'cardExpMonth', 'cardExpYear', 'createdAt', 'sourceOrderId', 'automatedWeekly'
+        ])
+        && request.resource.data.status == 'new'
         && request.resource.data.guest is bool
+        && request.resource.data.trackKey is string
+        && request.resource.data.trackKey.size() >= 16
+        && request.resource.data.trackKey.size() <= 64
+        && request.resource.data.services is map
+        && request.resource.data.services.laundry is bool
+        && request.resource.data.services.dryCleaning is bool
+        && request.resource.data.services.bagCount is int
+        && request.resource.data.services.bagCount >= 0
+        && request.resource.data.services.bagCount <= 100
+        && request.resource.data.pickup is map
+        && request.resource.data.pickup.date is string
+        && request.resource.data.pickup.date.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
+        && request.resource.data.pickup.slot is string
+        && request.resource.data.pickup.slot.size() > 0
+        && request.resource.data.pickup.slot.size() <= 80
+        && request.resource.data.pickup.repeat is bool
+        && request.resource.data.preferences is map
+        && request.resource.data.orderNotes is string
+        && request.resource.data.orderNotes.size() <= 2000
+        && orderPriceSnapshotMatches()
         && request.resource.data.createdAt == request.time
         && request.resource.data.contact.keys().hasAll(['name', 'email', 'phone'])
         && request.resource.data.contact.name is string
@@ -289,8 +411,11 @@ service cloud.firestore {
         && request.resource.data.contact.phone.size() <= 40
         && (
           isAdmin()
-          || request.resource.data.guest == true
-          || (isSignedIn() && request.resource.data.uid == request.auth.uid)
+          || (request.resource.data.guest == true
+            && request.resource.data.uid == null)
+          || (request.resource.data.guest == false
+            && isSignedIn()
+            && request.resource.data.uid == request.auth.uid)
         );
 
       allow read: if isAdmin()
@@ -303,13 +428,7 @@ service cloud.firestore {
           && resource.data.uid is string
           && resource.data.uid == request.auth.uid);
 
-      allow update: if isAdmin() || (
-        // Assigned driver may advance workflow — cannot reassign the job
-        isDriver()
-        && 'assignedDriverUid' in resource.data
-        && resource.data.assignedDriverUid == request.auth.uid
-        && request.resource.data.assignedDriverUid == resource.data.assignedDriverUid
-      ) || (
+      allow update: if isAdmin() || driverOrderUpdateAllowed() || (
         // Owner cancel
         isSignedIn()
         && resource.data.uid is string
@@ -372,9 +491,48 @@ service cloud.firestore {
         && request.resource.data.pickupNotes is string
         && request.resource.data.pickupNotes.size() <= 1000
         && request.resource.data.createdAt == request.time
-        && request.resource.data.updatedAt == request.time;
+        && request.resource.data.updatedAt == request.time
+        && orderTrackCreateMatchesOrder(key);
 
-      allow update: if isStaff() || (
+      allow update: if isAdmin() || (
+        // Booking may replay the initial tracking document if the repair
+        // trigger created it before the client write completed.
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'orderId', 'ref', 'status', 'firstName', 'pickupDate', 'pickupSlot',
+          'laundry', 'dryCleaning', 'bagCount', 'preferences', 'orderNotes',
+          'pickupNotes', 'createdAt', 'updatedAt'
+        ])
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time
+        && orderTrackCreateMatchesOrder(key)
+      ) || (
+        resource.data.orderId is string
+        && existsAfter(/databases/$(database)/documents/orders/$(resource.data.orderId))
+        && orderTrackMatchesOrder(
+          getAfter(/databases/$(database)/documents/orders/$(resource.data.orderId)).data
+        )
+        && isAssignedDriver(
+          getAfter(/databases/$(database)/documents/orders/$(resource.data.orderId)).data
+        )
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'status', 'photos', 'updatedAt'
+        ])
+        && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['photos'])
+          || (request.resource.data.photos is list
+            && request.resource.data.photos.size() <= 30))
+      ) || (
+        resource.data.orderId is string
+        && existsAfter(/databases/$(database)/documents/orders/$(resource.data.orderId))
+        && orderTrackMatchesOrder(
+          getAfter(/databases/$(database)/documents/orders/$(resource.data.orderId)).data
+        )
+        && isSignedIn()
+        && getAfter(/databases/$(database)/documents/orders/$(resource.data.orderId)).data.uid
+          == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'pickupDate', 'pickupSlot', 'preferences', 'orderNotes', 'pickupNotes', 'updatedAt'
+        ])
+      ) || (
         isSignedIn()
         && resource.data.orderId is string
         && get(/databases/$(database)/documents/orders/$(resource.data.orderId)).data.uid
@@ -458,7 +616,7 @@ service cloud.firestore {
 
     match /pickupAvailability/{date} {
       allow read: if true;
-      allow create, update: if
+      allow create, update: if isAdmin() &&
         date.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
         && request.resource.data.keys().hasOnly(['slots', 'updatedAt'])
         && request.resource.data.slots is map;

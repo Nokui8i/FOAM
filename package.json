@@ -13,6 +13,8 @@
   "scripts": {
     "dev": "next dev --hostname 0.0.0.0 --port 3000",
     "build": "next build && node scripts/fix-rsc-aliases.cjs",
+    "test:rules": "firebase emulators:exec --project demo-foam-rules --only firestore \"node --test tests/firestore.rules.test.mjs\"",
+    "test:firebase": "npm --prefix functions run build && firebase emulators:exec --project demo-foam-rules --only firestore \"node --test tests/firestore.rules.test.mjs && node --test tests/functions-pricing.test.mjs && node --test tests/functions-reliability.test.mjs\"",
     "start": "next start",
     "lint": "eslint",
     "mobile:driver": "npm run start --workspace=@foam/driver",
@@ -56,6 +58,7 @@
   },
   "devDependencies": {
     "@capacitor/assets": "^3.0.5",
+    "@firebase/rules-unit-testing": "^5.0.2",
     "@tailwindcss/postcss": "^4",
     "@types/google.maps": "^3.66.2",
     "@types/node": "^20",
@@ -63,6 +66,7 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.3.4",
+    "firebase-tools": "^15.32.1",
     "tailwindcss": "^4",
     "typescript": "^5"
   }

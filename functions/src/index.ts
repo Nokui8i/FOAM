@@ -1,7 +1,9 @@
+import { randomUUID } from "node:crypto";
 import { initializeApp } from "firebase-admin/app";
 import { getAuth } from "firebase-admin/auth";
 import { FieldValue, getFirestore } from "firebase-admin/firestore";
 import { onCall, onRequest, HttpsError } from "firebase-functions/v2/https";
+import { onDocumentWritten } from "firebase-functions/v2/firestore";
 import { setGlobalOptions } from "firebase-functions/v2";
 import Stripe from "stripe";
 
@@ -28,6 +30,199 @@ function stripeClient() {
   stripeSingleton = new Stripe(key);
   return stripeSingleton;
 }
+
+function normalizedSlotLabel(raw: string) {
+  return raw.trim().replace(/[\u2013\u2014]/g, "-").replace(/\s*-\s*/g, " - ");
+}
+
+function validIsoDate(value: unknown): value is string {
+  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const date = new Date(`${value}T00:00:00.000Z`);
+  return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
+}
+
+async function waitingSlotCounts(date: string) {
+  const snap = await getFirestore().collection("orders")
+    .where("pickup.date", "==", date).get();
+  const counts: Record<string, number> = {};
+  for (const row of snap.docs) {
+    const data = row.data();
+    if (!["new", "confirmed"].includes(String(data.status || ""))) continue;
+    const pickup = data.pickup as Record<string, unknown> | undefined;
+    const slot = normalizedSlotLabel(typeof pickup?.slot === "string" ? pickup.slot : "");
+    if (slot) counts[slot] = (counts[slot] || 0) + 1;
+  }
+  return counts;
+}
+
+function orderPublicReference(orderId: string) {
+  let hash = 2166136261;
+  for (let i = 0; i < orderId.length; i++) {
+    hash ^= orderId.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return String(10_000_000 + ((hash >>> 0) % 90_000_000));
+}
+
+/** Rebuilds the public tracking projection from the authoritative order. */
+export const syncOrderTrack = onDocumentWritten("orders/{orderId}", async (event) => {
+  const after = event.data?.after;
+  if (!after?.exists) {
+    const before = event.data?.before;
+    const oldOrder = before?.exists ? before.data() || {} : {};
+    await deleteOrderTrackProjection(
+      getFirestore(),
+      event.params.orderId,
+      typeof oldOrder.trackKey === "string" ? oldOrder.trackKey : ""
+    );
+    return;
+  }
+  const order = after.data() || {};
+  const trackKey = typeof order.trackKey === "string" ? order.trackKey : "";
+  if (trackKey.length < 16 || trackKey.length > 64) return;
+  const pickup = (order.pickup || {}) as Record<string, unknown>;
+  const services = (order.services || {}) as Record<string, unknown>;
+  const contact = (order.contact || {}) as Record<string, unknown>;
+  const photos = Array.isArray(order.photos)
+    ? order.photos.filter((photo: Record<string, unknown>) =>
+        photo && (photo.kind === "weight" || photo.kind === "return")
+      ).map((photo: Record<string, unknown>) => ({
+        url: photo.url,
+        kind: photo.kind,
+        createdAt: photo.createdAt || null,
+      }))
+    : undefined;
+  const ref = getFirestore().doc(`orderTracks/${trackKey}`);
+  await getFirestore().runTransaction(async (tx) => {
+    const current = await tx.get(ref);
+    const name = typeof contact.name === "string" ? contact.name.trim() : "";
+    tx.set(ref, {
+      orderId: event.params.orderId,
+      ref: orderPublicReference(event.params.orderId),
+      status: String(order.status || "new"),
+      firstName: name.split(/\s+/)[0]?.slice(0, 40) || "Customer",
+      pickupDate: typeof pickup.date === "string" ? pickup.date : "",
+      pickupSlot: typeof pickup.slot === "string" ? pickup.slot : "",
+      laundry: services.laundry === true,
+      dryCleaning: services.dryCleaning === true,
+      bagCount: Number(services.bagCount || 0),
+      preferences: order.preferences && typeof order.preferences === "object" ? order.preferences : {},
+      orderNotes: typeof order.orderNotes === "string" ? order.orderNotes : "",
+      pickupNotes: typeof pickup.notes === "string" ? pickup.notes : "",
+      ...(photos ? { photos } : {}),
+      ...(typeof order.weightLbs === "number" ? { weightLbs: order.weightLbs } : {}),
+      ...(typeof order.finalTotal === "number" ? { finalTotal: order.finalTotal } : {}),
+      ...(!current.exists ? { createdAt: FieldValue.serverTimestamp() } : {}),
+      updatedAt: FieldValue.serverTimestamp(),
+    }, { merge: true });
+  });
+});
+
+/** Delete only the tracking document that belongs to the deleted order. */
+export async function deleteOrderTrackProjection(
+  db: ReturnType<typeof getFirestore>,
+  orderId: string,
+  trackKey: string
+) {
+  if (!trackKey || trackKey.length > 64) return;
+  const ref = db.doc(`orderTracks/${trackKey}`);
+  await db.runTransaction(async (tx) => {
+    const snap = await tx.get(ref);
+    if (snap.exists && snap.data()?.orderId === orderId) tx.delete(ref);
+  });
+}
+
+async function pickupCapacity(date: string, slot: string) {
+  const db = getFirestore();
+  const [scheduleSnap, overrideSnap] = await Promise.all([
+    db.doc("config/pickupSchedule").get(),
+    db.doc(`pickupDayOverrides/${date}`).get(),
+  ]);
+  const scheduleSlots = scheduleSnap.data()?.slots;
+  const defaultLabels = ["7am - 10am", "10am - 1pm", "1pm - 4pm", "4pm - 7pm"];
+  const configured = Array.isArray(scheduleSlots) && scheduleSlots.length > 0
+    ? scheduleSlots.find((row: Record<string, unknown>) =>
+        normalizedSlotLabel(String(row?.label || "")) === slot
+      )
+    : defaultLabels.includes(slot)
+      ? { capacity: 5, enabled: true }
+      : undefined;
+  if (!configured || configured.enabled === false) return 0;
+  const override = overrideSnap.data() || {};
+  const slotOverride = (override.slots || {})[slot] as Record<string, unknown> | undefined;
+  if (override.closed === true || slotOverride?.closed === true) return 0;
+  const rawCapacity = Number(slotOverride?.capacity ?? configured.capacity);
+  return Number.isFinite(rawCapacity) && rawCapacity > 0
+    ? Math.min(200, Math.floor(rawCapacity))
+    : 0;
+}
+
+/** Server-controlled pickup holds keep public clients from editing counters. */
+export const reservePickupSlot = onCall(async (request) => {
+  const date = request.data?.date;
+  const slot = normalizedSlotLabel(String(request.data?.slot || ""));
+  if (!validIsoDate(date) || !slot || slot.length > 80) {
+    throw new HttpsError("invalid-argument", "Invalid pickup date or time window.");
+  }
+  const [capacity, waiting] = await Promise.all([
+    pickupCapacity(date, slot),
+    waitingSlotCounts(date),
+  ]);
+  if (!capacity) throw new HttpsError("failed-precondition", "That time window is closed.");
+  const ref = getFirestore().doc(`pickupAvailability/${date}`);
+  await getFirestore().runTransaction(async (tx) => {
+    const snap = await tx.get(ref);
+    const slots = { ...(snap.data()?.slots || {}) } as Record<string, unknown>;
+    const rawCount = Number(slots[slot] || 0);
+    const count = Math.max(Number.isFinite(rawCount) ? Math.floor(rawCount) : 0, waiting[slot] || 0);
+    if (count >= capacity) throw new HttpsError("resource-exhausted", "That time window is full. Pick another slot.");
+    slots[slot] = count + 1;
+    tx.set(ref, { slots, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
+  });
+  return { ok: true };
+});
+
+/** Best-effort release only ever decrements a single hold and never below live orders. */
+export const releasePickupSlot = onCall(async (request) => {
+  const date = request.data?.date;
+  const slot = normalizedSlotLabel(String(request.data?.slot || ""));
+  if (!validIsoDate(date) || !slot || slot.length > 80) return { ok: true };
+  const [ref, waiting] = [
+    getFirestore().doc(`pickupAvailability/${date}`),
+    await waitingSlotCounts(date),
+  ] as const;
+  await getFirestore().runTransaction(async (tx) => {
+    const snap = await tx.get(ref);
+    if (!snap.exists) return;
+    const slots = { ...(snap.data()?.slots || {}) } as Record<string, unknown>;
+    const currentRaw = Number(slots[slot] || 0);
+    const current = Math.max(Number.isFinite(currentRaw) ? Math.floor(currentRaw) : 0, waiting[slot] || 0);
+    slots[slot] = Math.max(waiting[slot] || 0, current - 1);
+    tx.set(ref, { slots, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
+  });
+  return { ok: true };
+});
+
+/** Reconcile counters from authoritative waiting orders; caller counts are ignored. */
+export const ensurePickupAvailability = onCall(async (request) => {
+  const date = request.data?.date;
+  if (!validIsoDate(date)) throw new HttpsError("invalid-argument", "Invalid pickup date.");
+  const waiting = await waitingSlotCounts(date);
+  const ref = getFirestore().doc(`pickupAvailability/${date}`);
+  await getFirestore().runTransaction(async (tx) => {
+    const snap = await tx.get(ref);
+    const slots = { ...(snap.data()?.slots || {}) } as Record<string, unknown>;
+    let changed = false;
+    for (const [slot, count] of Object.entries(waiting)) {
+      if (Number(slots[slot] || 0) < count) {
+        slots[slot] = count;
+        changed = true;
+      }
+    }
+    if (changed) tx.set(ref, { slots, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
+  });
+  return { ok: true };
+});
 
 async function assertStaff(uid: string) {
   const db = getFirestore();
@@ -220,8 +415,309 @@ export const removeSavedCard = onCall(async (request) => {
 
 type DryItem = { name?: string; qty?: number; price?: number };
 
-function orderAlreadyPaid(order: Record<string, unknown>) {
-  return order.paymentStatus === "paid";
+type AuthoritativeCharge = {
+  finalTotal: number;
+  weightLbs: number;
+  dryCleanItems: DryItem[];
+  promoCodeUsed?: string;
+  promoDiscountAmount: number;
+  promoLabel?: string;
+};
+
+function money(value: number) {
+  return Math.round((value + Number.EPSILON) * 100) / 100;
+}
+
+function todayLasVegas() {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Los_Angeles",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date());
+  const part = (type: string) => parts.find((row) => row.type === type)?.value || "";
+  return `${part("year")}-${part("month")}-${part("day")}`;
+}
+
+function promoIsValidAtCharge(promo: Record<string, unknown>, today: string) {
+  if (promo.active === false) return false;
+  if (promo.limitMode === "expires") {
+    return typeof promo.expiresAt === "string" && promo.expiresAt >= today;
+  }
+  const maxUses = Number(promo.maxUses);
+  const usedCount = Number(promo.usedCount || 0);
+  return Number.isFinite(maxUses) && maxUses > 0 && usedCount < maxUses;
+}
+
+function promoDiscountForAmount(
+  subtotal: number,
+  fee: number,
+  promo: { discountType: string; discountValue: number; includesFee: boolean }
+) {
+  const base = promo.includesFee ? subtotal : Math.max(0, money(subtotal - fee));
+  if (promo.discountType === "percent") {
+    return money(base * (Math.min(100, Math.max(0, promo.discountValue)) / 100));
+  }
+  return money(Math.min(base, Math.max(0, promo.discountValue)));
+}
+
+async function repeatDiscountApplies(
+  db: ReturnType<typeof getFirestore>,
+  orderId: string,
+  order: Record<string, unknown>
+) {
+  const uid = typeof order.uid === "string" ? order.uid : "";
+  if (!uid) return false;
+  if (order.automatedWeekly === true && typeof order.sourceOrderId === "string") {
+    const source = await db.doc(`orders/${order.sourceOrderId}`).get();
+    return source.exists
+      && source.data()?.uid === uid
+      && (source.data()?.pickup as Record<string, unknown> | undefined)?.repeat === true;
+  }
+  const recent = await db.collection("orders")
+    .where("uid", "==", uid)
+    .orderBy("createdAt", "desc")
+    .limit(6)
+    .get();
+  return recent.docs.some((row) =>
+    row.id !== orderId
+      && (row.data().pickup as Record<string, unknown> | undefined)?.repeat === true
+  );
+}
+
+/** Derive the Stripe amount from the validated order snapshot and live catalog.
+ * Caller totals and promo numbers are display hints only and never authorize a charge. */
+export async function computeAuthoritativeCharge(
+  db: ReturnType<typeof getFirestore>,
+  orderId: string,
+  order: Record<string, unknown>,
+  requestData: Record<string, unknown>
+): Promise<AuthoritativeCharge> {
+  const services = (order.services || {}) as Record<string, unknown>;
+  const pricing = (order.pricing || {}) as Record<string, unknown>;
+  const hasLaundry = services.laundry === true;
+  const hasDryCleaning = services.dryCleaning === true;
+  if (!hasLaundry && !hasDryCleaning) {
+    throw new HttpsError("failed-precondition", "Order has no billable service.");
+  }
+
+  const weightInput = Number(requestData.weightLbs ?? 0);
+  if (hasLaundry && (!Number.isFinite(weightInput) || weightInput <= 0 || weightInput > 500)) {
+    throw new HttpsError("invalid-argument", "Weight must be between 0 and 500 lb.");
+  }
+  const weightLbs = hasLaundry ? money(weightInput) : 0;
+
+  const rawItems = Array.isArray(requestData.dryCleanItems)
+    ? requestData.dryCleanItems as DryItem[]
+    : [];
+  if (rawItems.length > 100) {
+    throw new HttpsError("invalid-argument", "Too many dry-cleaning line items.");
+  }
+  const catalogSnap = await db.doc("config/dryCleanCatalog").get();
+  const catalogRows = catalogSnap.data()?.items;
+  if (rawItems.length && (!Array.isArray(catalogRows) || catalogRows.length === 0)) {
+    throw new HttpsError("failed-precondition", "Dry-cleaning catalog is unavailable.");
+  }
+  const catalog = new Map<string, number>();
+  for (const row of Array.isArray(catalogRows) ? catalogRows : []) {
+    if (!row || typeof row.name !== "string") continue;
+    const price = Number(row.price);
+    if (Number.isFinite(price) && price >= 0) catalog.set(row.name.trim().toLowerCase(), money(price));
+  }
+  const dryCleanItems = rawItems.map((item) => {
+    const name = typeof item?.name === "string" ? item.name.trim() : "";
+    const catalogPrice = catalog.get(name.toLowerCase());
+    const submittedPrice = Number(item?.price);
+    if (catalogPrice == null || !Number.isFinite(submittedPrice) || money(submittedPrice) !== catalogPrice) {
+      throw new HttpsError("invalid-argument", `Dry-cleaning price does not match the catalog for ${name || "an item"}.`);
+    }
+    return { name, price: catalogPrice };
+  });
+
+  const tier = pricing.tier;
+  const pickup = (order.pickup || {}) as Record<string, unknown>;
+  if (tier !== (pickup.repeat === true ? "weekly" : "standard")) {
+    throw new HttpsError("failed-precondition", "Order rate tier does not match its pickup plan.");
+  }
+  const ratesSnap = await db.doc("config/laundryRates").get();
+  const liveRates = ratesSnap.data() || {};
+  const rate = Number(tier === "weekly" ? liveRates.weeklyPerLb : liveRates.standardPerLb);
+  const fee = Number(liveRates.deliveryFee);
+  const minimum = Number(liveRates.minimumOrder);
+  const snapshotRate = Number(pricing.laundryRatePerLb);
+  const snapshotFee = Number(pricing.deliveryFee);
+  const snapshotMinimum = Number(pricing.minimumOrder);
+  const tip = Number(order.tip ?? pricing.tip ?? 0);
+  if (![rate, fee, minimum, tip].every(Number.isFinite)
+    || rate <= 0 || rate >= 100 || fee < 0 || fee >= 100
+    || minimum <= 0 || minimum >= 1000 || tip < 0 || tip > 500) {
+    throw new HttpsError("failed-precondition", "Current order pricing is unavailable or invalid.");
+  }
+  if (money(snapshotRate) !== money(rate)
+    || money(snapshotFee) !== money(fee)
+    || money(snapshotMinimum) !== money(minimum)) {
+    throw new HttpsError("failed-precondition", "Order pricing changed. Refresh and recalculate before charging.");
+  }
+  const discountApplies = await repeatDiscountApplies(db, orderId, order);
+  const discountPercent = Number(pricing.repeatDiscountPercent);
+  if (Boolean(pricing.repeatDiscountEligible) !== discountApplies
+    || discountPercent !== (discountApplies ? 10 : 0)) {
+    await db.doc(`orders/${orderId}`).set({
+      "pricing.repeatDiscountEligible": discountApplies,
+      "pricing.repeatDiscountPercent": discountApplies ? 10 : 0,
+      updatedAt: FieldValue.serverTimestamp(),
+    }, { merge: true });
+    throw new HttpsError("failed-precondition", "Repeat discount was recalculated. Refresh the order and confirm the updated total before charging.");
+  }
+
+  let laundryCharge = 0;
+  if (hasLaundry) {
+    laundryCharge = money(weightLbs * rate * (1 - discountPercent / 100));
+    laundryCharge = Math.max(laundryCharge, minimum);
+  }
+  const dryRaw = money(dryCleanItems.reduce((sum, item) => sum + Number(item.price || 0), 0));
+  const dryCharge = !hasDryCleaning && dryRaw === 0
+    ? 0
+    : hasLaundry ? dryRaw : Math.max(dryRaw, 50);
+  const feeCharge = fee;
+  const subtotal = money(laundryCharge + dryCharge + feeCharge);
+
+  let promoCodeUsed = "";
+  let promoDiscountAmount = 0;
+  let promoLabel = "";
+  const promoCode = String(order.promoCode || pricing.promoCode || "").trim();
+  if (promoCode) {
+    const promoSnap = await db.doc(`promoCodes/${promoCode}`).get();
+    if (!promoSnap.exists) {
+      throw new HttpsError("failed-precondition", "Promo code is no longer available. Refresh the order before charging.");
+    }
+    const data = promoSnap.data() || {};
+    const value = Number(data.discountValue);
+    if (!promoIsValidAtCharge(data, todayLasVegas())
+      || (data.discountType !== "percent" && data.discountType !== "fixed")
+      || !Number.isFinite(value)
+      || value <= 0) {
+      throw new HttpsError("failed-precondition", "Promo code is no longer active. Refresh the order before charging.");
+    }
+    const promo = {
+      discountType: String(data.discountType),
+      discountValue: value,
+      includesFee: data.includesFee === true,
+    };
+    promoDiscountAmount = promoDiscountForAmount(subtotal, feeCharge, promo);
+    const base = promo.discountType === "percent"
+      ? `${promo.discountValue}% off`
+      : `$${promo.discountValue.toFixed(2)} off`;
+    promoLabel = `${base} (${promo.includesFee ? "incl." : "excl."} fee)`;
+    promoCodeUsed = String(data.code || promoCode);
+  }
+  const finalTotal = money(subtotal - promoDiscountAmount + tip);
+  const submittedTotal = Number(requestData.finalTotal);
+  if (!Number.isFinite(submittedTotal) || Math.abs(money(submittedTotal) - finalTotal) >= 0.01) {
+    throw new HttpsError("failed-precondition", `Order total is $${finalTotal.toFixed(2)}. Refresh and recalculate before charging.`);
+  }
+  return { finalTotal, weightLbs, dryCleanItems, promoCodeUsed: promoCodeUsed || undefined, promoDiscountAmount, promoLabel: promoLabel || undefined };
+}
+
+/** Claim the order before talking to Stripe so concurrent staff calls cannot
+ * create different payment intents for different submitted amounts. */
+async function acquireChargeLock(
+  orderRef: ReturnType<ReturnType<typeof getFirestore>["doc"]>,
+  verifiedPaymentIntentId: string,
+  attemptFingerprint: string
+): Promise<string> {
+  const db = getFirestore();
+  let attemptId = "";
+  await db.runTransaction(async (tx) => {
+    const snap = await tx.get(orderRef);
+    if (!snap.exists) throw new HttpsError("not-found", "Order not found.");
+    const current = snap.data() || {};
+    if (current.refundAttemptFingerprint) {
+      throw new HttpsError("failed-precondition", "A refund attempt is unresolved. Retry it before charging this order.");
+    }
+    const currentPaymentIntentId = String(current.stripePaymentIntentId || "");
+    if (currentPaymentIntentId !== verifiedPaymentIntentId) {
+      throw new HttpsError(
+        "failed-precondition",
+        "Payment state changed while charging. Refresh the order and retry."
+      );
+    }
+    const lockAt = current.chargeLockAt as { toDate?: () => Date } | undefined;
+    if (lockAt?.toDate) {
+      const ageMs = Date.now() - lockAt.toDate().getTime();
+      if (ageMs >= 0 && ageMs < 90_000) {
+        throw new HttpsError(
+          "failed-precondition",
+          "Charge already in progress. Wait a moment, then refresh."
+        );
+      }
+    }
+    const previousFingerprint = String(current.chargeAttemptFingerprint || "");
+    if (previousFingerprint && previousFingerprint !== attemptFingerprint) {
+      throw new HttpsError(
+        "failed-precondition",
+        "A previous charge attempt is unresolved. Retry it with the same order details first."
+      );
+    }
+    attemptId = String(current.chargeAttemptId || "") || randomUUID();
+    tx.set(
+      orderRef,
+      {
+        chargeLockAt: FieldValue.serverTimestamp(),
+        chargeAttemptId: attemptId,
+        chargeAttemptFingerprint: attemptFingerprint,
+        updatedAt: FieldValue.serverTimestamp(),
+      },
+      { merge: true }
+    );
+  });
+  return attemptId;
+}
+
+/** Serialize refunds and reuse the same Stripe keys after an uncertain retry. */
+export async function acquireRefundLock(
+  orderRef: ReturnType<ReturnType<typeof getFirestore>["doc"]>,
+  attemptFingerprint: string,
+  expectedLedger: ChargeLedgerEntry[]
+): Promise<string> {
+  let attemptId = "";
+  await getFirestore().runTransaction(async (tx) => {
+    const snap = await tx.get(orderRef);
+    if (!snap.exists) throw new HttpsError("not-found", "Order not found.");
+    const current = snap.data() || {};
+    if (current.chargeAttemptFingerprint) {
+      throw new HttpsError("failed-precondition", "A charge attempt is unresolved. Retry it before refunding this order.");
+    }
+    const currentLedger = normalizeChargeLedger(current);
+    const sameLedger = currentLedger.length === expectedLedger.length
+      && currentLedger.every((row, index) =>
+        row.paymentIntentId === expectedLedger[index]?.paymentIntentId
+          && money(row.amount) === money(expectedLedger[index]?.amount)
+          && money(row.refunded) === money(expectedLedger[index]?.refunded)
+      );
+    if (!sameLedger) {
+      throw new HttpsError("failed-precondition", "Payment ledger changed while preparing the refund. Refresh and retry.");
+    }
+    const lockAt = current.refundLockAt as { toDate?: () => Date } | undefined;
+    if (lockAt?.toDate) {
+      const ageMs = Date.now() - lockAt.toDate().getTime();
+      if (ageMs >= 0 && ageMs < 90_000) {
+        throw new HttpsError("failed-precondition", "Refund already in progress. Wait a moment, then refresh.");
+      }
+    }
+    const previousFingerprint = String(current.refundAttemptFingerprint || "");
+    if (previousFingerprint && previousFingerprint !== attemptFingerprint) {
+      throw new HttpsError("failed-precondition", "A previous refund attempt is unresolved. Retry it with the same details first.");
+    }
+    attemptId = String(current.refundAttemptId || "") || randomUUID();
+    tx.set(orderRef, {
+      refundLockAt: FieldValue.serverTimestamp(),
+      refundAttemptId: attemptId,
+      refundAttemptFingerprint: attemptFingerprint,
+      updatedAt: FieldValue.serverTimestamp(),
+    }, { merge: true });
+  });
+  return attemptId;
 }
 
 /** Block new charges when paid, or when an in-flight PI already succeeded/processing. */
@@ -229,10 +725,6 @@ async function guardAgainstDoubleCharge(
   stripe: Stripe,
   order: Record<string, unknown>
 ): Promise<{ ok: true } | { ok: false; message: string; paymentIntentId?: string }> {
-  if (orderAlreadyPaid(order)) {
-    return { ok: false, message: "Order already charged." };
-  }
-
   const lockAt = order.chargeLockAt as { toDate?: () => Date } | undefined;
   if (lockAt && typeof lockAt.toDate === "function") {
     const ageMs = Date.now() - lockAt.toDate().getTime();
@@ -244,28 +736,33 @@ async function guardAgainstDoubleCharge(
     }
   }
 
-  const piId = String(order.stripePaymentIntentId || "");
-  if (!piId) return { ok: true };
-
-  try {
-    const pi = await stripe.paymentIntents.retrieve(piId);
+  const candidateIds = [...new Set([
+    String(order.stripePaymentIntentId || ""),
+    ...normalizeChargeLedger(order).map((row) => row.paymentIntentId),
+  ].filter(Boolean))];
+  if (candidateIds.length > 100) {
+    return { ok: false, message: "Too many payment attempts to verify. Contact an administrator." };
+  }
+  for (const piId of candidateIds) {
+    let pi: Stripe.PaymentIntent;
+    try {
+      pi = await stripe.paymentIntents.retrieve(piId);
+    } catch {
+      return {
+        ok: false,
+        message: "Could not verify the previous Stripe payment. Retry after checking payment status.",
+      };
+    }
     if (pi.status === "succeeded" || pi.status === "processing") {
       return {
         ok: false,
         message: "Order already charged.",
-        paymentIntentId: pi.id,
+        ...(pi.metadata?.chargeMode === "top_up" ? {} : { paymentIntentId: pi.id }),
       };
     }
-    if (
-      pi.status === "requires_payment_method" ||
-      pi.status === "requires_confirmation" ||
-      pi.status === "requires_action" ||
-      pi.status === "requires_capture"
-    ) {
+    if (["requires_payment_method", "requires_confirmation", "requires_action", "requires_capture"].includes(pi.status)) {
       await stripe.paymentIntents.cancel(piId).catch(() => undefined);
     }
-  } catch {
-    /* ignore retrieve errors; allow a new attempt */
   }
   return { ok: true };
 }
@@ -378,6 +875,8 @@ async function applyPaidChargeToOrder(opts: {
     paymentError: FieldValue.delete(),
     pendingOnSpotCharge: FieldValue.delete(),
     chargeLockAt: FieldValue.delete(),
+    chargeAttemptId: FieldValue.delete(),
+    chargeAttemptFingerprint: FieldValue.delete(),
     ...(chargedOnSpot || paymentIntent.metadata?.chargeMode === "on_spot"
       ? { chargedOnSpot: true }
       : {}),
@@ -395,22 +894,14 @@ async function applyPaidChargeToOrder(opts: {
     const already = ledger.some((row) => row.paymentIntentId === paymentIntent.id);
     patch.chargeLedger = already
       ? ledger
-      : order.paymentStatus === "paid" && ledger.length > 0
-        ? [
-            ...ledger,
-            {
-              paymentIntentId: paymentIntent.id,
-              amount: chargedUsd,
-              refunded: 0,
-            },
-          ]
-        : [
-            {
-              paymentIntentId: paymentIntent.id,
-              amount: Math.round(finalTotal * 100) / 100,
-              refunded: 0,
-            },
-          ];
+      : [
+          ...ledger,
+          {
+            paymentIntentId: paymentIntent.id,
+            amount: chargedUsd,
+            refunded: 0,
+          },
+        ];
   }
 
   if (promoCodeUsed && promoOff > 0) {
@@ -478,6 +969,34 @@ function normalizeChargeLedger(order: Record<string, unknown>): ChargeLedgerEntr
   ];
 }
 
+async function verifyChargeLedger(
+  stripe: Stripe,
+  orderId: string,
+  ledger: ChargeLedgerEntry[]
+) {
+  if (ledger.length === 0) {
+    throw new HttpsError("failed-precondition", "No recorded Stripe charge to verify.");
+  }
+  let total = 0;
+  for (const entry of ledger) {
+    let intent: Stripe.PaymentIntent;
+    try {
+      intent = await stripe.paymentIntents.retrieve(entry.paymentIntentId);
+    } catch {
+      throw new HttpsError("failed-precondition", "Could not verify the order's Stripe charge ledger.");
+    }
+    if (intent.status !== "succeeded"
+      || intent.metadata?.orderId !== orderId
+      || money(intent.amount / 100) !== entry.amount
+      || entry.refunded < 0
+      || entry.refunded > entry.amount) {
+      throw new HttpsError("failed-precondition", "Stripe charge ledger does not match successful payments for this order.");
+    }
+    total += entry.amount;
+  }
+  return money(total);
+}
+
 async function resolveOrderCard(order: Record<string, unknown>) {
   const db = getFirestore();
   const customerUid = typeof order.uid === "string" ? order.uid : "";
@@ -506,6 +1025,31 @@ async function resolveOrderCard(order: Record<string, unknown>) {
       customerUid
         ? "No card on file. Customer must add a card in Account → Payments."
         : "Guest order has no card on file. Use Charge different card on the spot."
+    );
+  }
+
+  const stripe = stripeClient();
+  const [customer, paymentMethod] = await Promise.all([
+    stripe.customers.retrieve(customerId),
+    stripe.paymentMethods.retrieve(paymentMethodId),
+  ]);
+  const attachedCustomerId =
+    typeof paymentMethod.customer === "string"
+      ? paymentMethod.customer
+      : paymentMethod.customer?.id || "";
+  if (customer.deleted || attachedCustomerId !== customerId) {
+    throw new HttpsError(
+      "failed-precondition",
+      "Saved payment method is not attached to its customer."
+    );
+  }
+  const expectedOwner = customerUid
+    ? customer.metadata?.firebaseUid === customerUid
+    : customer.metadata?.foamGuest === "true";
+  if (!expectedOwner) {
+    throw new HttpsError(
+      "permission-denied",
+      "Saved payment method does not belong to this order's customer."
     );
   }
 
@@ -611,15 +1155,6 @@ export const chargeOrder = onCall(async (request) => {
     throw new HttpsError("invalid-argument", "orderId required.");
   }
 
-  const weightLbs = Number(request.data?.weightLbs ?? 0);
-  const dryCleanItems: DryItem[] = Array.isArray(request.data?.dryCleanItems)
-    ? request.data.dryCleanItems
-    : [];
-  const finalTotal = Number(request.data?.finalTotal);
-  if (!Number.isFinite(finalTotal) || finalTotal < 0.5) {
-    throw new HttpsError("invalid-argument", "Invalid charge amount.");
-  }
-
   const db = getFirestore();
   const orderRef = db.doc(`orders/${orderId}`);
   const orderSnap = await orderRef.get();
@@ -627,33 +1162,33 @@ export const chargeOrder = onCall(async (request) => {
     throw new HttpsError("not-found", "Order not found.");
   }
   const order = orderSnap.data() || {};
+  const {
+    weightLbs,
+    dryCleanItems,
+    finalTotal,
+    promoCodeUsed,
+    promoDiscountAmount,
+    promoLabel,
+  } = await computeAuthoritativeCharge(db, orderId, order, request.data || {});
   const stripe = stripeClient();
 
   const guard = await guardAgainstDoubleCharge(stripe, order);
   if (!guard.ok) {
     if (guard.message === "Order already charged." && guard.paymentIntentId) {
       const pi = await stripe.paymentIntents.retrieve(guard.paymentIntentId);
-      if (order.paymentStatus !== "paid") {
-        await applyPaidChargeToOrder({
-          db,
-          orderId,
-          order,
-          paymentIntent: pi,
-          staffEmail: staff.email,
-          weightLbs,
-          dryCleanItems,
-          finalTotal,
-          promoCodeUsed:
-            typeof request.data?.promoCodeUsed === "string"
-              ? request.data.promoCodeUsed
-              : undefined,
-          promoDiscountAmount: Number(request.data?.promoDiscountAmount ?? 0),
-          promoLabel:
-            typeof request.data?.promoLabel === "string"
-              ? request.data.promoLabel
-              : undefined,
-        });
-      }
+      await applyPaidChargeToOrder({
+        db,
+        orderId,
+        order,
+        paymentIntent: pi,
+        staffEmail: staff.email,
+        weightLbs,
+        dryCleanItems,
+        finalTotal,
+        promoCodeUsed,
+        promoDiscountAmount,
+        promoLabel,
+      });
       return {
         ok: true,
         paymentStatus: "paid" as const,
@@ -669,12 +1204,18 @@ export const chargeOrder = onCall(async (request) => {
   const { customerId, paymentMethodId } = await resolveOrderCard(order);
 
   const amountCents = Math.round(finalTotal * 100);
-  await orderRef.set(
-    {
-      chargeLockAt: FieldValue.serverTimestamp(),
-      updatedAt: FieldValue.serverTimestamp(),
-    },
-    { merge: true }
+  const attemptFingerprint = JSON.stringify({
+    amountCents,
+    paymentMethodId,
+    weightLbs,
+    dryCleanItems,
+    promoCodeUsed,
+    promoDiscountAmount,
+  });
+  const attemptId = await acquireChargeLock(
+    orderRef,
+    String(order.stripePaymentIntentId || ""),
+    attemptFingerprint
   );
 
   let paymentIntent: Stripe.PaymentIntent;
@@ -696,7 +1237,7 @@ export const chargeOrder = onCall(async (request) => {
         },
       },
       {
-        idempotencyKey: `foam-charge-${orderId}-${amountCents}-${paymentMethodId}`,
+        idempotencyKey: `foam-charge-${orderId}-${attemptId}`,
       }
     );
   } catch (err) {
@@ -720,15 +1261,9 @@ export const chargeOrder = onCall(async (request) => {
         weightLbs,
         dryCleanItems,
         finalTotal,
-        promoCodeUsed:
-          typeof request.data?.promoCodeUsed === "string"
-            ? request.data.promoCodeUsed
-            : undefined,
-        promoDiscountAmount: Number(request.data?.promoDiscountAmount ?? 0),
-        promoLabel:
-          typeof request.data?.promoLabel === "string"
-            ? request.data.promoLabel
-            : undefined,
+        promoCodeUsed,
+        promoDiscountAmount,
+        promoLabel,
       });
     }
     const parts = [
@@ -741,7 +1276,16 @@ export const chargeOrder = onCall(async (request) => {
       {
         paymentStatus: "failed",
         paymentError: message,
+        ...(stripeErr.payment_intent
+          ? { stripePaymentIntentId: stripeErr.payment_intent.id }
+          : {}),
         chargeLockAt: FieldValue.delete(),
+        ...(stripeErr.payment_intent
+          ? {
+              chargeAttemptId: FieldValue.delete(),
+              chargeAttemptFingerprint: FieldValue.delete(),
+            }
+          : {}),
         updatedAt: FieldValue.serverTimestamp(),
       },
       { merge: true }
@@ -759,6 +1303,8 @@ export const chargeOrder = onCall(async (request) => {
         paymentError: `Stripe status: ${paymentIntent.status}`,
         stripePaymentIntentId: paymentIntent.id,
         chargeLockAt: FieldValue.delete(),
+        chargeAttemptId: FieldValue.delete(),
+        chargeAttemptFingerprint: FieldValue.delete(),
         updatedAt: FieldValue.serverTimestamp(),
       },
       { merge: true }
@@ -778,15 +1324,9 @@ export const chargeOrder = onCall(async (request) => {
     weightLbs,
     dryCleanItems,
     finalTotal,
-    promoCodeUsed:
-      typeof request.data?.promoCodeUsed === "string"
-        ? request.data.promoCodeUsed
-        : undefined,
-    promoDiscountAmount: Number(request.data?.promoDiscountAmount ?? 0),
-    promoLabel:
-      typeof request.data?.promoLabel === "string"
-        ? request.data.promoLabel
-        : undefined,
+    promoCodeUsed,
+    promoDiscountAmount,
+    promoLabel,
   });
 });
 
@@ -829,20 +1369,34 @@ export const chargeOrderMore = onCall(async (request) => {
     throw new HttpsError("not-found", "Order not found.");
   }
   const order = orderSnap.data() || {};
-  if (order.paymentStatus !== "paid") {
+  const stripe = stripeClient();
+  const ledger = normalizeChargeLedger(order);
+  const priorTotal = await verifyChargeLedger(stripe, orderId, ledger);
+  const remainingPaid = ledger.reduce(
+    (sum, row) => sum + Math.max(0, row.amount - row.refunded),
+    0
+  );
+  if (remainingPaid < 0.01) {
     throw new HttpsError(
       "failed-precondition",
-      "Order must already be paid before charging more."
+      "Order must have an unrefunded successful Stripe charge before charging more."
     );
   }
 
   const { customerUid, customerId, paymentMethodId } =
     await resolveOrderCard(order);
-  const priorTotal =
-    typeof order.finalTotal === "number" && Number.isFinite(order.finalTotal)
-      ? order.finalTotal
-      : 0;
-  const stripe = stripeClient();
+  const attemptFingerprint = JSON.stringify({
+    kind: "topup",
+    amountCents,
+    priorTotal,
+    customerId,
+    paymentMethodId,
+  });
+  const attemptId = await acquireChargeLock(
+    orderRef,
+    String(order.stripePaymentIntentId || ""),
+    attemptFingerprint
+  );
 
   let paymentIntent: Stripe.PaymentIntent;
   try {
@@ -863,7 +1417,7 @@ export const chargeOrderMore = onCall(async (request) => {
         },
       },
       {
-        idempotencyKey: `foam-topup-${orderId}-${amountCents}-${priorTotal.toFixed(2)}-${paymentMethodId}`,
+        idempotencyKey: `foam-topup-${orderId}-${attemptId}`,
       }
     );
   } catch (err) {
@@ -871,12 +1425,26 @@ export const chargeOrderMore = onCall(async (request) => {
       message?: string;
       code?: string;
       decline_code?: string;
+      payment_intent?: Stripe.PaymentIntent;
     };
     const parts = [
       stripeErr.message,
       stripeErr.code ? `code=${stripeErr.code}` : "",
       stripeErr.decline_code ? `decline=${stripeErr.decline_code}` : "",
     ].filter(Boolean);
+    await orderRef.set({
+      ...(stripeErr.payment_intent
+        ? { stripePaymentIntentId: stripeErr.payment_intent.id }
+        : {}),
+      chargeLockAt: FieldValue.delete(),
+      ...(stripeErr.payment_intent
+        ? {
+            chargeAttemptId: FieldValue.delete(),
+            chargeAttemptFingerprint: FieldValue.delete(),
+          }
+        : {}),
+      updatedAt: FieldValue.serverTimestamp(),
+    }, { merge: true });
     throw new HttpsError("aborted", parts.join(" · ") || "Top-up charge failed.");
   }
 
@@ -884,6 +1452,15 @@ export const chargeOrderMore = onCall(async (request) => {
     paymentIntent.status !== "succeeded" &&
     paymentIntent.status !== "processing"
   ) {
+    await orderRef.set({
+      stripePaymentIntentId: paymentIntent.id,
+      paymentStatus: "failed",
+      paymentError: `Additional payment not completed (${paymentIntent.status}).`,
+      chargeLockAt: FieldValue.delete(),
+      chargeAttemptId: FieldValue.delete(),
+      chargeAttemptFingerprint: FieldValue.delete(),
+      updatedAt: FieldValue.serverTimestamp(),
+    }, { merge: true });
     throw new HttpsError(
       "aborted",
       `Additional payment not completed (${paymentIntent.status}).`
@@ -891,7 +1468,6 @@ export const chargeOrderMore = onCall(async (request) => {
   }
 
   const nextTotal = Math.round((priorTotal + amountUsd) * 100) / 100;
-  const ledger = normalizeChargeLedger(order);
   const nextLedger = [
     ...ledger.filter((row) => row.paymentIntentId !== paymentIntent.id),
     {
@@ -907,6 +1483,9 @@ export const chargeOrderMore = onCall(async (request) => {
       paymentStatus: paymentIntent.status === "succeeded" ? "paid" : "pending",
       stripePaymentIntentId: paymentIntent.id,
       chargeLedger: nextLedger,
+      chargeLockAt: FieldValue.delete(),
+      chargeAttemptId: FieldValue.delete(),
+      chargeAttemptFingerprint: FieldValue.delete(),
       paymentError: FieldValue.delete(),
       topUpLastAmount: amountUsd,
       topUpLastAt: FieldValue.serverTimestamp(),
@@ -945,15 +1524,6 @@ export const createOnSpotPaymentIntent = onCall(async (request) => {
     throw new HttpsError("invalid-argument", "orderId required.");
   }
 
-  const weightLbs = Number(request.data?.weightLbs ?? 0);
-  const dryCleanItems: DryItem[] = Array.isArray(request.data?.dryCleanItems)
-    ? request.data.dryCleanItems
-    : [];
-  const finalTotal = Number(request.data?.finalTotal);
-  if (!Number.isFinite(finalTotal) || finalTotal < 0.5) {
-    throw new HttpsError("invalid-argument", "Invalid charge amount.");
-  }
-
   const db = getFirestore();
   const orderRef = db.doc(`orders/${orderId}`);
   const orderSnap = await orderRef.get();
@@ -961,6 +1531,14 @@ export const createOnSpotPaymentIntent = onCall(async (request) => {
     throw new HttpsError("not-found", "Order not found.");
   }
   const order = orderSnap.data() || {};
+  const {
+    weightLbs,
+    dryCleanItems,
+    finalTotal,
+    promoCodeUsed,
+    promoDiscountAmount,
+    promoLabel,
+  } = await computeAuthoritativeCharge(db, orderId, order, request.data || {});
   const stripe = stripeClient();
 
   const guard = await guardAgainstDoubleCharge(stripe, order);
@@ -982,6 +1560,12 @@ export const createOnSpotPaymentIntent = onCall(async (request) => {
     const userSnap = await db.doc(`users/${customerUid}`).get();
     const user = userSnap.data() || {};
     customerId = String(user.stripeCustomerId || "");
+    if (customerId) {
+      const customer = await stripe.customers.retrieve(customerId);
+      if (customer.deleted || customer.metadata?.firebaseUid !== customerUid) {
+        throw new HttpsError("permission-denied", "Customer profile does not match the Stripe customer.");
+      }
+    }
     if (!customerId) {
       const customer = await stripe.customers.create({
         email: email || undefined,
@@ -999,6 +1583,13 @@ export const createOnSpotPaymentIntent = onCall(async (request) => {
     }
   } else {
     customerId = String(order.stripeCustomerId || "");
+    if (customerId) {
+      const customer = await stripe.customers.retrieve(customerId);
+      if (customer.deleted || (customer.metadata?.foamGuest !== "true"
+        && customer.metadata?.orderId !== orderId)) {
+        customerId = "";
+      }
+    }
     if (!customerId) {
       const customer = await stripe.customers.create({
         email: email || undefined,
@@ -1010,8 +1601,20 @@ export const createOnSpotPaymentIntent = onCall(async (request) => {
   }
 
   const amountCents = Math.round(finalTotal * 100);
-  // Minute bucket so retries within the same minute reuse the same PI.
-  const minuteBucket = Math.floor(Date.now() / 60_000);
+  const attemptFingerprint = JSON.stringify({
+    kind: "on_spot",
+    amountCents,
+    customerId,
+    weightLbs,
+    dryCleanItems,
+    promoCodeUsed,
+    promoDiscountAmount,
+  });
+  const attemptId = await acquireChargeLock(
+    orderRef,
+    String(order.stripePaymentIntentId || ""),
+    attemptFingerprint
+  );
   const paymentIntent = await stripe.paymentIntents.create(
     {
       amount: amountCents,
@@ -1027,7 +1630,7 @@ export const createOnSpotPaymentIntent = onCall(async (request) => {
       },
     },
     {
-      idempotencyKey: `foam-onspot-${orderId}-${amountCents}-${minuteBucket}`,
+      idempotencyKey: `foam-onspot-${orderId}-${attemptId}`,
     }
   );
 
@@ -1035,28 +1638,19 @@ export const createOnSpotPaymentIntent = onCall(async (request) => {
     throw new HttpsError("internal", "Missing PaymentIntent client secret.");
   }
 
-  const promoCodeUsed =
-    typeof request.data?.promoCodeUsed === "string"
-      ? request.data.promoCodeUsed
-      : "";
-  const promoDiscountAmount = Number(request.data?.promoDiscountAmount ?? 0);
-  const promoLabel =
-    typeof request.data?.promoLabel === "string" ? request.data.promoLabel : "";
-
   await orderRef.set(
     {
       stripeCustomerId: customerId,
       stripePaymentIntentId: paymentIntent.id,
-      chargeLockAt: FieldValue.serverTimestamp(),
+      chargeLockAt: FieldValue.delete(),
+      chargeAttemptId: FieldValue.delete(),
+      chargeAttemptFingerprint: FieldValue.delete(),
       pendingOnSpotCharge: {
         weightLbs: Number.isFinite(weightLbs) && weightLbs > 0 ? weightLbs : 0,
         dryCleanItems,
         finalTotal,
         promoCodeUsed: promoCodeUsed || "",
-        promoDiscountAmount:
-          Number.isFinite(promoDiscountAmount) && promoDiscountAmount > 0
-            ? promoDiscountAmount
-            : 0,
+        promoDiscountAmount,
         promoLabel: promoLabel || "",
         createdBy: staff.email,
       },
@@ -1104,17 +1698,8 @@ export const finalizeOnSpotCharge = onCall(async (request) => {
     throw new HttpsError("not-found", "Order not found.");
   }
   const order = orderSnap.data() || {};
-
-  if (orderAlreadyPaid(order)) {
-    return {
-      ok: true,
-      paymentStatus: "paid" as const,
-      paymentIntentId,
-      finalTotal:
-        typeof order.finalTotal === "number" ? order.finalTotal : 0,
-      brand: "",
-      last4: "",
-    };
+  if (String(order.stripePaymentIntentId || "") !== paymentIntentId) {
+    throw new HttpsError("permission-denied", "PaymentIntent is not the active payment attempt for this order.");
   }
 
   const stripe = stripeClient();
@@ -1122,7 +1707,8 @@ export const finalizeOnSpotCharge = onCall(async (request) => {
     expand: ["payment_method"],
   });
 
-  if (paymentIntent.metadata?.orderId !== orderId) {
+  if (paymentIntent.metadata?.orderId !== orderId
+    || paymentIntent.metadata?.chargeMode !== "on_spot") {
     throw new HttpsError("permission-denied", "PaymentIntent mismatch.");
   }
   if (
@@ -1180,24 +1766,10 @@ export const refundOrder = onCall(async (request) => {
     throw new HttpsError("not-found", "Order not found.");
   }
   const order = orderSnap.data() || {};
-
-  if (order.paymentStatus !== "paid") {
-    throw new HttpsError(
-      "failed-precondition",
-      "Order is not paid. Nothing to refund."
-    );
-  }
-
   const ledger = normalizeChargeLedger(order);
-  if (ledger.length === 0) {
-    throw new HttpsError(
-      "failed-precondition",
-      "Missing PaymentIntent on this order."
-    );
-  }
+  const stripe = stripeClient();
+  const chargedUsd = await verifyChargeLedger(stripe, orderId, ledger);
 
-  const chargedUsd =
-    Math.round(ledger.reduce((sum, row) => sum + row.amount, 0) * 100) / 100;
   const alreadyRefundedUsd =
     Math.round(ledger.reduce((sum, row) => sum + row.refunded, 0) * 100) / 100;
   const remainingUsd = Math.max(
@@ -1234,7 +1806,17 @@ export const refundOrder = onCall(async (request) => {
   }
   amountUsd = Math.min(amountUsd, remainingUsd);
 
-  const stripe = stripeClient();
+  const attemptFingerprint = JSON.stringify({
+    amountCents: Math.round(amountUsd * 100),
+    reason,
+    ledger: ledger.map((row) => ({
+      paymentIntentId: row.paymentIntentId,
+      amountCents: Math.round(row.amount * 100),
+      refundedCents: Math.round(row.refunded * 100),
+    })),
+  });
+  const attemptId = await acquireRefundLock(orderRef, attemptFingerprint, ledger);
+
   const nextLedger = ledger.map((row) => ({ ...row }));
   let left = amountUsd;
   let lastRefundId = "";
@@ -1258,7 +1840,7 @@ export const refundOrder = onCall(async (request) => {
         },
       },
       {
-        idempotencyKey: `foam-refund-${orderId}-${entry.paymentIntentId}-${entry.refunded.toFixed(2)}-${takeCents}`,
+        idempotencyKey: `foam-refund-${attemptId}-${i}`,
       }
     );
     const refundedNow =
@@ -1286,6 +1868,9 @@ export const refundOrder = onCall(async (request) => {
       refundedBy: staff.email,
       refundReason: reason || FieldValue.delete(),
       refundedAt: FieldValue.serverTimestamp(),
+      refundLockAt: FieldValue.delete(),
+      refundAttemptId: FieldValue.delete(),
+      refundAttemptFingerprint: FieldValue.delete(),
       updatedAt: FieldValue.serverTimestamp(),
       lastUpdatedBy: staff.email,
     },
